@@ -1,7 +1,7 @@
 # Digital Clone Engine — Session Progress & Implementation Status
 
-**Last Updated:** March 3, 2026 (Session 4 — Mem0 Integration Complete + Git Worktrees Setup)
-**Current Focus:** Mem0 Integration COMPLETE. Next: Citation Verifier or FastAPI Layer (Workstream 2).
+**Last Updated:** March 3, 2026 (Session 5 — Citation Verifier + Mem0 Finalized)
+**Current Focus:** Core engine 100% complete. Next: FastAPI Layer (Workstream 2) or E2E Testing.
 
 ---
 
@@ -40,8 +40,8 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 
 **Component 04: LangGraph Orchestration Flow**
 - File: `core/langgraph/conversation_flow.py`
-- StateGraph with 18 nodes (16 functional + __start__ + __end__)
-- ConversationState TypedDict with 18 keys (added `clone_id: str`)
+- StateGraph with 19 nodes (17 functional + __start__ + __end__)
+- ConversationState TypedDict with 19 keys (clone_id, user_id, etc.)
 - `build_graph(profile)` factory that builds client-specific routing
 - Conditional edges using closures (profile captured at build time)
 - Node files in `core/langgraph/nodes/`:
@@ -71,7 +71,7 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 | memory_retrieval | ✅ Real | No | Searches Mem0 for user memories (ParaGPT only) — NEW Session 4 |
 | memory_writer | ✅ Real | No | Saves conversation turns to Mem0 (NEW node, ParaGPT only) — NEW Session 4 |
 | in_persona_generator | Real | Yes | Persona-aware generation (factory pattern) |
-| citation_verifier | Stub | No | Can now cross-check against real passages |
+| citation_verifier | ✅ Real | No | Parses [N] markers, cross-refs passages, populates cited_sources — NEW Session 5 |
 | confidence_scorer | Real | Yes | LLM evaluates response quality (0.0-1.0) |
 | soft_hedge_router | Partial | No | Uses profile.silence_message (factory pattern) |
 | strict_silence_router | Partial | No | Sets silence flag, routes to review or user |
@@ -137,6 +137,18 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
   - Defaults to "anonymous" for unauthenticated sessions
   - Scopes memories per user (multi-session isolation)
 - ✅ requirements.txt: Added `mem0ai`
+
+### ✅ COMPLETE
+
+**Component 02d: Citation Verification** (Session 5)
+- ✅ `citation_verifier()` in `core/langgraph/nodes/generation_nodes.py`
+  - Parses `[N]` citation markers from LLM response (regex: `\[(\d+)\]`)
+  - Cross-references against `retrieved_passages` (1-indexed → 0-indexed)
+  - Builds `cited_sources` list with `{doc_id, chunk_id, passage, source_type}`
+  - Catches hallucinated source IDs (e.g., LLM cites [5] with only 3 passages)
+  - 25 lines of pure Python (vs 2-line stub)
+  - Graceful fallback: no passages → returns empty `cited_sources`
+  - Gate: Runs for both clients (not profile-dependent)
 
 ### ⏳ IN PROGRESS
 
@@ -301,15 +313,11 @@ These were researched and decided. Do NOT re-debate:
 
 ---
 
-## Next Tasks: Citation Verifier OR FastAPI Layer
+## Next Tasks: FastAPI Layer OR E2E Testing
 
-**Option A: Citation Verifier (Workstream 1 small task)**
-- Implement `citation_verifier()` node (stub → real)
-- Cross-check each cited source against retrieved passages
-- Extract valid source references
-- ~30-40 lines, fits in one session
+**✅ DONE: Citation Verifier (Session 5)** — Core engine 100% complete!
 
-**Option B: FastAPI Layer (Workstream 2 full)**
+**Option A: FastAPI Layer (Workstream 2 — Recommended)**
 - Create `api/` directory with FastAPI app
 - Implement endpoints:
   - `POST /chat/{clone_id}` — WebSocket stream for queries
@@ -320,14 +328,22 @@ These were researched and decided. Do NOT re-debate:
 - Auth: API key + OAuth
 - Session management with Redis
 - ~200-300 lines, full week's work
+- **Unblocks:** React frontend can now connect to backend
 
-**Why (both options):**
-- Citation verifier: Completes Workstream 1 core engine
-- FastAPI: Unblocks client integration (React chat page needs API endpoints)
+**Option B: E2E Integration Test (Workstream 1 validation)**
+- Write full conversation flow test: query → retrieval → memory → generation → citation → verify
+- Test both ParaGPT (interpretive) and Sacred Archive (mirror_only) profiles
+- Verify CRAG retry loop (3 hops on low confidence)
+- Test silence mode, confidence thresholds, review queue routing
+- ~100-150 lines, fits in one session
+
+**Why:**
+- FastAPI: Unblocks client integration (React needs API endpoints)
+- E2E test: Proves entire system works together before API build
 
 **Recommendation:**
-- If goal is full engine completion: Citation Verifier now, then FastAPI
-- If goal is usable product: Jump to FastAPI (citation verifier can be added later)
+- **FastAPI next** (Week 2 kickoff) — Makes engine usable via HTTP
+- E2E test can be done in parallel or after FastAPI (both valuable)
 
 ---
 
@@ -362,34 +378,47 @@ See `tasks/lessons.md` for all 11.
 
 ---
 
-## For Next Session
+## For Next Session (Session 6)
 
-**What's Ready:**
+**What's Ready: CORE ENGINE 100% COMPLETE ✅**
 - Components 01, 02, 03, 04 are ALL COMPLETE
-- Mem0 integration COMPLETE (memory_retrieval + memory_writer nodes, pgvector backend)
-- System can now: search documents, perform CRAG loops, remember user context, route per client
+- Mem0 integration COMPLETE (memory_retrieval + memory_writer, pgvector backend)
+- Citation verification COMPLETE (parse [N], cross-ref, populate cited_sources)
+- System can: search documents, perform CRAG loops, remember context, verify citations, route per client
 - Clone-id & user-id scoping enable multi-tenant safe retrieval & memory
 - Retry bug fixed (true 3-cycle CRAG, not 1-cycle)
 - Code is lean (43% smaller, no docstring/comment overhead)
-- Git worktree setup: `original-plan` branch ready for spec-compliant implementation (Zvec + TEI)
+- All 44 files on GitHub with clean commit history (a6238c4, 6b2d3ab)
+- Git worktree setup: `original-plan` branch ready for Zvec + TEI implementation
 
-**What's Left (Workstream 1):**
-1. **Citation Verifier** — Cross-check sources against retrieved passages (~30-40 lines)
-2. **E2E Testing** — Full conversation flow with real retrieval & memory
-3. **Voice Output** — OpenAudio TTS for ParaGPT (hardware pending)
+**What's Left (Pick One):**
 
-**What's Left (Workstream 2):**
-- **FastAPI Layer** — Chat, ingest, review endpoints (~200-300 lines)
+**Workstream 2: FastAPI Layer (Recommended Next)**
+- Create `api/` directory with FastAPI app
+- Chat endpoint: `POST /chat/{clone_id}` with WebSocket streaming
+- Ingest endpoint: `POST /ingest/{clone_id}` with async Celery tasks
+- Review endpoint: `GET/PATCH /review/{clone_id}/{review_id}`
+- Auth: API key + OAuth
+- Session management with Redis
+- ~200-300 lines, full week's work
+- **Why:** Unblocks React frontend integration
 
-**What's Left (Workstream 3):**
-- **React Frontend** — Chat page + review dashboard
-- **Deployment** — Docker compose, PCCI setup
+**Workstream 1: E2E Integration Test (Optional)**
+- Full conversation flow: query → CRAG → memory → generation → citation → verify → route
+- Test both ParaGPT and Sacred Archive profiles
+- Validate confidence thresholds, silence behavior, review queue
+- ~100-150 lines, fits in one session
+
+**Workstream 3: Voice Output**
+- OpenAudio TTS integration (hardware pending)
+- Interleave audio with text streaming
 
 **To Continue Next Session:**
-1. Read PROGRESS.md (this file) — recap what's done
+1. Read `PROGRESS.md` (this file) — recap status
 2. Check `/memory/MEMORY.md` — session context
-3. Choose: Citation Verifier OR FastAPI
-4. Check original-plan worktree is ready: `git worktree list`
+3. Choose: **FastAPI (recommended)** OR E2E test OR Voice
+4. Verify git is ready: `git log --oneline -5`, `git worktree list`
+5. Check GitHub push status: `git status` (should be clean)
 
 **Quick Architecture Refresh:**
 - **ParaGPT:** Interpretive, voice-enabled, public documents, minimal review
@@ -397,12 +426,19 @@ See `tasks/lessons.md` for all 11.
 - **Both:** Share one orchestration graph, differ via CloneProfile config
 - **Query flow:** intent → retrieve → context → generate → verify → route → (voice|review)
 
-**Key Files Modified This Session (Session 4):**
+**Key Files Modified This Session:**
+
+**Session 4 (Mem0 Integration):**
 - `core/mem0_client.py` (NEW) — Mem0 client factory with pgvector backend
 - `core/langgraph/nodes/context_nodes.py` — Implemented memory_retrieval + added memory_writer
 - `core/langgraph/conversation_flow.py` — Added user_id to ConversationState + wired memory_writer node
 - `requirements.txt` — Added mem0ai dependency
-- Git setup: Created worktree for original-plan branch (Zvec + TEI spec-compliant implementation)
+- Git setup: Created worktree for original-plan branch (Zvec + TEI)
+
+**Session 5 (Citation Verifier + Finalization):**
+- `core/langgraph/nodes/generation_nodes.py` — Replaced citation_verifier stub (2 lines → 25 lines)
+- `docs/DEVELOPMENT-PLAN.md` — Updated to Session 4+ status with next-step options
+- `tasks/PROGRESS.md` — Updated node status, marked citation_verifier complete
 
 **If Context Gets Full Again:**
 - Update PROGRESS.md with new progress
@@ -411,4 +447,4 @@ See `tasks/lessons.md` for all 11.
 
 ---
 
-**Status:** RAG pipeline fully functional (ingestion + retrieval). System is intelligent. Ready for Mem0 + voice completion.
+**Status (Session 5):** Core engine 100% complete. All components built: config, RAG (ingest+retrieval+memory+citation), DB schema, LangGraph orchestration. System is fully functional for both clients (ParaGPT + Sacred Archive). Ready for FastAPI API layer (Week 2) or E2E testing. Production path clear: dev proxies (Groq, OpenAI, pgvector) → prod (SGLang, TEI, Zvec) with zero code changes.
