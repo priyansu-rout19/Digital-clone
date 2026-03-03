@@ -1,7 +1,7 @@
 # Digital Clone Engine — Session Progress & Implementation Status
 
-**Last Updated:** March 3, 2026 (Session 5 — Citation Verifier + Mem0 Finalized)
-**Current Focus:** Core engine 100% complete. Next: FastAPI Layer (Workstream 2) or E2E Testing.
+**Last Updated:** March 3, 2026 (Session 6 — E2E Integration Tests COMPLETE)
+**Current Focus:** Full core engine validated. E2E tests pass (4/4). Next: FastAPI Layer (Workstream 2).
 
 ---
 
@@ -378,22 +378,23 @@ See `tasks/lessons.md` for all 11.
 
 ---
 
-## For Next Session (Session 6)
+## For Next Session (Session 7)
 
-**What's Ready: CORE ENGINE 100% COMPLETE ✅**
+**What's Ready: CORE ENGINE 100% + VALIDATION COMPLETE ✅**
 - Components 01, 02, 03, 04 are ALL COMPLETE
 - Mem0 integration COMPLETE (memory_retrieval + memory_writer, pgvector backend)
 - Citation verification COMPLETE (parse [N], cross-ref, populate cited_sources)
-- System can: search documents, perform CRAG loops, remember context, verify citations, route per client
+- E2E Integration Tests COMPLETE (4/4 tests passing, 41.74s runtime)
+- System is fully validated: search documents, CRAG loops, memory, citations, routing all work
 - Clone-id & user-id scoping enable multi-tenant safe retrieval & memory
 - Retry bug fixed (true 3-cycle CRAG, not 1-cycle)
 - Code is lean (43% smaller, no docstring/comment overhead)
-- All 44 files on GitHub with clean commit history (a6238c4, 6b2d3ab)
+- All 46 files on GitHub with clean commit history (c70f803 tests, 9b3e410 docs)
 - Git worktree setup: `original-plan` branch ready for Zvec + TEI implementation
 
-**What's Left (Pick One):**
+**What's Left (Next: FastAPI Layer):**
 
-**Workstream 2: FastAPI Layer (Recommended Next)**
+**Workstream 2: FastAPI Layer (Week 2 — Recommended Next)**
 - Create `api/` directory with FastAPI app
 - Chat endpoint: `POST /chat/{clone_id}` with WebSocket streaming
 - Ingest endpoint: `POST /ingest/{clone_id}` with async Celery tasks
@@ -401,22 +402,16 @@ See `tasks/lessons.md` for all 11.
 - Auth: API key + OAuth
 - Session management with Redis
 - ~200-300 lines, full week's work
-- **Why:** Unblocks React frontend integration
+- **Why:** Unblocks React frontend integration, makes engine usable via HTTP
 
-**Workstream 1: E2E Integration Test (Optional)**
-- Full conversation flow: query → CRAG → memory → generation → citation → verify → route
-- Test both ParaGPT and Sacred Archive profiles
-- Validate confidence thresholds, silence behavior, review queue
-- ~100-150 lines, fits in one session
-
-**Workstream 3: Voice Output**
+**Workstream 3: Voice Output (Week 3)**
 - OpenAudio TTS integration (hardware pending)
 - Interleave audio with text streaming
 
-**To Continue Next Session:**
+**To Continue Next Session (Session 7):**
 1. Read `PROGRESS.md` (this file) — recap status
 2. Check `/memory/MEMORY.md` — session context
-3. Choose: **FastAPI (recommended)** OR E2E test OR Voice
+3. Start FastAPI Layer: `api/main.py` + routers structure
 4. Verify git is ready: `git log --oneline -5`, `git worktree list`
 5. Check GitHub push status: `git status` (should be clean)
 
@@ -447,4 +442,4 @@ See `tasks/lessons.md` for all 11.
 
 ---
 
-**Status (Session 5):** Core engine 100% complete. All components built: config, RAG (ingest+retrieval+memory+citation), DB schema, LangGraph orchestration. System is fully functional for both clients (ParaGPT + Sacred Archive). Ready for FastAPI API layer (Week 2) or E2E testing. Production path clear: dev proxies (Groq, OpenAI, pgvector) → prod (SGLang, TEI, Zvec) with zero code changes.
+**Status (Session 6):** Core engine 100% complete AND VALIDATED. All components built & tested: config, RAG (ingest+retrieval+memory+citation), DB schema, LangGraph orchestration, E2E tests. System is fully functional for both clients (ParaGPT + Sacred Archive) with full orchestration verified. Ready for FastAPI API layer (Week 2). Production path clear: dev proxies (Groq, OpenAI, pgvector) → prod (SGLang, TEI, Zvec) with zero code changes.

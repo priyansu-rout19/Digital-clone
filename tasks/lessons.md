@@ -166,6 +166,73 @@ Real LLM calls now power:
 
 ---
 
+### Lesson 12: Environment Dependency Pinning — Silent Downgrades Break Silently
+**What happened:** Session 6 ran `pip install mem0ai` which silently downgraded `langchain-core` from 1.2.16 → 0.3.83. The requirements.txt pinned 1.2.16, but pip chose a compatible version for mem0ai that broke everything downstream. Tests couldn't run because of ImportError for `ContextOverflowError` which doesn't exist in 0.3.83.
+
+**The pattern:** Dependency managers resolve package conflicts by selecting compatible versions. If Package A requires `langchain-core<1.0.0` and you try to install `langchain-core==1.2.16`, the resolver might downgrade instead of failing loudly. This happens SILENTLY — no error until you try to import something from the newer version.
+
+**Solution:** After adding any new dependencies (especially LLM ecosystem packages):
+1. Run `pip install package_name` + immediately run `pip show langchain-core langchain langchain-openai`
+2. Verify versions match requirements.txt
+3. If mismatch, upgrade the entire ecosystem: `pip install "langchain>=0.4.0" "langchain-community>=0.4.0"`
+4. Alternatively: pin all related packages explicitly in requirements.txt
+
+**Rule for future:**
+- Never install from requirements.txt without verifying final versions: `pip show <key-packages>`
+- LangChain ecosystem is especially prone to version conflicts (0.3.x vs 1.x series)
+- If adding mem0ai or similar, upgrade langchain group immediately after
+- Keep a checklist: after `pip install X`, verify the 5 most-changed packages
+
+---
+
+### Lesson 13: Mock Path Resolution — Import Location vs Definition Location
+**What happened:** Session 6 E2E tests needed to mock `get_mem0_client()`. Initial attempts patched `"core.mem0_client.get_mem0_client"` which failed because the test framework couldn't find the attribute at the module level.
+
+**The pattern:** `unittest.mock.patch()` works with how Python imports work. When `context_nodes.py` does:
+```python
+def memory_retrieval(state):
+    from core.mem0_client import get_mem0_client  # lazy import
+    mem = get_mem0_client()
+```
+
+You can't patch at the module level (`core.langgraph.nodes.context_nodes.get_mem0_client`) because the import hasn't happened yet. You patch at the SOURCE where it's defined: `"core.mem0_client.get_mem0_client"`.
+
+BUT the correct approach is to patch where the IMPORT HAPPENS (the place where you're calling the function), not where it's defined. However, since the import is lazy (inside the function), the standard approach is to patch at the definition point.
+
+After iteration, the correct mock path was: `"core.mem0_client.get_mem0_client"` — patching the source, not the lazy import site.
+
+**Rule for future:**
+- When mocking: patch at the source of the function (`"module.function"`), not the import site
+- For lazy imports (inside functions), patch still works at source
+- Test the mock path EARLY (run one test before running the full suite)
+- If patch fails with "does not have the attribute", check:
+  1. Is the function actually in that module?
+  2. Is there a typo in the path?
+  3. Try running `python3 -c "from module import function"` to verify the import works
+
+---
+
+### Lesson 14: E2E Test Fixtures and Confidence Thresholds
+**What happened:** Session 6 built 4 E2E test cases. Two tests (ParaGPT, CRAG loop) use the same `mock_retrieval` fixture returning confidence 0.85. But Sacred Archive has a DIFFERENT confidence threshold (0.95). Fixture value 0.85 is below that, which triggers CRAG loop in Sacred Archive test when it shouldn't.
+
+**The pattern:** Confidence-based routing depends on threshold comparison:
+```python
+if retrieval_confidence < profile.confidence_threshold:
+    # trigger CRAG loop
+```
+
+When mocking retrieval, the mock value must account for the profile's threshold. Sacred Archive's 0.95 threshold requires mock value >= 0.95. ParaGPT's 0.80 threshold is satisfied by 0.85.
+
+Solution: Use INLINE patches for profile-specific tests, FIXTURE for shared tests.
+
+**Rule for future:**
+- Confidence-dependent tests: check the profile's threshold FIRST
+- Create fixtures for shared threshold values (all profiles use same threshold)
+- Use inline patches for profile-specific thresholds (override at test level)
+- Comment the threshold check in every test that mocks retrieval
+
+---
+
 ## Session Patterns to Remember
 
 1. **User is learning by building** — every spec/decision should explain the why, not just the what
@@ -179,3 +246,6 @@ Real LLM calls now power:
 9. **Stubs with correct state unblock integration** — build the orchestration layer first, fill in implementations later
 10. **Factory pattern powers profile-aware nodes** — closures let nodes access config without state bloat
 11. **Real LLM integration requires graceful fallbacks** — API keys in `.env`, JSON parsing with sensible defaults
+12. **Environment dependency pinning matters** — pip can silently downgrade packages; verify after install
+13. **Mock path resolution: patch at source, not import site** — for lazy imports, patch where function is defined
+14. **E2E test fixtures must respect profile thresholds** — confidence thresholds differ per profile
