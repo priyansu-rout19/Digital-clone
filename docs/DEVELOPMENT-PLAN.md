@@ -283,17 +283,11 @@ This single configuration object controls all behavioral routing in the pipeline
   - Review endpoint: `GET /review/{clone_id}`, `PATCH /review/{review_id}`
   - Configuration endpoint: `GET /clone/{clone_id}/profile`
 
-- [ ] **E2E integration test** (~100-150 lines, optional for local validation)
-  - Full conversation flow: query → retrieval → generation → verification
-  - Test both clone profiles (ParaGPT interpretive, Sacred Archive mirror_only)
-  - Verify CRAG retry loop works correctly
-  - Test silence mode, confidence thresholds, review queue routing
-
 **Success Criteria:**
-- E2E test passes for both clone profiles
-- Real database connection verified
-- CRAG loop executes correctly (3-hop retry on low confidence)
-- No LLM node errors (graceful fallback on JSON parse errors)
+- FastAPI endpoints stream real responses from LangGraph orchestrator
+- Ingest endpoint processes files and updates pgvector index
+- Auth blocks unauthorized clone access
+- WebSocket handles connection drops gracefully
 
 ---
 
