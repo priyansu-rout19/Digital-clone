@@ -151,6 +151,8 @@ Every query flows through this sequence. The clone profile controls behavior at 
 | **FastAPI App** | FastAPI + Uvicorn | REST API gateway | Week 2 |
 | **Chat Endpoint** | WebSocket | Real-time chat streaming | Week 2 |
 | **Ingestion Endpoint** | Celery async tasks | Document upload + processing | Week 2 |
+| **MinIO — Corpus Storage** | MinIO S3-compatible | Store raw uploaded files (PDF, markdown, text) | Week 2 |
+| **MinIO — PageIndex Trees** | MinIO + JSON files | Store hierarchical document trees for Tier 2 search | Week 3 |
 | **Review Dashboard** | React | Sacred Archive reviewer UI | Week 3 |
 | **Chat Page** | React | ParaGPT public chat interface | Week 3 |
 | **Docker Compose** | Docker | Full-stack local dev environment | Week 3 |
@@ -516,6 +518,8 @@ web/                             (NOT YET STARTED — Week 3)
 
 **Infrastructure (when ready):**
 - [ ] PostgreSQL 17 + pgvector locally (DATABASE_URL in .env)
+- [ ] Redis 7 — Session cache + WebSocket state
+- [ ] MinIO — Run locally via Docker. Ingest endpoint saves uploads to MinIO before pipeline processes them. `pageindex_tree_path` column already in DB schema, ready for MinIO paths.
 - [ ] `pip install mem0ai` (for Mem0 + pgvector backend)
 - [ ] Alembic migrations: `alembic upgrade head`
 - [ ] Sample document ingestion via `core.rag.ingestion.pipeline.ingest()`
