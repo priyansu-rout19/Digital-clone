@@ -157,24 +157,32 @@ def build_graph(profile: CloneProfile):
     # provenance_graph_query → tier1_retrieval (always)
     graph.add_edge("provenance_graph_query", "tier1_retrieval")
 
-    # tier1_retrieval → crag_evaluator (always)
-    graph.add_edge("tier1_retrieval", "crag_evaluator")
+    # tier1_retrieval → tier2_tree_search or crag_evaluator (conditional on profile)
+    def after_tier1(state: ConversationState) -> str:
+        if RetrievalTier.tree_search in profile.retrieval_tiers:
+            return "tier2_tree_search"
+        return "crag_evaluator"
 
-    # crag_evaluator: retry or proceed or tree_search
+    graph.add_conditional_edges(
+        "tier1_retrieval",
+        after_tier1,
+        {
+            "tier2_tree_search": "tier2_tree_search",
+            "crag_evaluator": "crag_evaluator",
+        },
+    )
+
+    # crag_evaluator: retry or proceed (tree_search now runs before CRAG)
     def after_crag(state: ConversationState) -> str:
         confidence = state.get("retrieval_confidence", 0.0)
         retry_count = state.get("retry_count", 0)
         max_retries = 3
 
-        # First check: should we retry?
+        # Should we retry? (Tier 2 already ran before CRAG if applicable)
         if confidence < profile.confidence_threshold and retry_count < max_retries:
             return "query_reformulator"
 
-        # Second check: should we do tree search?
-        if RetrievalTier.tree_search in profile.retrieval_tiers:
-            return "tier2_tree_search"
-
-        # Default: proceed to context assembly
+        # Proceed to context assembly
         return "context_assembler"
 
     graph.add_conditional_edges(
@@ -182,7 +190,6 @@ def build_graph(profile: CloneProfile):
         after_crag,
         {
             "query_reformulator": "query_reformulator",
-            "tier2_tree_search": "tier2_tree_search",
             "context_assembler": "context_assembler",
         },
     )
@@ -190,8 +197,8 @@ def build_graph(profile: CloneProfile):
     # query_reformulator → tier1_retrieval (loop back for retry)
     graph.add_edge("query_reformulator", "tier1_retrieval")
 
-    # tier2_tree_search → context_assembler (always)
-    graph.add_edge("tier2_tree_search", "context_assembler")
+    # tier2_tree_search → crag_evaluator (augmented passages evaluated for confidence)
+    graph.add_edge("tier2_tree_search", "crag_evaluator")
 
     # context_assembler: memory retrieval or direct to generation
     def after_context(state: ConversationState) -> str:
