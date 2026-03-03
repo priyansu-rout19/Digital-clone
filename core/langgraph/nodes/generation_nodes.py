@@ -97,22 +97,41 @@ def citation_verifier(state: TypedDict) -> TypedDict:
     """
     Verify that claimed citations actually appear in retrieved passages.
 
-    STUB: For now, just passes through the response. In production, would:
-    1. Parse any citation references in raw_response
-    2. Cross-check each against retrieved_passages
-    3. Mark unverifiable citations
-    4. Extract valid source references
+    Parses [N] citation markers from LLM response, cross-references against
+    retrieved_passages, and builds cited_sources list. Catches hallucinated
+    source IDs (LLM cites [5] when only 3 passages retrieved).
 
     Input: raw_response, retrieved_passages
     Output: verified_response, cited_sources
     """
+    import re
 
     raw = state.get("raw_response", "")
+    passages = state.get("retrieved_passages", [])
+
+    if not passages:
+        return {**state, "verified_response": raw, "cited_sources": []}
+
+    # Parse [N] markers from LLM response (1-indexed, matching context_assembler numbering)
+    cited_indices = set(int(m) for m in re.findall(r'\[(\d+)\]', raw))
+
+    # Cross-reference against retrieved_passages (convert to 0-indexed)
+    cited_sources = []
+    for idx in sorted(cited_indices):
+        passage_index = idx - 1
+        if 0 <= passage_index < len(passages):
+            p = passages[passage_index]
+            cited_sources.append({
+                "doc_id": p.get("doc_id", "unknown"),
+                "chunk_id": p.get("chunk_id", "unknown"),
+                "passage": p.get("passage", ""),
+                "source_type": p.get("source_type", "unknown"),
+            })
 
     return {
         **state,
-        "verified_response": raw,  # For now, verified = raw (no real passages to check)
-        "cited_sources": [],  # No actual verification yet
+        "verified_response": raw,
+        "cited_sources": cited_sources,
     }
 
 
