@@ -10,7 +10,7 @@
 
 **Status:** Session 6 complete. All core engine components built and tested. E2E integration tests pass (4/4). 19-node LangGraph fully functional for both clone profiles. Ready for FastAPI layer (Week 2).
 
-**Confidence Level:** VERY HIGH — Full architecture proven via working code. All 44 files on GitHub. Production path clear: dev proxies → SGLang/TEI/Zvec with zero code changes. No blockers.
+**Confidence Level:** VERY HIGH — Full architecture proven via working code. All 46 files on GitHub (components + E2E tests). Production path clear: dev proxies → SGLang/TEI/Zvec with zero code changes. No blockers.
 
 ---
 
@@ -465,6 +465,10 @@ core/
         ├── vector_search.py     (pgvector + RRF)
         ├── provenance.py        (recursive CTEs)
         └── tree_search.py       (stub for PageIndex)
+
+tests/                           (✅ COMPLETE — Session 6)
+├── __init__.py
+└── test_e2e.py                 (226 lines — 4 E2E test cases, all passing)
 
 api/                             (NOT YET STARTED — Week 2)
 ├── main.py
