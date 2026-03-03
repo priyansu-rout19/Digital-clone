@@ -8,8 +8,8 @@ but at runtime via conditional routing logic.
 Graph structure:
 - 7 always-active nodes: query_analysis, tier1_retrieval, crag_evaluator,
   context_assembler, in_persona_generator, citation_verifier, confidence_scorer
-- 8 conditional nodes: provenance_graph_query, tier2_tree_search, query_reformulator,
-  memory_retrieval, review_queue_writer, soft_hedge_router, strict_silence_router,
+- 9 conditional nodes: provenance_graph_query, tier2_tree_search, query_reformulator,
+  memory_retrieval, memory_writer, review_queue_writer, soft_hedge_router, strict_silence_router,
   voice_pipeline
 - 1 output node: stream_to_user (can route from multiple paths)
 
@@ -29,7 +29,7 @@ from core.langgraph.nodes.retrieval_nodes import (
     query_reformulator,
     tier2_tree_search,
 )
-from core.langgraph.nodes.context_nodes import context_assembler, memory_retrieval
+from core.langgraph.nodes.context_nodes import context_assembler, memory_retrieval, memory_writer
 from core.langgraph.nodes.generation_nodes import make_in_persona_generator, citation_verifier, confidence_scorer
 from core.langgraph.nodes.routing_nodes import (
     make_soft_hedge_router,
@@ -59,6 +59,7 @@ class ConversationState(TypedDict):
 
     # Retrieval (scope queries to one clone; set by tier1/tier2, crag_evaluator, query_reformulator)
     clone_id: str  # UUID of the clone making the query
+    user_id: str  # UUID of the user (for Mem0 scoping). Defaults to "anonymous" if not authenticated.
     retrieved_passages: list[dict]  # [{doc_id, chunk_id, passage, source_type, date, access_tier}]
     provenance_graph_results: list[dict]  # [{teaching_id, related_teaching_id, path}]
     retrieval_confidence: float  # 0.0-1.0
@@ -102,7 +103,7 @@ def build_graph(profile: CloneProfile):
     graph = StateGraph(ConversationState)
 
     # ========================================================================
-    # ADD ALL NODES (7 always + 8 conditional + 1 output)
+    # ADD ALL NODES (7 always + 9 conditional + 1 output)
     # ========================================================================
 
     # Always active (7)
@@ -119,6 +120,7 @@ def build_graph(profile: CloneProfile):
     graph.add_node("tier2_tree_search", tier2_tree_search)
     graph.add_node("query_reformulator", query_reformulator)
     graph.add_node("memory_retrieval", memory_retrieval)
+    graph.add_node("memory_writer", memory_writer)  # New: writes turn to Mem0 after streaming
     graph.add_node("review_queue_writer", review_queue_writer)
     graph.add_node("soft_hedge_router", make_soft_hedge_router(profile))  # Factory: captures profile
     graph.add_node("strict_silence_router", strict_silence_router)
@@ -262,8 +264,10 @@ def build_graph(profile: CloneProfile):
         },
     )
 
-    # stream_to_user: voice pipeline or end (text only)
+    # stream_to_user: memory writer (if enabled) or voice pipeline or end
     def after_stream(state: ConversationState) -> str:
+        if profile.user_memory_enabled:
+            return "memory_writer"
         if profile.voice_mode != VoiceMode.text_only:
             return "voice_pipeline"
         return "__end__"
@@ -271,6 +275,22 @@ def build_graph(profile: CloneProfile):
     graph.add_conditional_edges(
         "stream_to_user",
         after_stream,
+        {
+            "memory_writer": "memory_writer",
+            "voice_pipeline": "voice_pipeline",
+            "__end__": "__end__",
+        },
+    )
+
+    # memory_writer → voice pipeline or end (conditionally)
+    def after_memory_write(state: ConversationState) -> str:
+        if profile.voice_mode != VoiceMode.text_only:
+            return "voice_pipeline"
+        return "__end__"
+
+    graph.add_conditional_edges(
+        "memory_writer",
+        after_memory_write,
         {
             "voice_pipeline": "voice_pipeline",
             "__end__": "__end__",

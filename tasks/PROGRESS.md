@@ -1,7 +1,7 @@
 # Digital Clone Engine — Session Progress & Implementation Status
 
-**Last Updated:** March 1, 2026 (Session 3 — RAG Retrieval Built + Code Cleaned)
-**Current Focus:** Component 02 COMPLETE (Ingestion + Retrieval). Next: Component 02 Integration (Mem0 + Voice).
+**Last Updated:** March 3, 2026 (Session 4 — Mem0 Integration Complete + Git Worktrees Setup)
+**Current Focus:** Mem0 Integration COMPLETE. Next: Citation Verifier or FastAPI Layer (Workstream 2).
 
 ---
 
@@ -68,7 +68,8 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 | tier2_tree_search | Designed Stub | No | Returns passages unchanged, MinIO TODO (Week 3) |
 | provenance_graph_query | ✅ Real | No | SQL recursive CTE for teaching_relations graph (Sacred Archive only) |
 | context_assembler | Partial | No | Assembles passages into context string |
-| memory_retrieval | Stub | No | Will fetch Mem0 memories |
+| memory_retrieval | ✅ Real | No | Searches Mem0 for user memories (ParaGPT only) — NEW Session 4 |
+| memory_writer | ✅ Real | No | Saves conversation turns to Mem0 (NEW node, ParaGPT only) — NEW Session 4 |
 | in_persona_generator | Real | Yes | Persona-aware generation (factory pattern) |
 | citation_verifier | Stub | No | Can now cross-check against real passages |
 | confidence_scorer | Real | Yes | LLM evaluates response quality (0.0-1.0) |
@@ -113,10 +114,33 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 - All files pass Python syntax validation
 - Total reduction: ~1,617 lines → ~920 lines (43% reduction)
 
+### ✅ COMPLETE
+
+**Component 02 Integration: Mem0 Cross-Session Memory** (Session 4)
+- ✅ `core/mem0_client.py` (NEW) — Mem0 client factory with pgvector backend
+  - Reads: `DATABASE_URL`, `GROQ_API_KEY`, `OPENAI_API_KEY`
+  - Config: Groq LLM + OpenAI embeddings (1024-dim) + pgvector vector store
+  - Graceful error handling (same pattern as `core/llm.py`)
+- ✅ `memory_retrieval()` — Real implementation searching Mem0 for user memories
+  - Input: `user_id`, `query_text`
+  - Output: Formatted memory string (or empty if none found)
+  - Gate: Only runs for ParaGPT (`user_memory_enabled=True`)
+  - Fallback: Returns empty string if Mem0 unavailable
+- ✅ `memory_writer()` (NEW node) — Saves conversation turns to Mem0 after streaming
+  - Input: `user_id`, `query_text`, `verified_response`
+  - Output: state unchanged (side-effect node)
+  - Gate: Only runs for ParaGPT
+  - Fallback: Logs warning, continues if Mem0 write fails
+- ✅ Graph wiring: Added `memory_writer` node after `stream_to_user`
+  - `stream_to_user` → `memory_writer` (if `user_memory_enabled`) → `voice_pipeline` or `__end__`
+- ✅ State update: Added `user_id: str` to `ConversationState`
+  - Defaults to "anonymous" for unauthenticated sessions
+  - Scopes memories per user (multi-session isolation)
+- ✅ requirements.txt: Added `mem0ai`
+
 ### ⏳ IN PROGRESS
 
-**Component 02 Integration: Mem0 + Voice**
-- `memory_retrieval` — Mem0 cross-session memory (depends on pgvector backend)
+**Component 05: Voice Output**
 - `voice_pipeline` — OpenAudio TTS (hardware pending)
 
 ---
@@ -148,6 +172,7 @@ core/                       ← Runtime implementation
   models/
     clone_profile.py        ← Component 01 ✅ (6 enums, 16 fields, 2 presets)
   llm.py                    ← LLM client factory (Groq + Qwen)
+  mem0_client.py            ← Mem0 client factory (pgvector backend) ✅ NEW Session 4
   db/                       ← Component 03 ✅
     __init__.py
     schema.py               ← 14 SQLAlchemy models, 3 Pydantic schemas
@@ -162,7 +187,7 @@ core/                       ← Runtime implementation
     nodes/
       query_analysis_node.py      ← Intent classification (real LLM)
       retrieval_nodes.py          ← Tier 1/2, CRAG, reformulation (stubs)
-      context_nodes.py            ← Context assembly, memory (stubs)
+      context_nodes.py            ← Context assembly, memory_retrieval ✅, memory_writer ✅ (NEW Session 4)
       generation_nodes.py         ← Response generation (real LLM)
       routing_nodes.py            ← Output routing, review queue (stubs)
   rag/                      ← Component 02 (to be built)
@@ -229,7 +254,7 @@ graph = build_graph(profile)
 result = graph.invoke({
     "query_text": "What is the future of connectivity?",
     "sub_queries": [], "intent_class": "", "access_tier": "public",
-    "clone_id": "test-uuid", "token_budget": 2000, "retrieved_passages": [],
+    "clone_id": "test-uuid", "user_id": "john-doe", "token_budget": 2000, "retrieved_passages": [],
     "provenance_graph_results": [], "retrieval_confidence": 0.0, "retry_count": 0,
     "assembled_context": "", "user_memory": "", "raw_response": "", "verified_response": "",
     "final_confidence": 0.0, "cited_sources": [], "silence_triggered": False, "voice_chunks": []
@@ -276,25 +301,33 @@ These were researched and decided. Do NOT re-debate:
 
 ---
 
-## Next Task: Component 02 Integration + Component 05 (Voice)
+## Next Tasks: Citation Verifier OR FastAPI Layer
 
-**What:** Complete the RAG pipeline with Mem0 memory + add voice output.
+**Option A: Citation Verifier (Workstream 1 small task)**
+- Implement `citation_verifier()` node (stub → real)
+- Cross-check each cited source against retrieved passages
+- Extract valid source references
+- ~30-40 lines, fits in one session
 
-**Component 02 Integration (Mem0):**
-- Set up Mem0 with pgvector backend for cross-session memory
-- Implement `memory_retrieval` node
-- Test memory persistence across multiple conversations
+**Option B: FastAPI Layer (Workstream 2 full)**
+- Create `api/` directory with FastAPI app
+- Implement endpoints:
+  - `POST /chat/{clone_id}` — WebSocket stream for queries
+  - `POST /ingest/{clone_id}` — Trigger Celery async ingestion
+  - `GET /review/{clone_id}` — List pending reviews
+  - `PATCH /review/{review_id}` — Approve/reject responses
+  - `GET /clone/{clone_id}/profile` — Fetch clone config
+- Auth: API key + OAuth
+- Session management with Redis
+- ~200-300 lines, full week's work
 
-**Component 05 (Voice Output):**
-- OpenAudio TTS integration for `voice_pipeline` node
-- Chunk long responses for streaming TTS
-- Test with ParaGPT (voice-enabled) profile
+**Why (both options):**
+- Citation verifier: Completes Workstream 1 core engine
+- FastAPI: Unblocks client integration (React chat page needs API endpoints)
 
-**Why Now:**
-- Retrieval pipeline is complete and tested
-- All retrieval nodes can now search real documents
-- System is fully functional for text queries
-- Voice unblocks ParaGPT's primary use case (audio interaction)
+**Recommendation:**
+- If goal is full engine completion: Citation Verifier now, then FastAPI
+- If goal is usable product: Jump to FastAPI (citation verifier can be added later)
 
 ---
 
@@ -332,23 +365,31 @@ See `tasks/lessons.md` for all 11.
 ## For Next Session
 
 **What's Ready:**
-- Components 01, 03, 04, 02 (Ingestion + Retrieval) are ALL COMPLETE
-- System can now search documents, perform CRAG loops, and handle both clients
-- Clone-id scoping enables multi-tenant safe retrieval
+- Components 01, 02, 03, 04 are ALL COMPLETE
+- Mem0 integration COMPLETE (memory_retrieval + memory_writer nodes, pgvector backend)
+- System can now: search documents, perform CRAG loops, remember user context, route per client
+- Clone-id & user-id scoping enable multi-tenant safe retrieval & memory
 - Retry bug fixed (true 3-cycle CRAG, not 1-cycle)
 - Code is lean (43% smaller, no docstring/comment overhead)
+- Git worktree setup: `original-plan` branch ready for spec-compliant implementation (Zvec + TEI)
 
-**What's Left:**
-1. **Mem0 Integration** — Cross-session memory using pgvector backend
-2. **Voice Output** — OpenAudio TTS for ParaGPT
-3. **E2E Testing** — Full conversation flow with real retrieval
+**What's Left (Workstream 1):**
+1. **Citation Verifier** — Cross-check sources against retrieved passages (~30-40 lines)
+2. **E2E Testing** — Full conversation flow with real retrieval & memory
+3. **Voice Output** — OpenAudio TTS for ParaGPT (hardware pending)
 
-**To Continue:**
-1. Read this file (progress summary)
-2. Run verification test 4 (full graph with clone_id)
-3. Plan Component 02 Integration (Mem0) + Component 05 (Voice)
-4. Implement Mem0 integration (likely ~50-80 lines)
-5. Implement voice pipeline (likely ~60-100 lines)
+**What's Left (Workstream 2):**
+- **FastAPI Layer** — Chat, ingest, review endpoints (~200-300 lines)
+
+**What's Left (Workstream 3):**
+- **React Frontend** — Chat page + review dashboard
+- **Deployment** — Docker compose, PCCI setup
+
+**To Continue Next Session:**
+1. Read PROGRESS.md (this file) — recap what's done
+2. Check `/memory/MEMORY.md` — session context
+3. Choose: Citation Verifier OR FastAPI
+4. Check original-plan worktree is ready: `git worktree list`
 
 **Quick Architecture Refresh:**
 - **ParaGPT:** Interpretive, voice-enabled, public documents, minimal review
@@ -356,12 +397,12 @@ See `tasks/lessons.md` for all 11.
 - **Both:** Share one orchestration graph, differ via CloneProfile config
 - **Query flow:** intent → retrieve → context → generate → verify → route → (voice|review)
 
-**Key Files Modified This Session:**
-- `core/rag/retrieval/vector_search.py` — RRF-based tier 1 search
-- `core/rag/retrieval/provenance.py` — Recursive CTE for teaching graph
-- `core/langgraph/conversation_flow.py` — Added clone_id to state
-- `core/langgraph/nodes/retrieval_nodes.py` — Wired all retrieval modules, fixed retry bug
-- All 9 ingestion + retrieval files cleaned (docstrings + comments removed)
+**Key Files Modified This Session (Session 4):**
+- `core/mem0_client.py` (NEW) — Mem0 client factory with pgvector backend
+- `core/langgraph/nodes/context_nodes.py` — Implemented memory_retrieval + added memory_writer
+- `core/langgraph/conversation_flow.py` — Added user_id to ConversationState + wired memory_writer node
+- `requirements.txt` — Added mem0ai dependency
+- Git setup: Created worktree for original-plan branch (Zvec + TEI spec-compliant implementation)
 
 **If Context Gets Full Again:**
 - Update PROGRESS.md with new progress

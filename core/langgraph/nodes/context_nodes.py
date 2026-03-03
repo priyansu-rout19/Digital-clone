@@ -66,19 +66,74 @@ def memory_retrieval(state: TypedDict) -> TypedDict:
     """
     Retrieve cross-session user memory from Mem0 (ParaGPT only).
 
-    STUB: Depends on Mem0 integration (not yet wired into the system).
-    Returns empty string for mock invocation.
+    Searches Mem0's pgvector backend for memories related to the user's query.
+    Returns formatted memory string to inject into the system prompt for context.
 
-    Input: user_id, query_text (implicit: user_id not in state schema, would be added)
-    Output: user_memory
+    Input: user_id, query_text
+    Output: user_memory (formatted string of relevant past memories, or empty if none)
     """
+    from core.mem0_client import get_mem0_client
 
-    # STUB: In production, this would:
-    # 1. Query Mem0 for memories related to this user + query
-    # 2. Mem0 uses pgvector backend (decided in Q3 research)
-    # 3. Returns formatted memory string to inject into prompt
+    user_id = state.get("user_id", "anonymous")
+    query = state.get("query_text", "")
 
-    return {
-        **state,
-        "user_memory": "",  # Empty for stub; would be formatted memory string
-    }
+    if not query:
+        return {**state, "user_memory": ""}
+
+    try:
+        mem = get_mem0_client()
+        results = mem.search(query, user_id=user_id, limit=5)
+
+        if results and results.get("results"):
+            memories = [r.get("memory", "") for r in results["results"] if r.get("memory")]
+            if memories:
+                user_memory = "Past context about this user:\n" + "\n".join(
+                    f"- {m}" for m in memories
+                )
+            else:
+                user_memory = ""
+        else:
+            user_memory = ""
+
+    except Exception as e:
+        # Graceful fallback: if Mem0 unavailable, proceed without memories
+        user_memory = ""
+
+    return {**state, "user_memory": user_memory}
+
+
+def memory_writer(state: TypedDict) -> TypedDict:
+    """
+    Write the conversation turn to Mem0 for cross-session memory.
+
+    Called after response is generated and streamed to user. Mem0 extracts facts
+    from the conversation and stores them in pgvector for future retrieval.
+
+    Input: user_id, query_text, verified_response
+    Output: state (unchanged) — this is a side-effect node
+    """
+    from core.mem0_client import get_mem0_client
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    user_id = state.get("user_id", "anonymous")
+    query = state.get("query_text", "")
+    response = state.get("verified_response", "")
+
+    if not query or not response:
+        return state
+
+    try:
+        mem = get_mem0_client()
+        messages = [
+            {"role": "user", "content": query},
+            {"role": "assistant", "content": response},
+        ]
+        mem.add(messages, user_id=user_id)
+
+    except Exception as e:
+        # Graceful fallback: if Mem0 write fails, log warning but continue
+        logger.warning(f"Failed to save memory to Mem0: {str(e)}")
+
+    return state
