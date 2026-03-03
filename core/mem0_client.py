@@ -89,7 +89,7 @@ def get_mem0_client() -> Memory:
         "embedder": {
             "provider": "langchain",
             "config": {
-                "langchain_embeddings": VoyageAIEmbeddings(model="voyage-3"),
+                "model": VoyageAIEmbeddings(model="voyage-3"),
                 "embedding_dims": 1024,
             },
         },

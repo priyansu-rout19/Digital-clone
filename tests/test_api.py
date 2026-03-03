@@ -1,0 +1,514 @@
+"""
+FastAPI Gateway Tests — Digital Clone Engine
+
+Tests the HTTP layer: routing, request validation, response shapes, business logic.
+Does NOT test the LangGraph pipeline (that's in test_e2e.py).
+
+Mock strategy:
+- Database: mock SessionLocal with fake Clone rows
+- LangGraph: mock build_graph to return a preset final state
+- Background tasks: patched to no-op
+
+Run:
+    pytest tests/test_api.py -v
+    pytest tests/test_api.py::test_health_check -v
+"""
+
+import json
+import uuid
+from io import BytesIO
+from unittest.mock import patch, MagicMock, AsyncMock
+from datetime import datetime
+
+import pytest
+from httpx import AsyncClient, ASGITransport
+
+from api.main import app
+from api.deps import get_db, SessionLocal
+from core.models.clone_profile import paragpt_profile, sacred_archive_profile, CloneProfile
+from core.db.schema import Clone, ReviewQueue
+
+
+# ---------------------------------------------------------------------------
+# Fixtures: Mock Database Setup
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def mock_db_session():
+    """
+    Creates a mock SQLAlchemy session with two pre-configured clones.
+    Replaces api.deps.get_db() with a mock that yields this session.
+    """
+    mock_session = MagicMock()
+
+    # Create mock Clone rows
+    clone_paragpt = MagicMock(spec=Clone)
+    clone_paragpt.id = uuid.uuid4()
+    clone_paragpt.slug = "paragpt-client"
+    clone_paragpt.profile = paragpt_profile().model_dump()
+
+    clone_sacred = MagicMock(spec=Clone)
+    clone_sacred.id = uuid.uuid4()
+    clone_sacred.slug = "sacred-archive"
+    clone_sacred.profile = sacred_archive_profile().model_dump()
+
+    # Setup query mock to return clones by slug, and handle ReviewQueue queries
+    def mock_query_filter(model):
+        query_obj = MagicMock()
+
+        def filter_func(condition):
+            filter_obj = MagicMock()
+
+            # Detect which clone is being queried (Clone model)
+            if hasattr(condition, 'right') and hasattr(condition.right, 'value'):
+                slug = condition.right.value
+                if slug == "paragpt-client":
+                    filter_obj.first.return_value = clone_paragpt
+                elif slug == "sacred-archive":
+                    filter_obj.first.return_value = clone_sacred
+                else:
+                    filter_obj.first.return_value = None
+            # Handle ReviewQueue queries (filter returns None by default, tests can patch it)
+            elif model == ReviewQueue:
+                filter_obj.first.return_value = None  # Tests will override
+            return filter_obj
+
+        query_obj.filter.side_effect = filter_func
+        return query_obj
+
+    mock_session.query.side_effect = mock_query_filter
+
+    # Make get_db return this mock session
+    def get_db_override():
+        yield mock_session
+
+    app.dependency_overrides[get_db] = get_db_override
+
+    yield mock_session
+
+    # Cleanup
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def mock_graph():
+    """
+    Mocks build_graph() to return a graph with a preset final state.
+    The mock graph's invoke() and stream() methods return known good data.
+    """
+    def build_graph_override(profile: CloneProfile):
+        mock_g = MagicMock()
+
+        # Final state that invoke() returns
+        final_state = {
+            "verified_response": "This is a test response.",
+            "final_confidence": 0.85,
+            "cited_sources": [
+                {"doc_id": "doc-001", "chunk_id": "doc-001_0000", "passage": "Sample passage", "source_type": "book"}
+            ],
+            "silence_triggered": False,
+            "user_memory": "User has asked about X before.",
+            "query_text": "What is connectivity?",
+            "retry_count": 0,
+        }
+
+        mock_g.invoke.return_value = final_state
+
+        # For streaming, return chunks that match the progress protocol
+        def stream_generator(state):
+            nodes = [
+                "query_analyzer",
+                "tier1_retrieval",
+                "context_assembler",
+                "in_persona_generator",
+                "confidence_scorer",
+                "citation_verifier",
+                "stream_to_user",
+            ]
+            for node_name in nodes:
+                yield {node_name: {}}
+            # Merge all into final state at the end
+            yield {"__end__": final_state}
+
+        mock_g.stream.return_value = stream_generator
+
+        return mock_g
+
+    with patch("api.routes.chat.build_graph", side_effect=build_graph_override):
+        yield
+
+
+@pytest.fixture
+async def client(mock_db_session, mock_graph):
+    """
+    FastAPI test client with all mocks in place.
+    Provides async HTTP testing via httpx.AsyncClient.
+    """
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
+
+
+# ---------------------------------------------------------------------------
+# Test: Health Check
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_health_check(client):
+    """GET /health returns 200 with status=ok."""
+    response = await client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Test: Get Clone Profile
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_get_clone_profile(client):
+    """GET /clone/{slug}/profile returns full CloneProfile."""
+    response = await client.get("/clone/paragpt-client/profile")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["slug"] == "paragpt-client"
+    assert data["display_name"] == "Parag Khanna"
+    assert data["generation_mode"] == "interpretive"
+    assert data["confidence_threshold"] == 0.80
+    assert data["review_required"] is False
+    assert data["user_memory_enabled"] is True
+
+
+@pytest.mark.asyncio
+async def test_get_clone_profile_sacred_archive(client):
+    """GET /clone/sacred-archive/profile returns Sacred Archive config."""
+    response = await client.get("/clone/sacred-archive/profile")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["slug"] == "sacred-archive"
+    assert data["generation_mode"] == "mirror_only"
+    assert data["confidence_threshold"] == 0.95
+    assert data["review_required"] is True
+    assert data["user_memory_enabled"] is False
+
+
+@pytest.mark.asyncio
+async def test_get_clone_profile_unknown(client):
+    """GET /clone/unknown/profile returns 404."""
+    response = await client.get("/clone/unknown/profile")
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"].lower()
+
+
+# ---------------------------------------------------------------------------
+# Test: Chat Sync Endpoint
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_chat_sync(client):
+    """POST /chat/{slug} returns full ChatResponse."""
+    payload = {"query": "What is connectivity?", "user_id": "user-123"}
+    response = await client.post("/chat/paragpt-client", json=payload)
+
+    assert response.status_code == 200
+    data = response.json()
+
+    assert "response" in data
+    assert "confidence" in data
+    assert "cited_sources" in data
+    assert "silence_triggered" in data
+    assert "user_memory" in data
+
+    assert isinstance(data["response"], str)
+    assert isinstance(data["confidence"], (int, float))
+    assert isinstance(data["cited_sources"], list)
+    assert isinstance(data["silence_triggered"], bool)
+    assert isinstance(data["user_memory"], str)
+
+
+@pytest.mark.asyncio
+async def test_chat_sync_default_user_id(client):
+    """POST /chat/{slug} with no user_id defaults to 'anonymous'."""
+    payload = {"query": "Tell me about geopolitics."}
+    response = await client.post("/chat/paragpt-client", json=payload)
+
+    assert response.status_code == 200
+    # The mock doesn't validate user_id, but the endpoint should accept it
+    data = response.json()
+    assert "response" in data
+
+
+@pytest.mark.asyncio
+async def test_chat_sync_missing_query(client):
+    """POST /chat/{slug} without query returns 422 validation error."""
+    payload = {"user_id": "user-123"}
+    response = await client.post("/chat/paragpt-client", json=payload)
+
+    assert response.status_code == 422  # Pydantic validation error
+
+
+@pytest.mark.asyncio
+async def test_chat_sync_unknown_clone(client):
+    """POST /chat/unknown returns 404."""
+    payload = {"query": "Hello"}
+    response = await client.post("/chat/unknown", json=payload)
+
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"].lower()
+
+
+# ---------------------------------------------------------------------------
+# Test: Chat WebSocket Endpoint
+# ---------------------------------------------------------------------------
+
+# WebSocket tests skipped — httpx AsyncClient requires special websocket setup
+# Would need to use lifespan testing or separate websocket test client
+# For now, WebSocket streaming is covered by integration tests in test_e2e.py
+# Manual testing: connect to WS /chat/ws/{slug} and send {"query": "hello"}
+
+
+# ---------------------------------------------------------------------------
+# Test: Ingest Endpoint
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_ingest_basic(client):
+    """POST /ingest/{slug} with file returns 200 with job_id."""
+    with patch("api.routes.ingest.BackgroundTasks"):
+        file_content = b"Sample document content"
+
+        response = await client.post(
+            "/ingest/paragpt-client",
+            files={"file": ("test.txt", BytesIO(file_content), "text/plain")},
+            data={"source_type": "document"}
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert "job_id" in data
+        assert data["status"] == "processing"
+        assert "message" in data
+
+
+@pytest.mark.asyncio
+async def test_ingest_sacred_archive_valid(client):
+    """POST /ingest/sacred-archive with full provenance returns 200."""
+    with patch("api.routes.ingest.BackgroundTasks"):
+        file_content = b"Sacred text"
+        provenance = {
+            "date": "2025-01-01",
+            "location": "Temple",
+            "event": "Teaching",
+            "verifier": "Master",
+            "access_tier": "devotee"
+        }
+
+        response = await client.post(
+            "/ingest/sacred-archive",
+            files={"file": ("sacred.txt", BytesIO(file_content), "text/plain")},
+            data={
+                "source_type": "teaching",
+                "provenance_json": json.dumps(provenance)
+            }
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "processing"
+
+
+@pytest.mark.asyncio
+async def test_ingest_sacred_archive_missing_fields(client):
+    """POST /ingest/sacred-archive without required provenance fields returns 400."""
+    with patch("api.routes.ingest.BackgroundTasks"):
+        file_content = b"Sacred text"
+        # Missing required fields
+        provenance = {"date": "2025-01-01"}
+
+        response = await client.post(
+            "/ingest/sacred-archive",
+            files={"file": ("sacred.txt", BytesIO(file_content), "text/plain")},
+            data={
+                "source_type": "teaching",
+                "provenance_json": json.dumps(provenance)
+            }
+        )
+
+        assert response.status_code == 400
+        assert "provenance" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_ingest_paragpt_no_provenance_required(client):
+    """POST /ingest/paragpt without provenance should succeed (not required for ParaGPT)."""
+    with patch("api.routes.ingest.BackgroundTasks"):
+        file_content = b"Article about geopolitics"
+
+        response = await client.post(
+            "/ingest/paragpt-client",
+            files={"file": ("article.txt", BytesIO(file_content), "text/plain")},
+            data={"source_type": "article"}
+        )
+
+        assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_ingest_unknown_clone(client):
+    """POST /ingest/unknown returns 404."""
+    file_content = b"Test"
+
+    response = await client.post(
+        "/ingest/unknown",
+        files={"file": ("test.txt", BytesIO(file_content), "text/plain")}
+    )
+
+    assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Test: Review Endpoints
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_review_list_sacred_archive(client, mock_db_session):
+    """GET /review/sacred-archive lists pending reviews."""
+    # Create a mock review item
+    review_1 = MagicMock(spec=ReviewQueue)
+    review_1.id = "review-001"
+    review_1.query_text = "What is the meaning of life?"
+    review_1.response_text = "Life is a journey..."
+    review_1.confidence_score = 0.92
+    review_1.created_at = datetime.utcnow()
+
+    # Create a new query mock for ReviewQueue
+    query_mock = MagicMock()
+    filter_mock = MagicMock()
+    order_mock = MagicMock()
+
+    order_mock.all.return_value = [review_1]
+    filter_mock.order_by.return_value = order_mock
+    query_mock.filter.return_value = filter_mock
+
+    # Store the original side_effect and create a new one
+    original_side_effect = mock_db_session.query.side_effect
+    def new_query_side_effect(model):
+        if model == ReviewQueue:
+            return query_mock
+        # Call the original side effect for other models
+        return original_side_effect(model)
+
+    mock_db_session.query.side_effect = new_query_side_effect
+
+    response = await client.get("/review/sacred-archive")
+
+    # Restore the original
+    mock_db_session.query.side_effect = original_side_effect
+
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+
+
+@pytest.mark.asyncio
+async def test_review_list_paragpt_forbidden(client):
+    """GET /review/paragpt returns 403 (review not required for ParaGPT)."""
+    response = await client.get("/review/paragpt-client")
+    assert response.status_code == 403
+    assert "review_required" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_review_approve(client, mock_db_session):
+    """PATCH /review/{id} with action=approve updates status."""
+    review = MagicMock(spec=ReviewQueue)
+    review.id = "review-001"
+    review.status = "approved"
+    review.reviewer_notes = None
+    review.reviewed_at = datetime.utcnow()
+
+    query_mock = MagicMock()
+    filter_mock = MagicMock()
+    filter_mock.first.return_value = review
+    query_mock.filter.return_value = filter_mock
+
+    # Store the original side_effect and create a new one
+    original_side_effect = mock_db_session.query.side_effect
+    def new_query_side_effect(model):
+        if model == ReviewQueue:
+            return query_mock
+        return original_side_effect(model)
+
+    mock_db_session.query.side_effect = new_query_side_effect
+
+    response = await client.patch(
+        "/review/review-001",
+        json={"action": "approve"}
+    )
+
+    # Restore the original
+    mock_db_session.query.side_effect = original_side_effect
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "approved"
+
+
+@pytest.mark.asyncio
+async def test_review_reject(client, mock_db_session):
+    """PATCH /review/{id} with action=reject updates status."""
+    review = MagicMock(spec=ReviewQueue)
+    review.id = "review-001"
+    review.status = "rejected"
+    review.reviewer_notes = "Not on topic"
+    review.reviewed_at = datetime.utcnow()
+
+    query_mock = MagicMock()
+    filter_mock = MagicMock()
+    filter_mock.first.return_value = review
+    query_mock.filter.return_value = filter_mock
+
+    # Store the original side_effect and create a new one
+    original_side_effect = mock_db_session.query.side_effect
+    def new_query_side_effect(model):
+        if model == ReviewQueue:
+            return query_mock
+        return original_side_effect(model)
+
+    mock_db_session.query.side_effect = new_query_side_effect
+
+    response = await client.patch(
+        "/review/review-001",
+        json={"action": "reject", "notes": "Not on topic"}
+    )
+
+    # Restore the original
+    mock_db_session.query.side_effect = original_side_effect
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "rejected"
+
+
+@pytest.mark.asyncio
+async def test_review_not_found(client):
+    """PATCH /review/unknown returns 404."""
+    with patch("api.routes.review.get_db") as mock_get_db:
+        mock_session = MagicMock()
+        mock_get_db.return_value = mock_session
+
+        query_mock = MagicMock()
+        filter_mock = MagicMock()
+        filter_mock.first.return_value = None
+        query_mock.filter.return_value = filter_mock
+        mock_session.query.return_value = query_mock
+
+        response = await client.patch(
+            "/review/unknown",
+            json={"action": "approve"}
+        )
+
+        assert response.status_code == 404

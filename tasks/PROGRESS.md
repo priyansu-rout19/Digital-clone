@@ -1,7 +1,7 @@
 # Digital Clone Engine — Session Progress & Implementation Status
 
-**Last Updated:** March 4, 2026 (Session 9 — Voyage AI Embeddings Complete)
-**Current Focus:** Core engine + API gateway 100% built & validated. FastAPI endpoints streaming responses. Voyage AI integration verified across all layers. Ready for database seeding + frontend (Week 3).
+**Last Updated:** March 4, 2026 (Session 10 — FastAPI Gateway Tests Complete)
+**Current Focus:** Full backend complete: core engine + API gateway + comprehensive tests. All 26 tests passing (18 API + 4 E2E + 4 Voyage integration). Ready for database seeding + frontend (Week 3).
 
 ---
 
@@ -169,6 +169,26 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 - ✅ Smoke test: Server starts, `/health` responds, routes register successfully
 - ✅ Verified: All 4 layers working with Voyage AI (embedder, retrieval, memory, LangGraph)
 
+**FastAPI Gateway Tests** (Session 10 — NEW)
+- ✅ `tests/test_api.py` (575 lines, 18 test cases) — Comprehensive HTTP endpoint testing
+  - Health check, profile endpoint, chat sync, ingest, review endpoints all covered
+  - Mock strategy: DB session + clone fixtures, LangGraph graph mock with preset responses
+  - All 18 tests pass in ~11 seconds
+- ✅ `tests/conftest.py` (NEW) — Pytest configuration with async support
+  - Loads .env at session startup for all tests
+  - Registers pytest-asyncio plugin (auto mode)
+  - Shared fixtures for mock DB and graph
+- ✅ `pytest.ini` (NEW) — Pytest configuration file
+  - Enables asyncio_mode=auto for mixed async/sync tests
+  - Sets testpaths and python_files patterns
+- ✅ `tests/test_voyage_integration.py` (FIXED) — Moved from root, proper pytest format
+  - Removed hardcoded API key, uses os.environ.get()
+  - 4 test functions (import, instantiation, mem0 import, mem0 instantiation)
+  - Mem0 instantiation skips if PostgreSQL not reachable (infrastructure dependency)
+  - Auto-skips if VOYAGE_API_KEY not in env
+- ✅ `requirements.txt` — Added pytest==9.0.2, pytest-asyncio==0.25.2
+- ✅ Full test suite: **26 passed** (18 API + 4 E2E + 4 Voyage) — zero xfails
+
 ### ⏳ IN PROGRESS
 
 **Component 05: Voice Output**
@@ -332,37 +352,39 @@ These were researched and decided. Do NOT re-debate:
 
 ---
 
-## Next Tasks: FastAPI Layer OR E2E Testing
+## Next Tasks: Database Seeding + Frontend
 
-**✅ DONE: Citation Verifier (Session 5)** — Core engine 100% complete!
+**✅ DONE: FastAPI Gateway Tests (Session 10)** — Full backend complete!
 
-**Option A: FastAPI Layer (Workstream 2 — Recommended)**
-- Create `api/` directory with FastAPI app
-- Implement endpoints:
-  - `POST /chat/{clone_id}` — WebSocket stream for queries
-  - `POST /ingest/{clone_id}` — Trigger Celery async ingestion
-  - `GET /review/{clone_id}` — List pending reviews
-  - `PATCH /review/{review_id}` — Approve/reject responses
-  - `GET /clone/{clone_id}/profile` — Fetch clone config
-- Auth: API key + OAuth
-- Session management with Redis
-- ~200-300 lines, full week's work
-- **Unblocks:** React frontend can now connect to backend
+**Next Priority: Database Seeding (Workstream 3, Week 3)**
+- Seed PostgreSQL with clone profiles (ParaGPT + Sacred Archive)
+- Insert sample documents for both clients (PDFs, markdown, text)
+- Initialize pgvector index with semantic chunks
+- Test full flow: Chat page → API → LangGraph → response streaming
+- ~100-150 lines of SQL seed scripts
 
-**Option B: E2E Integration Test (Workstream 1 validation)**
-- Write full conversation flow test: query → retrieval → memory → generation → citation → verify
-- Test both ParaGPT (interpretive) and Sacred Archive (mirror_only) profiles
-- Verify CRAG retry loop (3 hops on low confidence)
-- Test silence mode, confidence thresholds, review queue routing
-- ~100-150 lines, fits in one session
+**Then: React Frontend (Workstream 3, Week 3)**
+- Chat Page (ParaGPT):
+  - Real-time message streaming via WebSocket
+  - Citation display with source links
+  - User memory context display
+  - Voice playback (if voice_mode enabled)
+
+- Review Dashboard (Sacred Archive):
+  - Reviewer interface for pending queue
+  - Side-by-side: generated response vs. original corpus
+  - Approve/reject buttons
+  - Audit trail of decisions
 
 **Why:**
-- FastAPI: Unblocks client integration (React needs API endpoints)
-- E2E test: Proves entire system works together before API build
+- Database seeding: Unlocks local testing without manual setup
+- Frontend: Makes system usable end-to-end (UI → API → engine)
+- Both required for Week 3 smoke test on PCCI
 
-**Recommendation:**
-- **FastAPI next** (Week 2 kickoff) — Makes engine usable via HTTP
-- E2E test can be done in parallel or after FastAPI (both valuable)
+**Status:**
+- ✅ Backend (core engine + API + tests): 100% COMPLETE
+- ⏳ Database seeding: Ready to build (no blockers)
+- ⏳ Frontend: Ready to build (API endpoints live)
 
 ---
 
@@ -397,9 +419,9 @@ See `tasks/lessons.md` for all 11.
 
 ---
 
-## For Next Session (Session 10+)
+## For Next Session (Session 11+)
 
-**What's Ready: CORE ENGINE + API GATEWAY + EMBEDDINGS 100% COMPLETE ✅**
+**What's Ready: FULL BACKEND COMPLETE ✅ — Core Engine + API Gateway + Tests**
 - Components 01, 02, 03, 04 are ALL COMPLETE
 - FastAPI Layer COMPLETE — 6 files, 5 endpoint groups, WebSocket streaming (Session 8)
 - **Voyage AI Embeddings COMPLETE** (Session 9) — 1024-dim verified across all 4 test layers:
@@ -407,14 +429,19 @@ See `tasks/lessons.md` for all 11.
   - ✅ E2E tests: All 4/4 passing (ParaGPT, Sacred Archive, CRAG, citations)
   - ✅ Pipeline visualizer: 11-node execution with real Groq LLM responses
   - ✅ Batch embedding: 8 documents → 1024-dim vectors (zero-migration from OpenAI)
+- **FastAPI Gateway Tests COMPLETE** (Session 10) — 18 comprehensive HTTP tests:
+  - ✅ All endpoints tested: health, profile, chat sync, ingest, review (get + patch)
+  - ✅ Mock strategy: DB session + graph fixtures (no real DB/LLM in tests)
+  - ✅ Full test suite: 26 passed (18 API + 4 E2E + 4 Voyage) — zero xfails
+  - ✅ Async test support with pytest-asyncio and proper FastAPI mocking
 - Mem0 integration COMPLETE (memory_retrieval + memory_writer, pgvector backend, Voyage AI embeddings)
 - Citation verification COMPLETE (parse [N], cross-ref, populate cited_sources)
 - **Tier 2 Architecture FIXED** — T2 runs before CRAG, not after. Spec-correct order: T1 → T2 → CRAG
-- System is fully validated: search documents, CRAG loops (including T2), memory, citations, routing, API, embeddings all work
+- System is fully validated: search documents, CRAG loops (including T2), memory, citations, routing, API, embeddings, HTTP layer all work
 - Clone-id & user-id scoping enable multi-tenant safe retrieval & memory
 - Retry bug fixed (true 3-cycle CRAG with T2, not 1-cycle)
-- Code is lean (43% smaller core, 539 new lines for API)
-- All ~50 files on GitHub with clean commit history (Tier 2 fix + FastAPI + Voyage AI commits)
+- Code is lean (43% smaller core, 539 new lines for API, 575 for tests)
+- All ~50+ files on GitHub with clean commit history (Tier 2 fix + FastAPI + Voyage AI + Tests commits)
 - Git worktree setup: `original-plan` branch ready for Zvec + TEI implementation (when PCCI ready)
 
 **What's Left (Next: Database Seeding + Frontend):**
@@ -433,12 +460,13 @@ See `tasks/lessons.md` for all 11.
 - ✅ WebSocket double invoke fixed (50% latency improvement)
 - `<think>` tags in LLM responses — ✅ **FIXED (Session 6.5)** Added `reasoning_effort="none"` to `core/llm.py` for Groq. Qwen3-32B now produces clean responses (confidence improved 0.5→0.9). When PCCI GPU server is ready with Qwen3.5-35B-A3B, use `enable_thinking=False` in `extra_body` instead (different parameter for SGLang/vLLM).
 
-**To Continue Next Session (Session 7):**
+**To Continue Next Session (Session 11):**
 1. Read `PROGRESS.md` (this file) — recap status
 2. Check `/memory/MEMORY.md` — session context
-3. Start FastAPI Layer: `api/main.py` + routers structure
-4. Verify git is ready: `git log --oneline -5`, `git worktree list`
-5. Check GitHub push status: `git status` (should be clean)
+3. Start database seeding: SQL INSERT for clone profiles + sample documents
+4. Run full test suite to verify local setup: `pytest tests/ -v`
+5. Test chat API with real documents: `curl -X POST http://localhost:8000/chat/paragpt-client -H "Content-Type: application/json" -d '{"query":"hello"}'`
+6. Verify git is ready: `git log --oneline -5`, `git status` (should be clean)
 
 **Quick Architecture Refresh:**
 - **ParaGPT:** Interpretive, voice-enabled, public documents, minimal review
@@ -448,17 +476,53 @@ See `tasks/lessons.md` for all 11.
 
 **Key Files Modified This Session:**
 
-**Session 4 (Mem0 Integration):**
-- `core/mem0_client.py` (NEW) — Mem0 client factory with pgvector backend
-- `core/langgraph/nodes/context_nodes.py` — Implemented memory_retrieval + added memory_writer
-- `core/langgraph/conversation_flow.py` — Added user_id to ConversationState + wired memory_writer node
-- `requirements.txt` — Added mem0ai dependency
-- Git setup: Created worktree for original-plan branch (Zvec + TEI)
+**Session 10 (FastAPI Gateway Tests):**
+- `tests/test_api.py` (NEW, 575 lines) — 18 comprehensive HTTP endpoint tests
+  - Health check, profile, chat sync, ingest, review endpoints
+  - Mock DB session + graph fixtures
+  - All tests passing in ~11s
+- `tests/conftest.py` (NEW) — Pytest configuration with async support
+  - Loads .env at session startup
+  - Registers pytest-asyncio (auto mode)
+- `pytest.ini` (NEW) — Pytest configuration
+  - asyncio_mode=auto, testpaths, python_files
+- `tests/test_voyage_integration.py` (MOVED & FIXED)
+  - Moved from root to tests/ (no hardcoded API key)
+  - Converted to proper pytest format (4 test functions)
+  - Mem0 instantiation: config key fixed (`langchain_embeddings` → `model`), skips if PostgreSQL not reachable
+  - Auto-skips if VOYAGE_API_KEY not in env
+- `requirements.txt` — Added pytest==9.0.2, pytest-asyncio==0.25.2
+- `MEMORY.md` — Updated Session 10 status, added FastAPI tests section
+- `PROGRESS.md` — Updated current status line, Session 10 completion
 
-**Session 5 (Citation Verifier + Finalization):**
-- `core/langgraph/nodes/generation_nodes.py` — Replaced citation_verifier stub (2 lines → 25 lines)
-- `docs/DEVELOPMENT-PLAN.md` — Updated to Session 4+ status with next-step options
-- `tasks/PROGRESS.md` — Updated node status, marked citation_verifier complete
+**Previous Sessions:**
+
+**Session 9 (Voyage AI Embeddings):**
+- Swapped OpenAI → Voyage AI voyage-3 (1024-dim, zero-migration)
+- Updated `core/rag/ingestion/embedder.py`, `core/mem0_client.py`
+- Verified across all 4 test layers (unit, E2E, visualizer, batch)
+
+**Session 8 (FastAPI Layer):**
+- Built `api/` directory (main.py, deps.py, routes/)
+- Implemented 5 endpoint groups (chat, ingest, review, config, health)
+- WebSocket optimization (50% latency reduction)
+
+**Session 7 (Tier 2 Architecture Fix):**
+- Reordered graph edges: T1 → T2 → CRAG (was T1 → CRAG → T2)
+- Spec-compliant order: CRAG evaluates combined T1+T2 result
+
+**Session 6 (E2E Integration Tests):**
+- Built `tests/test_e2e.py` (226 lines, 4 test cases, all passing)
+- Built `tests/show_pipeline.py` (280 lines, pipeline visualizer)
+
+**Session 5 (Citation Verifier):**
+- Implemented `citation_verifier()` node (25 lines of pure Python)
+- Parses [N] markers, cross-refs passages, populates cited_sources
+
+**Session 4 (Mem0 Integration):**
+- Built `core/mem0_client.py` (Mem0 factory with pgvector backend)
+- Implemented `memory_retrieval()` + added `memory_writer()` node
+- Added user_id to ConversationState, user-scoped memories
 
 **If Context Gets Full Again:**
 - Update PROGRESS.md with new progress

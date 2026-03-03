@@ -315,6 +315,28 @@ The current approach worked (all tests passed), but it meant CRAG couldn't benef
 
 ---
 
+### Lesson 18: FastAPI Testing with Mocked Dependencies
+
+**What happened:** Session 10 built comprehensive HTTP endpoint tests for FastAPI layer using httpx.AsyncClient, async fixtures, and mocked dependencies (DB session + LangGraph graph).
+
+**The pattern:** FastAPI testing with real async endpoints requires:
+1. **Async fixtures** — Must declare fixtures with `@pytest.fixture` (non-async) but use async client inside them
+2. **Dependency overrides** — FastAPI's `app.dependency_overrides[get_db]` lets tests inject mocks globally
+3. **ASGITransport** — httpx requires `ASGITransport(app=app)` to send requests to the FastAPI app
+4. **Mock strategy** — Mock database session with pre-configured clones; mock graph with preset final states
+5. **Flexible query mocking** — For multiple model types (Clone vs ReviewQueue), use `side_effect` functions that dispatch based on model type
+6. **pytest-asyncio** — Enables `@pytest.mark.asyncio` on async test functions; requires conftest.py setup
+
+**Rule for future:**
+- Always use `httpx.AsyncClient(transport=ASGITransport(app=app))` for FastAPI async endpoint testing
+- Store original side_effect before overriding; restore after test (prevents recursion)
+- Create shared fixtures for common mocks (clones, profiles); override per-test for specific behaviors
+- Prefer `@pytest.mark.skipif` with infrastructure checks over `@pytest.mark.xfail` for infra-dependent tests
+- Mark async test functions with `@pytest.mark.asyncio`, async fixtures don't need decorator
+- Load .env in conftest.py at session startup (before test collection)
+
+---
+
 ## Session Patterns to Remember
 
 1. **User is learning by building** — every spec/decision should explain the why, not just the what
@@ -334,3 +356,5 @@ The current approach worked (all tests passed), but it meant CRAG couldn't benef
 15. **Reasoning mode control varies by backend** — Groq uses `reasoning_effort`, vLLM/SGLang use `enable_thinking`, same problem different solutions
 16. **Spec compliance: verify implementation against original spec** — drift happens during incremental development. Check spec when questions arise. Spec is source of truth, not implementation.
 17. **Sync code in async framework doesn't require full async rewrite** — FastAPI supports sync dependencies. Measure first (if <100ms, use sync directly). Only use async wrappers if operations are slow.
+18. **FastAPI testing with async fixtures and dependency overrides** — Use httpx.AsyncClient(transport=ASGITransport), override dependencies globally, mock flexible models with side_effect dispatchers. Always restore original side_effect to avoid recursion.
+19. **Mem0 langchain provider uses `model` key, not `langchain_embeddings`** — Mem0's `BaseEmbedderConfig.__init__()` accepts `model: Optional[str]` which the `LangchainEmbedding` class duck-types to accept a LangChain `Embeddings` instance. The config dict keys must match `BaseEmbedderConfig` constructor params exactly since `EmbedderFactory.create()` unpacks them as `BaseEmbedderConfig(**config)`. Always read the library source to confirm parameter names.

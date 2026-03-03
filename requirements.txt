@@ -21,4 +21,5 @@ pgvector==0.3.6
 pymupdf
 mem0ai
 tf-keras
-pytest
+pytest==9.0.2
+pytest-asyncio==0.25.2
