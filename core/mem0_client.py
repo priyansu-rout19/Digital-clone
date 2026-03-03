@@ -6,7 +6,7 @@ Reads configuration from environment variables.
 
 Uses:
 - LLM: Groq API + qwen/qwen3-32b (same as core/llm.py)
-- Embedder: OpenAI text-embedding-3-small with 1024 dimensions
+- Embedder: Voyage AI voyage-3 with 1024 dimensions
 - Vector Store: PostgreSQL pgvector (same DB as documents)
 """
 
@@ -14,6 +14,7 @@ import os
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 from mem0 import Memory
+from langchain_voyageai import VoyageAIEmbeddings
 
 
 load_dotenv()
@@ -41,7 +42,7 @@ def get_mem0_client() -> Memory:
     Get a configured Mem0 instance for cross-session user memory.
 
     Uses pgvector backend in the same PostgreSQL database as the application.
-    LLM and embedder use the same dev proxies (Groq, OpenAI) as the rest of the system.
+    LLM uses Groq API, embedder uses Voyage AI (same as core/rag/ingestion/embedder.py).
 
     Returns:
         Memory instance ready to search() and add() memories
@@ -66,11 +67,11 @@ def get_mem0_client() -> Memory:
             "Please create a .env file with GROQ_API_KEY=<your_key>"
         )
 
-    openai_key = os.environ.get("OPENAI_API_KEY")
-    if not openai_key:
+    voyage_key = os.environ.get("VOYAGE_API_KEY")
+    if not voyage_key:
         raise KeyError(
-            "OPENAI_API_KEY environment variable not set. "
-            "Please create a .env file with OPENAI_API_KEY=<your_key>"
+            "VOYAGE_API_KEY environment variable not set. "
+            "Please create a .env file with VOYAGE_API_KEY=<your_key>"
         )
 
     # Parse DB URL for pgvector config
@@ -86,11 +87,10 @@ def get_mem0_client() -> Memory:
             },
         },
         "embedder": {
-            "provider": "openai",
+            "provider": "langchain",
             "config": {
-                "model": "text-embedding-3-small",
+                "langchain_embeddings": VoyageAIEmbeddings(model="voyage-3"),
                 "embedding_dims": 1024,
-                "api_key": openai_key,
             },
         },
         "vector_store": {

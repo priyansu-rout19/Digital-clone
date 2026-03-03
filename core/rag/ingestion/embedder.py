@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 from dotenv import load_dotenv
-from langchain_openai import OpenAIEmbeddings
+from langchain_voyageai import VoyageAIEmbeddings
 
 
 load_dotenv()
@@ -9,35 +9,23 @@ load_dotenv()
 
 class EmbeddingClient:
 
-    def __init__(self, base_url: str, model: str, api_key: str):
-        self.base_url = base_url
+    def __init__(self, model: str, api_key: str):
         self.model = model
         self.api_key = api_key
-        self._client: Optional[OpenAIEmbeddings] = None
+        self._client: Optional[VoyageAIEmbeddings] = None
 
     def _init_client(self) -> None:
-        self._client = OpenAIEmbeddings(
+        self._client = VoyageAIEmbeddings(
             model=self.model,
-            api_key=self.api_key,
-            base_url=self.base_url,
+            voyage_api_key=self.api_key,
         )
-
-    def _is_openai_model(self) -> bool:
-        return self.model.startswith("text-embedding-3-")
 
     def _embed_batch(self, batch: list[str]) -> list[list[float]]:
         if not self._client:
             self._init_client()
 
         try:
-            if self._is_openai_model():
-                embeddings = self._client.embed_documents(
-                    batch,
-                    dimensions=1024,
-                )
-            else:
-                embeddings = self._client.embed_documents(batch)
-
+            embeddings = self._client.embed_documents(batch)
             return embeddings
 
         except Exception as e:
@@ -64,29 +52,21 @@ class EmbeddingClient:
 
 
 def get_embedder() -> EmbeddingClient:
-    base_url = os.environ.get("EMBEDDING_API_BASE_URL")
-    if not base_url:
-        raise KeyError(
-            "EMBEDDING_API_BASE_URL environment variable not set. "
-            "Please set it to https://api.openai.com/v1 (dev) or http://localhost:8001/v1 (prod)"
-        )
-
     model = os.environ.get("EMBEDDING_MODEL")
     if not model:
         raise KeyError(
             "EMBEDDING_MODEL environment variable not set. "
-            "Please set it to text-embedding-3-small (dev) or Qwen3-Embedding-0.6B (prod)"
+            "Please set it to voyage-3 (or other Voyage models)"
         )
 
-    api_key = os.environ.get("OPENAI_API_KEY")
+    api_key = os.environ.get("VOYAGE_API_KEY")
     if not api_key:
         raise KeyError(
-            "OPENAI_API_KEY environment variable not set. "
-            "Please create a .env file with OPENAI_API_KEY=<your_key> (required for dev mode)"
+            "VOYAGE_API_KEY environment variable not set. "
+            "Please create a .env file with VOYAGE_API_KEY=<your_key>"
         )
 
     return EmbeddingClient(
-        base_url=base_url,
         model=model,
         api_key=api_key,
     )
