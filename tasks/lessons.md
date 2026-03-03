@@ -254,6 +254,28 @@ Qwen3-32B and Qwen3.5-35B-A3B both generate `<think>...</think>` by default. Sam
 
 ---
 
+### Lesson 16: Spec Compliance — Read Original Docs, Don't Assume Implementation
+
+**What happened:** Session 7 discovered that Tier 2 (tree_search) was positioned AFTER the CRAG loop when the original spec said it should run IMMEDIATELY after T1 (before CRAG). Current implementation: `T1 → CRAG → T2 → context`. Spec: `T1 → T2 → CRAG`. CRAG should evaluate the enriched T1+T2 result, not just T1.
+
+**The pattern:** Implementation details can drift from spec during development. Especially when:
+1. Building incrementally (finish T1, then add CRAG, then add T2)
+2. Stub nodes make it easy to defer decisions
+3. No one re-reads the original spec after initial implementation
+
+The current approach worked (all tests passed), but it meant CRAG couldn't benefit from T2's structural enrichment on the first pass. The retry loop still worked, but was sub-optimal.
+
+**Solution:** Always check the original spec document when someone asks a question like "how does feature X work?". If their description doesn't match current implementation, the spec is the source of truth.
+
+**Rule for future:**
+- When implementing multi-component systems, write out the expected sequence ONCE (in spec or comments)
+- After implementation completes, verify actual code matches that sequence
+- If implementation diverged, fix it to match spec (not the other way around)
+- Reference the spec document in code comments so future readers know the source of truth
+- For Tier 2: added comment to `after_tier1()` function explaining T2 runs immediately after T1, before CRAG evaluates
+
+---
+
 ## Session Patterns to Remember
 
 1. **User is learning by building** — every spec/decision should explain the why, not just the what
@@ -271,3 +293,4 @@ Qwen3-32B and Qwen3.5-35B-A3B both generate `<think>...</think>` by default. Sam
 13. **Mock path resolution: patch at source, not import site** — for lazy imports, patch where function is defined
 14. **E2E test fixtures must respect profile thresholds** — confidence thresholds differ per profile
 15. **Reasoning mode control varies by backend** — Groq uses `reasoning_effort`, vLLM/SGLang use `enable_thinking`, same problem different solutions
+16. **Spec compliance: verify implementation against original spec** — drift happens during incremental development. Check spec when questions arise. Spec is source of truth, not implementation.

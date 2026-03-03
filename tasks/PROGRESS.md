@@ -1,7 +1,7 @@
 # Digital Clone Engine — Session Progress & Implementation Status
 
-**Last Updated:** March 3, 2026 (Session 6 — E2E Integration Tests COMPLETE)
-**Current Focus:** Full core engine validated. E2E tests pass (4/4). Next: FastAPI Layer (Workstream 2).
+**Last Updated:** March 3, 2026 (Session 7 — Tier 2 Architecture Fix COMPLETE)
+**Current Focus:** Core engine 100% built & validated. Tier 2 now runs before CRAG (spec-correct). Ready for FastAPI Layer (Workstream 2).
 
 ---
 
@@ -44,6 +44,7 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 - ConversationState TypedDict with 19 keys (clone_id, user_id, etc.)
 - `build_graph(profile)` factory that builds client-specific routing
 - Conditional edges using closures (profile captured at build time)
+- **Session 7 Fix:** T2 (tree_search) now runs immediately after T1 (before CRAG), not after. Added `after_tier1()` routing. CRAG evaluates combined T1+T2 result. Retry loop includes both tiers.
 - Node files in `core/langgraph/nodes/`:
   - `query_analysis_node.py` — Real LLM intent classification
   - `retrieval_nodes.py` — Tier 1/2 search, CRAG, query reformulation
@@ -378,18 +379,19 @@ See `tasks/lessons.md` for all 11.
 
 ---
 
-## For Next Session (Session 7)
+## For Next Session (Session 8)
 
-**What's Ready: CORE ENGINE 100% + VALIDATION COMPLETE ✅**
+**What's Ready: CORE ENGINE 100% + SPEC-COMPLIANT ✅**
 - Components 01, 02, 03, 04 are ALL COMPLETE
 - Mem0 integration COMPLETE (memory_retrieval + memory_writer, pgvector backend)
 - Citation verification COMPLETE (parse [N], cross-ref, populate cited_sources)
 - E2E Integration Tests COMPLETE (4/4 tests passing, 41.74s runtime)
-- System is fully validated: search documents, CRAG loops, memory, citations, routing all work
+- **Tier 2 Architecture FIXED (Session 7)** — T2 runs before CRAG, not after. Spec-correct order: T1 → T2 → CRAG
+- System is fully validated: search documents, CRAG loops (including T2), memory, citations, routing all work
 - Clone-id & user-id scoping enable multi-tenant safe retrieval & memory
-- Retry bug fixed (true 3-cycle CRAG, not 1-cycle)
+- Retry bug fixed (true 3-cycle CRAG with T2, not 1-cycle)
 - Code is lean (43% smaller, no docstring/comment overhead)
-- All 46 files on GitHub with clean commit history (c70f803 tests, 9b3e410 docs)
+- All 47 files on GitHub with clean commit history (Tier 2 fix commit added)
 - Git worktree setup: `original-plan` branch ready for Zvec + TEI implementation
 
 **What's Left (Next: FastAPI Layer):**

@@ -145,12 +145,14 @@ Every query flows through this pipeline. The clone profile controls behavior at 
 - If `provenance_graph_enabled`: parallel Apache AGE queries
 
 **Tier 2 — Tree Search** (conditional, +1-2s):
-- For structured documents with PageIndex trees
-- LLM reasons about hierarchical sections
+- Runs immediately after Tier 1 (if profile enables it + documents have PageIndex trees)
+- LLM reasons about hierarchical sections of structured documents
 - Especially valuable for books, transcripts with hierarchy
+- Augments T1 results with structurally-relevant passages
 
 **Self-Correction (CRAG loop)**:
-- If confidence below threshold, reformulate query and retry
+- Evaluates the combined T1+T2 result
+- If confidence below threshold, reformulate query and retry both tiers
 - Max 3 hops
 
 ### Step 3: Context Assembly

@@ -8,9 +8,9 @@
 
 **What:** A unified AI clone engine serving two clients (ParaGPT + Sacred Archive) through one codebase, behavior controlled by configuration.
 
-**Status:** Session 6.5 complete. All core engine components built, tested, and production-hardened. E2E integration tests pass (4/4). Pipeline visualizer enables team understanding. <think> tags fixed for clean responses. 19-node LangGraph fully functional for both clone profiles. Ready for FastAPI layer (Week 2).
+**Status:** Session 7 complete. All core engine components built, tested, and spec-compliant. E2E integration tests pass (4/4). Tier 2 architecture fixed (now runs before CRAG). 19-node LangGraph fully functional for both clone profiles. Ready for FastAPI layer (Week 2).
 
-**Confidence Level:** VERY HIGH — Full architecture proven via working code. All 48 files on GitHub (components + E2E tests + pipeline viz). <think> tags disabled at API level for clean inference. Production path clear: dev proxies → SGLang/TEI/Zvec with zero code changes. No blockers.
+**Confidence Level:** VERY HIGH — Full architecture proven via working code. All 47 files on GitHub (components + E2E tests + pipeline viz + Tier 2 fix). Tier 2 execution order corrected to match spec. Production path clear: dev proxies → SGLang/TEI/Zvec with zero code changes. No blockers.
 
 ---
 
@@ -93,8 +93,8 @@ Every query flows through this sequence. The clone profile controls behavior at 
 
 2. **Two-Tier Retrieval with Self-Correction** (Tier 1: <100ms, Tier 2: +1-2s)
    - **Tier 1:** Embed queries → search Zvec → reciprocal rank fusion for multi-query merging
-   - **Tier 2** (if confidence low): LLM reasons about hierarchical document structure via PageIndex
-   - **CRAG loop:** If confidence below threshold, reformulate and retry (max 3 hops)
+   - **Tier 2** (if applicable): Immediately after T1, LLM reasons about hierarchical document structure via PageIndex. Augments T1 results with structurally-relevant passages.
+   - **CRAG loop:** Evaluates combined T1+T2 result. If confidence below threshold, reformulate and retry (max 3 hops, includes both tiers)
 
 3. **Context Assembly**
    - Format retrieved passages into 8K-32K token context window
@@ -136,6 +136,7 @@ Every query flows through this sequence. The clone profile controls behavior at 
 | **E2E Integration Tests** | pytest (4 test cases) | Validate full pipeline both profiles | ✅ BUILT (Session 6) |
 | **Pipeline Visualizer** | Python + graph.stream() | Educational node-by-node state tracking | ✅ BUILT (Session 6.5) |
 | **<think> Tags Control** | Groq API reasoning_effort param | Disable chain-of-thought in responses | ✅ BUILT (Session 6.5) |
+| **Tier 2 Architecture Fix** | Reordered graph edges | T2 runs before CRAG (spec-correct) | ✅ BUILT (Session 7) |
 
 ### 3.2 Stub Services (Small Remaining)
 
@@ -277,6 +278,15 @@ This single configuration object controls all behavioral routing in the pipeline
   - `test_citation_verifier_direct` — Citation parsing + hallucination detection
   - All 4 tests PASS (41.74s) with real Groq LLM + mocked DB/memory
   - Validates full orchestration before API layer
+
+- ✅ **Session 7 — Tier 2 Architecture Fix** (3 changes to conversation_flow.py)
+  - Added `after_tier1()` routing function to check profile.retrieval_tiers
+  - Wired `T1 → T2` (if applicable) instead of `T1 → CRAG` (direct)
+  - Changed `T2 → CRAG` (was `T2 → context_assembler`)
+  - Simplified `after_crag()` — removed T2 option (now runs before)
+  - CRAG now evaluates combined T1+T2 result; retry loop includes both tiers
+  - All 4 E2E tests still pass; no regressions
+  - Graph topology now matches spec (T1 → T2 → CRAG order)
 
 **NEXT (Week 2):**
 
@@ -496,8 +506,8 @@ web/                             (NOT YET STARTED — Week 3)
 
 ## 10. Next Steps
 
-**Immediate (Session 6.5 Complete):**
-✅ Core engine 100% COMPLETE. E2E validation DONE. Pipeline visualization DONE. <think> tags fixed. Ready for API layer.
+**Immediate (Session 7 Complete):**
+✅ Core engine 100% COMPLETE & SPEC-COMPLIANT. Tier 2 architecture fixed. E2E validation DONE. Ready for API layer.
 
 **✅ DONE: E2E Integration Tests (Session 6)** — All 4 tests passing (41.74s). Validates full orchestration.
 
@@ -506,6 +516,13 @@ web/                             (NOT YET STARTED — Week 3)
 - core/llm.py: Disabled <think> tags via `reasoning_effort="none"` (Groq API native)
 - Confidence scoring improved from ~0.5 → ~0.9 (clean responses, no chain-of-thought text)
 - Production note: Qwen3.5-35B-A3B uses `enable_thinking=False` (vLLM/SGLang param, different backend)
+
+**✅ DONE: Tier 2 Architecture Fix (Session 7)**
+- T2 now runs immediately after T1 (before CRAG), not after CRAG
+- Added `after_tier1()` routing function; wired T2 → CRAG edge
+- CRAG evaluates combined T1+T2 result; retry loop includes both tiers
+- Graph topology now matches original spec
+- All tests pass; no regressions
 
 **Next: FastAPI Layer (4-6 hours) — Week 2 kickoff**
 1. Set up FastAPI app structure (`api/main.py`, routers)
