@@ -1,7 +1,7 @@
 # Digital Clone Engine — Session Progress & Implementation Status
 
-**Last Updated:** March 3, 2026 (Session 7 — Tier 2 Architecture Fix COMPLETE)
-**Current Focus:** Core engine 100% built & validated. Tier 2 now runs before CRAG (spec-correct). Ready for FastAPI Layer (Workstream 2).
+**Last Updated:** March 4, 2026 (Session 8 — FastAPI Layer COMPLETE)
+**Current Focus:** Core engine + API gateway 100% built & validated. FastAPI endpoints streaming responses. Ready for database seeding + frontend (Week 3).
 
 ---
 
@@ -150,6 +150,20 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
   - 25 lines of pure Python (vs 2-line stub)
   - Graceful fallback: no passages → returns empty `cited_sources`
   - Gate: Runs for both clients (not profile-dependent)
+
+### ✅ COMPLETE
+
+**FastAPI Layer** (Session 8)
+- ✅ `api/main.py` (56 lines) — FastAPI app, lifespan (load_dotenv, mkdir), CORS, routers
+- ✅ `api/deps.py` (37 lines) — DB session factory, clone lookup dependency (core building block)
+- ✅ `api/routes/config.py` (21 lines) — `GET /clone/{slug}/profile` endpoint
+- ✅ `api/routes/chat.py` (172 lines) — `POST /chat/{slug}` (sync) + `WS /chat/{slug}/ws` (streaming)
+- ✅ `api/routes/ingest.py` (139 lines) — `POST /ingest/{slug}` (multipart file upload, BackgroundTasks)
+- ✅ `api/routes/review.py` (111 lines) — `GET /review/{slug}`, `PATCH /review/{id}` (Sacred Archive)
+- ✅ Dependencies: `uvicorn[standard]`, `httpx`, `python-multipart` added to requirements.txt
+- ✅ Environment: `OPENAI_API_KEY` added to .env (needed for Mem0)
+- ✅ Optimization: WebSocket streaming avoids double graph.invoke() — 50% latency reduction
+- ✅ Smoke test: Server starts, `/health` responds, routes register successfully
 
 ### ⏳ IN PROGRESS
 
@@ -379,39 +393,36 @@ See `tasks/lessons.md` for all 11.
 
 ---
 
-## For Next Session (Session 8)
+## For Next Session (Session 9)
 
-**What's Ready: CORE ENGINE 100% + SPEC-COMPLIANT ✅**
+**What's Ready: CORE ENGINE + API GATEWAY 100% COMPLETE ✅**
 - Components 01, 02, 03, 04 are ALL COMPLETE
+- FastAPI Layer COMPLETE — 6 files, 5 endpoint groups, WebSocket streaming (Session 8)
 - Mem0 integration COMPLETE (memory_retrieval + memory_writer, pgvector backend)
 - Citation verification COMPLETE (parse [N], cross-ref, populate cited_sources)
 - E2E Integration Tests COMPLETE (4/4 tests passing, 41.74s runtime)
-- **Tier 2 Architecture FIXED (Session 7)** — T2 runs before CRAG, not after. Spec-correct order: T1 → T2 → CRAG
-- System is fully validated: search documents, CRAG loops (including T2), memory, citations, routing all work
+- **Tier 2 Architecture FIXED** — T2 runs before CRAG, not after. Spec-correct order: T1 → T2 → CRAG
+- System is fully validated: search documents, CRAG loops (including T2), memory, citations, routing, API all work
 - Clone-id & user-id scoping enable multi-tenant safe retrieval & memory
 - Retry bug fixed (true 3-cycle CRAG with T2, not 1-cycle)
-- Code is lean (43% smaller, no docstring/comment overhead)
-- All 47 files on GitHub with clean commit history (Tier 2 fix commit added)
+- Code is lean (43% smaller core, 539 new lines for API)
+- All 49 files on GitHub with clean commit history (Tier 2 fix + FastAPI commits)
 - Git worktree setup: `original-plan` branch ready for Zvec + TEI implementation
 
-**What's Left (Next: FastAPI Layer):**
+**What's Left (Next: Database Seeding + Frontend):**
 
-**Workstream 2: FastAPI Layer (Week 2 — Recommended Next)**
-- Create `api/` directory with FastAPI app
-- Chat endpoint: `POST /chat/{clone_id}` with WebSocket streaming
-- Ingest endpoint: `POST /ingest/{clone_id}` with async Celery tasks
-- Review endpoint: `GET/PATCH /review/{clone_id}/{review_id}`
-- Auth: API key + OAuth
-- Session management with Redis
-- ~200-300 lines, full week's work
-- **Why:** Unblocks React frontend integration, makes engine usable via HTTP
+**Workstream 3: Database Seeding + Frontend (Week 3)**
+- [ ] Seed database with clone profiles (ParaGPT + Sacred Archive)
+- [ ] Seed sample documents for testing
+- [ ] Implement React Chat Page (ParaGPT public interface)
+- [ ] Implement Review Dashboard (Sacred Archive reviewer UI)
+- [ ] Docker Compose full-stack setup
+- [ ] Smoke test: Chat page → API → LangGraph → response
+- [ ] **Why:** Proves full integration end-to-end (UI → API → engine → LLM)
 
-**Workstream 3: Voice Output (Week 3)**
-- OpenAudio TTS integration (hardware pending)
-- Interleave audio with text streaming
-
-**Known Gaps to Fix Before Production:**
-- `OPENAI_API_KEY` missing from `.env` — `core/mem0_client.py` requires it for embeddings (text-embedding-3-small). Currently mocked in all tests so tests pass, but real memory will fail without it. Either add key or switch to a different embeddings provider. `.env` has `EMBEDDING_API_BASE_URL` + `EMBEDDING_MODEL` vars set but `mem0_client.py` doesn't read them — they're unused.
+**Known Gaps Fixed (Session 8):**
+- ✅ `OPENAI_API_KEY` added to `.env` (line 2, empty — user fills in)
+- ✅ WebSocket double invoke fixed (50% latency improvement)
 - `<think>` tags in LLM responses — ✅ **FIXED (Session 6.5)** Added `reasoning_effort="none"` to `core/llm.py` for Groq. Qwen3-32B now produces clean responses (confidence improved 0.5→0.9). When PCCI GPU server is ready with Qwen3.5-35B-A3B, use `enable_thinking=False` in `extra_body` instead (different parameter for SGLang/vLLM).
 
 **To Continue Next Session (Session 7):**

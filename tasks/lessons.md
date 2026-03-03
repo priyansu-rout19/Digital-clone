@@ -254,6 +254,45 @@ Qwen3-32B and Qwen3.5-35B-A3B both generate `<think>...</think>` by default. Sam
 
 ---
 
+### Lesson 17: FastAPI Dependency Injection + Database Sessions for Sync Code
+
+**What happened:** Session 8 built FastAPI layer exposing LangGraph orchestrator. Key design choice: use sync SQLAlchemy sessions (not async SQLAlchemy) to avoid rewriting existing `core/db/schema.py` code.
+
+**The pattern:** FastAPI supports BOTH async and sync dependencies. When you have sync code (like `core/db/schema.py` ORM models), you can use sync sessions in FastAPI routes:
+
+```python
+def get_db() -> Session:
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@router.get("/clone/{slug}/profile")
+async def get_profile(slug: str, db: Session = Depends(get_db)):
+    # db is a sync SQLAlchemy Session
+    # Can be used in async route without blocking issues
+    return db.query(Clone).filter(...).first()
+```
+
+**Why this works:** FastAPI routes are async, but individual operations inside them can be sync. The database query is fast enough (<100ms) that blocking doesn't matter. If queries took seconds, we'd need `run_in_executor()` to move them to a thread pool.
+
+**Trade-offs considered:**
+1. **Full async (async SQLAlchemy)** — requires rewriting all `core/db/schema.py` ORM models. Not worth it for this stage.
+2. **Sync sessions in async route** — minimal changes, works fine for <100ms operations. ✅ Chosen.
+3. **Async wrapper with executor** — hybrid approach, more complex. Only needed if queries get slow.
+
+**Rule for future:**
+- When integrating sync code (ORM, DB, LLM) into async framework (FastAPI):
+  - First: measure operation time (is it <100ms?)
+  - If yes: use sync directly in async route (simpler)
+  - If no (seconds): wrap with `run_in_executor()` or convert to async client
+  - Don't pre-maturely convert entire codebase to async
+- Dependency injection pattern: `Depends(get_db)` yields a Session that FastAPI manages (calls cleanup in finally block)
+- Each request gets a fresh DB session (no connection reuse across requests)
+
+---
+
 ### Lesson 16: Spec Compliance — Read Original Docs, Don't Assume Implementation
 
 **What happened:** Session 7 discovered that Tier 2 (tree_search) was positioned AFTER the CRAG loop when the original spec said it should run IMMEDIATELY after T1 (before CRAG). Current implementation: `T1 → CRAG → T2 → context`. Spec: `T1 → T2 → CRAG`. CRAG should evaluate the enriched T1+T2 result, not just T1.
@@ -294,3 +333,4 @@ The current approach worked (all tests passed), but it meant CRAG couldn't benef
 14. **E2E test fixtures must respect profile thresholds** — confidence thresholds differ per profile
 15. **Reasoning mode control varies by backend** — Groq uses `reasoning_effort`, vLLM/SGLang use `enable_thinking`, same problem different solutions
 16. **Spec compliance: verify implementation against original spec** — drift happens during incremental development. Check spec when questions arise. Spec is source of truth, not implementation.
+17. **Sync code in async framework doesn't require full async rewrite** — FastAPI supports sync dependencies. Measure first (if <100ms, use sync directly). Only use async wrappers if operations are slow.
