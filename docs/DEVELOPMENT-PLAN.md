@@ -1,6 +1,6 @@
 # DEVELOPMENT PLAN: Digital Clone Engine — Week 1-3 Roadmap
 
-**Version:** 3.3 | **Date:** March 4, 2026 (Session 8) | **Prepared by:** Prem AI Engineering
+**Version:** 3.4 | **Date:** March 4, 2026 (Session 9) | **Prepared by:** Prem AI Engineering
 
 ---
 
@@ -8,9 +8,9 @@
 
 **What:** A unified AI clone engine serving two clients (ParaGPT + Sacred Archive) through one codebase, behavior controlled by configuration.
 
-**Status:** Session 8 complete. All core engine components built, tested, and spec-compliant. E2E integration tests pass (4/4). FastAPI gateway complete (6 files, 5 endpoint groups, WebSocket streaming). 19-node LangGraph + API layer fully functional for both clone profiles. Ready for database seeding + frontend (Week 3).
+**Status:** Session 9 complete. All core engine components built, tested, and spec-compliant. **Voyage AI embeddings integrated & verified across all 4 test layers** (unit test, E2E tests, pipeline visualizer, batch embedding). E2E integration tests pass (4/4). FastAPI gateway complete (6 files, 5 endpoint groups, WebSocket streaming). 19-node LangGraph + API layer fully functional for both clone profiles. Ready for database seeding + frontend (Week 3).
 
-**Confidence Level:** VERY HIGH — Full stack proven via working code. All 49 files on GitHub (components + E2E tests + pipeline viz + Tier 2 fix + FastAPI layer). API endpoints stream real responses from orchestrator. Production path clear: dev proxies (Groq, OpenAI, pgvector) → prod (SGLang, TEI, Zvec) with zero code changes. No blockers.
+**Confidence Level:** VERY HIGH — Full stack proven via working code. All ~50 files on GitHub (components + E2E tests + pipeline viz + Tier 2 fix + FastAPI layer + Voyage AI verified). API endpoints stream real responses from orchestrator. Voyage AI 1024-dim embeddings confirmed working. Production path clear: dev proxies (Groq, Voyage AI, pgvector) → prod (SGLang, TEI, Zvec) with zero code changes. No blockers.
 
 ---
 
@@ -127,7 +127,7 @@ Every query flows through this sequence. The clone profile controls behavior at 
 |---|---|---|---|
 | **LangGraph Orchestrator** | LangGraph (19 nodes) | Core agentic pipeline | ✅ BUILT |
 | **LLM Inference** | Groq API + qwen3-32b | Primary reasoning LLM | ✅ BUILT (dev proxy → SGLang) |
-| **Embedding** | OpenAI text-embedding-3-small | Query + document embeddings | ✅ BUILT (dev → TEI) |
+| **Embedding** | Voyage AI voyage-3 | Query + document embeddings | ✅ BUILT Session 9 (dev verified → TEI prod) |
 | **Vector Store** | PostgreSQL pgvector + HNSW | Fast semantic search | ✅ BUILT (dev → Zvec) |
 | **Provenance Graph** | PostgreSQL recursive CTEs | Teaching source relationships | ✅ BUILT |
 | **RAG Ingestion** | Parser → Chunker → Embedder → Indexer | Document processing pipeline | ✅ BUILT |
@@ -142,6 +142,7 @@ Every query flows through this sequence. The clone profile controls behavior at 
 | **Ingest Endpoint** | Multipart file upload + BackgroundTasks | Document ingestion pipeline trigger | ✅ BUILT (Session 8) |
 | **Review Endpoints** | GET/PATCH Sacred Archive queue | Response approval workflow | ✅ BUILT (Session 8) |
 | **Config Endpoint** | Clone profile reader | Fetch clone configuration | ✅ BUILT (Session 8) |
+| **Voyage AI Embeddings** | voyage-3 via LangChain | 1024-dim embeddings (dev) → TEI (prod) | ✅ VERIFIED Session 9 (4 test layers) |
 
 ### 3.2 Stub Services (Small Remaining)
 
@@ -411,7 +412,7 @@ The following choices are **proven** via working code and will not be re-debated
 | **User Memory Scoping** | user_id + clone_id | Per-user memories for ParaGPT; Sacred Archive has user_memory_enabled=False. |
 | **Stub Nodes** | Correct state shapes, mock data | Unblocks orchestration testing before all dependencies ready. |
 | **LLM (dev)** | Groq + qwen3-32b | Aligns with prod Qwen3.5-35B. Swap to SGLang when PCCI ready. |
-| **Embeddings (dev)** | OpenAI text-embedding-3-small 1024-dim | Same model type as prod TEI. Zero migration when ready. |
+| **Embeddings (dev)** | Voyage AI voyage-3 1024-dim (Session 9) | Same 1024-dim as prod TEI. Zero migration when ready. Verified across all 4 test layers. |
 | **Pydantic Enums** | `class MyEnum(str, Enum)` | Clean JSONB serialization, no custom serializers. |
 | **Migrations** | Alembic with versioned scripts | Reversible, trackable, works on PCCI air-gap. |
 | **Code Style** | Minimal docstrings, functional | Lean, readable, tested. |
@@ -424,7 +425,7 @@ The following choices are **proven** via working code and will not be re-debated
 |---|---|---|---|
 | Voice hardware unavailable (OpenAudio TTS) | Medium | Medium | Stub node ready; drop-in swap when hardware arrives. |
 | ~~Mem0 + pgvector integration complexity~~ | ✅ RESOLVED | ✅ RESOLVED | Mem0 + pgvector fully integrated (Session 4). memory_retrieval + memory_writer nodes live. |
-| PCCI SGLang/TEI deployment delays | Low | High | Running on Groq + OpenAI dev proxies; same code path. Swap on ready. |
+| PCCI SGLang/TEI deployment delays | Low | High | Running on Groq + Voyage AI dev proxies (Session 9 verified); same code path. Swap on ready. |
 | Sacred Archive review queue scaling | Low | Medium | PostgreSQL LISTEN/NOTIFY for near-real-time notifications. Can defer to Week 4 if needed. |
 | Zvec API changes | Low | High | pgvector currently in production; Zvec swap is drop-in interface. Separate branch (original-plan) for testing. |
 
@@ -509,8 +510,8 @@ web/                             (NOT YET STARTED — Week 3)
 
 ## 10. Next Steps
 
-**Immediate (Session 8 Complete):**
-✅ Core engine 100% COMPLETE & SPEC-COMPLIANT. Tier 2 architecture fixed. FastAPI layer COMPLETE. Ready for database seeding + frontend.
+**Immediate (Session 9 Complete):**
+✅ Core engine 100% COMPLETE & SPEC-COMPLIANT. Tier 2 architecture fixed. FastAPI layer COMPLETE. **Voyage AI embeddings verified across all 4 test layers**. Ready for database seeding + frontend.
 
 **✅ DONE: FastAPI Layer (Session 8)** — 6 files, 5 endpoint groups, WebSocket streaming
 - `api/main.py`: FastAPI app, lifespan (env load, mkdir), CORS, routers
@@ -552,5 +553,5 @@ web/                             (NOT YET STARTED — Week 3)
 
 **Confidence Level: VERY HIGH**
 
-All core architecture proven via working code. All components complete (config, RAG, DB, orchestration, memory, citation, E2E tests, pipeline viz, FastAPI gateway). 19-node graph + REST API fully functional and validated for both clients (ParaGPT + Sacred Archive). E2E integration tests pass (4/4) with real Groq LLM calls. FastAPI endpoints stream real responses from LangGraph. <think> tags disabled for clean inference. WebSocket optimized (50% latency improvement). No unknowns remaining. Ready to seed database + build frontend (Week 3). Production path clear: dev proxies (Groq, OpenAI, pgvector) → prod (SGLang, TEI, Zvec) with zero code changes. All 49 files on GitHub with clean commit history.
+All core architecture proven via working code. All components complete (config, RAG, DB, orchestration, memory, citation, E2E tests, pipeline viz, FastAPI gateway). **Voyage AI embeddings verified** (1024-dim) across all 4 test layers (unit test, E2E, visualizer, batch). 19-node graph + REST API fully functional and validated for both clients (ParaGPT + Sacred Archive). E2E integration tests pass (4/4) with real Groq LLM + Voyage AI calls. FastAPI endpoints stream real responses from LangGraph. <think> tags disabled for clean inference. WebSocket optimized (50% latency improvement). No unknowns remaining. Ready to seed database + build frontend (Week 3). Production path clear: dev proxies (Groq, Voyage AI, pgvector) → prod (SGLang, TEI, Zvec) with zero code changes. All ~50 files on GitHub with clean commit history.
 
