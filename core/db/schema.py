@@ -296,6 +296,44 @@ class QueryAnalytics(Base):
     )
 
 
+class Message(Base):
+    """
+    One row per conversation exchange (query + response pair).
+    Saved synchronously after each chat invocation completes.
+    Provides conversation history and audit trail for all clients.
+
+    One-row-per-exchange design: simpler for this stateless pipeline
+    where each invocation is a complete unit.
+
+    user_id is Text (not UUID) to support "anonymous" string values.
+    No updated_at — messages are immutable once created.
+    """
+
+    __tablename__ = "messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    clone_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("clones.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(Text, nullable=False, server_default="anonymous")
+    query_text: Mapped[str] = mapped_column(Text, nullable=False)
+    response_text: Mapped[str] = mapped_column(Text, nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False, server_default="0.0")
+    silence_triggered: Mapped[bool] = mapped_column(Boolean, server_default="false", nullable=False)
+    cited_sources: Mapped[Optional[list]] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        Index("idx_messages_clone_id", "clone_id"),
+        Index("idx_messages_user_id", "user_id"),
+        Index("idx_messages_clone_user", "clone_id", "user_id"),
+    )
+
+
 # ============================================================================
 # MIGRATION 0002: PROVENANCE GRAPH (SACRED ARCHIVE ONLY)
 # Replaces Apache AGE (eliminated Oct 2024) with pure PostgreSQL tables.

@@ -5,9 +5,10 @@ Engineering specifications for each component of the Digital Clone Engine.
 | # | Component | Status | Files |
 |---|---|---|---|
 | **01** | Clone Profile Config Model | ✅ COMPLETE | `core/models/clone_profile.py` |
-| **02** | RAG Pipeline (Ingestion + Retrieval) | ⏳ NEXT | `core/rag/` |
-| **03** | PostgreSQL Database Schema | ✅ COMPLETE | `core/db/schema.py`, `core/db/migrations/` |
-| **04** | LangGraph Orchestration (18-node graph) | ✅ COMPLETE | `core/langgraph/conversation_flow.py` |
+| **02** | RAG Pipeline (Ingestion + Retrieval) | ✅ COMPLETE | `core/rag/` |
+| **03** | PostgreSQL Database Schema | ✅ COMPLETE (v1.4) | `core/db/schema.py`, `core/db/migrations/` |
+| **04** | LangGraph Orchestration (19-node graph) | ✅ COMPLETE (v2.1) | `core/langgraph/conversation_flow.py` |
+| **05** | FastAPI Gateway + 3 Improvements | ✅ COMPLETE (v1.1) | `api/main.py`, `api/middleware.py`, `api/routes/` |
 
 ## Component 01: Clone Profile Config
 
@@ -33,8 +34,35 @@ See [core/db/README.md](../../core/db/README.md) for schema details.
 
 ## Component 04: LangGraph Orchestration
 
-**Location:** `core/langgraph/conversation_flow.py` (289 lines) + `core/langgraph/nodes/` (5 files)
+**Location:** `core/langgraph/conversation_flow.py` (320+ lines) + `core/langgraph/nodes/` (5 files)
 
-The orchestration graph. 18 nodes (query analysis, retrieval, context assembly, generation, verification, routing). Profile-driven conditional edges via closures.
+The orchestration graph. 19 nodes (query analysis, retrieval, context assembly, generation, verification, routing, memory). Profile-driven conditional edges via closures.
 
-4 nodes have real LLM integration. 11 nodes are stubs with correct state shapes, awaiting downstream components.
+Real nodes: query_analyzer, tier1_retrieval, context_assembler, in_persona_generator, confidence_scorer, citation_verifier, memory_retrieval, memory_writer, review_queue_writer.
+
+## Component 05: FastAPI Gateway + API Improvements (Session 11)
+
+**Location:** `api/` (6 files, 700+ lines) + `core/db/migrations/0004_messages.py`
+
+The HTTP gateway layer. 5 endpoint groups (health, config, chat, ingest, review) + WebSocket streaming. Session 11 additions:
+
+**Feature 1: Conversation Persistence**
+- New ORM model: `Message` (1 row per chat exchange)
+- Migration 0004: messages table (9 columns, 4 indexes: clone_id, user_id, composite)
+- Modified POST /chat + WS handler: saves message after completion
+- Use case: Audit trail, conversation history retrieval, analytics
+
+**Feature 2: Ingest Status Polling**
+- New endpoint: `GET /ingest/{slug}/status/{doc_id}`
+- Returns: doc_id, filename, status, chunk_count, timestamps, human-readable message
+- Cross-clone isolation: validates both doc_id AND clone_id
+- Use case: Async document processing progress tracking
+
+**Feature 3: API Key Validation + Access Tier Checks**
+- New middleware: `APIKeyMiddleware` (X-API-Key header validation)
+- Check against `DCE_API_KEY` env var (empty = allow all for backward compatibility)
+- Exempt paths: /health, /docs, /openapi.json, /redoc
+- Access tier: Added to ChatRequest, validates against AccessTier enum
+- Use case: Authenticate API requests, enforce content access tiers
+
+**Tests:** 33 HTTP endpoint tests (18 original + 15 new), all passing

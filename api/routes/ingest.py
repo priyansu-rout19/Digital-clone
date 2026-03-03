@@ -7,7 +7,8 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, UploadFile, File, Form, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import insert
+from sqlalchemy import insert, and_
+from datetime import datetime
 
 from api.deps import get_clone, get_db
 from core.models.clone_profile import CloneProfile
@@ -21,6 +22,16 @@ router = APIRouter()
 class IngestResponse(BaseModel):
     job_id: str
     status: str
+    message: str
+
+
+class IngestStatusResponse(BaseModel):
+    doc_id: str
+    filename: str
+    status: str
+    chunk_count: int
+    created_at: datetime
+    updated_at: datetime
     message: str
 
 
@@ -134,4 +145,57 @@ async def ingest_file(
         job_id=doc_id,
         status="processing",
         message=f"File {file.filename} queued for ingestion",
+    )
+
+
+@router.get("/{clone_slug}/status/{doc_id}")
+async def get_ingest_status(
+    clone_slug: str,
+    doc_id: str,
+    clone_info: tuple[str, CloneProfile] = Depends(get_clone),
+    db: Session = Depends(get_db),
+) -> IngestStatusResponse:
+    """
+    Poll the ingestion status for a specific document.
+
+    Uses clone_id + doc_id together for cross-clone isolation:
+    a client cannot query another clone's documents.
+
+    Status values:
+    - queued: Document is queued for ingestion
+    - processing: Ingestion in progress
+    - complete: Ingestion finished successfully
+    - error: Ingestion failed
+    """
+    clone_id, profile = clone_info
+
+    # Query with both doc_id and clone_id for cross-clone isolation
+    doc = (
+        db.query(Document)
+        .filter(and_(Document.id == doc_id, Document.clone_id == clone_id))
+        .first()
+    )
+
+    if not doc:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Document '{doc_id}' not found for clone '{clone_slug}'",
+        )
+
+    # Map status to human-readable message
+    message_map = {
+        "complete": f"Ingestion complete — {doc.chunk_count} chunks indexed",
+        "processing": "Ingestion in progress",
+        "queued": "Document is queued for ingestion",
+    }
+    message = message_map.get(doc.status, "Ingestion failed — please re-upload the document")
+
+    return IngestStatusResponse(
+        doc_id=str(doc.id),
+        filename=doc.filename,
+        status=doc.status,
+        chunk_count=doc.chunk_count,
+        created_at=doc.created_at,
+        updated_at=doc.updated_at,
+        message=message,
     )

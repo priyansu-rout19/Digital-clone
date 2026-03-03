@@ -6,6 +6,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
+from api.middleware import APIKeyMiddleware
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -26,7 +28,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS middleware
+# Auth middleware (registered first → executes second, inner)
+app.add_middleware(APIKeyMiddleware)
+
+# CORS middleware (registered second → executes first, outer)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow all origins for development

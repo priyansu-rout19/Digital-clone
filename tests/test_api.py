@@ -512,3 +512,251 @@ async def test_review_not_found(client):
         )
 
         assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Test: Conversation Persistence (Feature 1)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_chat_saves_message_to_db(client, mock_db_session):
+    """POST /chat/{slug} should call db.add() and db.commit() to save message."""
+    payload = {"query": "What is connectivity?", "user_id": "user-123"}
+    response = await client.post("/chat/paragpt-client", json=payload)
+
+    assert response.status_code == 200
+    # Verify that db.add was called (message was saved)
+    mock_db_session.add.assert_called_once()
+    mock_db_session.commit.assert_called()
+
+    # Verify the saved object is a Message instance
+    from core.db.schema import Message
+    saved_msg = mock_db_session.add.call_args[0][0]
+    assert isinstance(saved_msg, Message)
+    assert saved_msg.query_text == "What is connectivity?"
+    assert saved_msg.user_id == "user-123"
+
+
+@pytest.mark.asyncio
+async def test_chat_message_default_user_id(client, mock_db_session):
+    """POST /chat without user_id should save as 'anonymous'."""
+    payload = {"query": "Tell me something"}
+    response = await client.post("/chat/paragpt-client", json=payload)
+
+    assert response.status_code == 200
+    mock_db_session.add.assert_called_once()
+
+    from core.db.schema import Message
+    saved_msg = mock_db_session.add.call_args[0][0]
+    assert saved_msg.user_id == "anonymous"
+
+
+# ---------------------------------------------------------------------------
+# Test: Ingest Status Polling (Feature 2)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_ingest_status_complete(client, mock_db_session):
+    """GET /ingest/{slug}/status/{doc_id} returns status for known document."""
+    from core.db.schema import Document
+
+    mock_doc = MagicMock(spec=Document)
+    mock_doc.id = uuid.uuid4()
+    mock_doc.filename = "test.txt"
+    mock_doc.status = "complete"
+    mock_doc.chunk_count = 12
+    mock_doc.created_at = datetime.utcnow()
+    mock_doc.updated_at = datetime.utcnow()
+
+    # Wire up the Document query
+    original_side_effect = mock_db_session.query.side_effect
+    def new_side_effect(model):
+        if model == Document:
+            q = MagicMock()
+            f = MagicMock()
+            f.first.return_value = mock_doc
+            q.filter.return_value = f
+            return q
+        return original_side_effect(model)
+    mock_db_session.query.side_effect = new_side_effect
+
+    response = await client.get(f"/ingest/paragpt-client/status/{mock_doc.id}")
+
+    mock_db_session.query.side_effect = original_side_effect
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "complete"
+    assert data["chunk_count"] == 12
+    assert "12 chunks indexed" in data["message"]
+    assert data["filename"] == "test.txt"
+
+
+@pytest.mark.asyncio
+async def test_ingest_status_processing(client, mock_db_session):
+    """GET /ingest/{slug}/status/{doc_id} with processing status."""
+    from core.db.schema import Document
+
+    mock_doc = MagicMock(spec=Document)
+    mock_doc.id = uuid.uuid4()
+    mock_doc.filename = "document.pdf"
+    mock_doc.status = "processing"
+    mock_doc.chunk_count = 0
+    mock_doc.created_at = datetime.utcnow()
+    mock_doc.updated_at = datetime.utcnow()
+
+    original_side_effect = mock_db_session.query.side_effect
+    def new_side_effect(model):
+        if model == Document:
+            q = MagicMock()
+            f = MagicMock()
+            f.first.return_value = mock_doc
+            q.filter.return_value = f
+            return q
+        return original_side_effect(model)
+    mock_db_session.query.side_effect = new_side_effect
+
+    response = await client.get(f"/ingest/paragpt-client/status/{mock_doc.id}")
+    mock_db_session.query.side_effect = original_side_effect
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "processing"
+    assert "in progress" in data["message"]
+
+
+@pytest.mark.asyncio
+async def test_ingest_status_not_found(client, mock_db_session):
+    """GET /ingest/{slug}/status/{unknown_id} returns 404."""
+    original_side_effect = mock_db_session.query.side_effect
+    def new_side_effect(model):
+        from core.db.schema import Document
+        if model == Document:
+            q = MagicMock()
+            f = MagicMock()
+            f.first.return_value = None
+            q.filter.return_value = f
+            return q
+        return original_side_effect(model)
+    mock_db_session.query.side_effect = new_side_effect
+
+    response = await client.get("/ingest/paragpt-client/status/nonexistent-id")
+    mock_db_session.query.side_effect = original_side_effect
+
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_ingest_status_cross_clone_isolation(client, mock_db_session):
+    """GET /ingest/{clone_a}/status/{doc_from_clone_b} returns 404 (isolation)."""
+    original_side_effect = mock_db_session.query.side_effect
+    def new_side_effect(model):
+        from core.db.schema import Document
+        if model == Document:
+            q = MagicMock()
+            f = MagicMock()
+            # Document doesn't exist for this clone (cross-clone isolation)
+            f.first.return_value = None
+            q.filter.return_value = f
+            return q
+        return original_side_effect(model)
+    mock_db_session.query.side_effect = new_side_effect
+
+    response = await client.get("/ingest/paragpt-client/status/some-doc-from-sacred-archive")
+    mock_db_session.query.side_effect = original_side_effect
+
+    assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Test: Auth Middleware (Feature 3)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_auth_middleware_no_key_set(client):
+    """When DCE_API_KEY is not set, all requests pass through."""
+    with patch.dict("os.environ", {}, clear=False):
+        import os
+        os.environ.pop("DCE_API_KEY", None)
+        response = await client.get("/health")
+        assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_auth_middleware_valid_key(client):
+    """With DCE_API_KEY set, valid key passes."""
+    with patch.dict("os.environ", {"DCE_API_KEY": "test-secret-key"}):
+        response = await client.get(
+            "/health",
+            headers={"X-API-Key": "test-secret-key"}
+        )
+        assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_auth_middleware_missing_key_header(client):
+    """With DCE_API_KEY set, missing header returns 401."""
+    with patch.dict("os.environ", {"DCE_API_KEY": "test-secret-key"}):
+        response = await client.get("/clone/paragpt-client/profile")
+        assert response.status_code == 401
+        assert "Missing X-API-Key" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_auth_middleware_wrong_key(client):
+    """With DCE_API_KEY set, wrong key returns 403."""
+    with patch.dict("os.environ", {"DCE_API_KEY": "correct-key"}):
+        response = await client.get(
+            "/clone/paragpt-client/profile",
+            headers={"X-API-Key": "wrong-key"}
+        )
+        assert response.status_code == 403
+        assert "Invalid API key" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_auth_exempt_health(client):
+    """/health is exempt from auth even when DCE_API_KEY is set."""
+    with patch.dict("os.environ", {"DCE_API_KEY": "test-secret-key"}):
+        response = await client.get("/health")
+        assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_auth_exempt_docs(client):
+    """/docs and /openapi.json are exempt from auth."""
+    with patch.dict("os.environ", {"DCE_API_KEY": "test-secret-key"}):
+        response = await client.get("/docs")
+        # Might return 200 or 307 redirect depending on FastAPI config
+        assert response.status_code in [200, 307, 404]
+
+
+# ---------------------------------------------------------------------------
+# Test: Access Tier Validation (Feature 3)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_chat_access_tier_valid(client):
+    """POST /chat/{slug} with valid access_tier succeeds."""
+    payload = {"query": "What is devotion?", "access_tier": "devotee"}
+    response = await client.post("/chat/sacred-archive", json=payload)
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_chat_access_tier_invalid(client):
+    """POST /chat/{slug} with invalid access_tier returns 400."""
+    payload = {"query": "What is devotion?", "access_tier": "invalid_tier"}
+    response = await client.post("/chat/sacred-archive", json=payload)
+    assert response.status_code == 400
+    assert "access_tier" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_chat_access_tier_default_public(client):
+    """POST /chat with no access_tier defaults to 'public'."""
+    payload = {"query": "Hello"}
+    response = await client.post("/chat/paragpt-client", json=payload)
+    assert response.status_code == 200
+    # Mock returns success, confirming default 'public' tier was accepted

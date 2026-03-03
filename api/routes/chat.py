@@ -17,6 +17,7 @@ router = APIRouter()
 class ChatRequest(BaseModel):
     query: str
     user_id: Optional[str] = "anonymous"
+    access_tier: Optional[str] = "public"
 
 
 class ChatResponse(BaseModel):
@@ -27,7 +28,7 @@ class ChatResponse(BaseModel):
     user_memory: str
 
 
-def build_initial_state(query: str, clone_id: str, user_id: str) -> dict:
+def build_initial_state(query: str, clone_id: str, user_id: str, access_tier: str = "public") -> dict:
     """Build the initial ConversationState dict for the graph."""
     return {
         "query_text": query,
@@ -35,7 +36,7 @@ def build_initial_state(query: str, clone_id: str, user_id: str) -> dict:
         "user_id": user_id,
         "sub_queries": [],
         "intent_class": "",
-        "access_tier": "public",
+        "access_tier": access_tier,
         "token_budget": 2000,
         "retrieved_passages": [],
         "provenance_graph_results": [],
@@ -57,19 +58,44 @@ async def chat_sync(
     clone_slug: str,
     request: ChatRequest,
     clone_info: tuple[str, CloneProfile] = Depends(get_clone),
+    db: Session = Depends(get_db),
 ) -> ChatResponse:
     """
     Synchronous chat endpoint.
     Accepts a query, runs the full LangGraph pipeline, and returns the complete response.
+    Saves conversation exchange to messages table.
     """
     clone_id, profile = clone_info
 
-    # Build initial state
-    initial_state = build_initial_state(request.query, clone_id, request.user_id)
+    # Validate access_tier (format check against AccessTier enum)
+    from core.models.clone_profile import AccessTier
+    valid_tiers = {t.value for t in AccessTier}
+    if request.access_tier not in valid_tiers:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid access_tier '{request.access_tier}'. Valid tiers: {sorted(valid_tiers)}",
+        )
+
+    # Build initial state with access_tier
+    initial_state = build_initial_state(request.query, clone_id, request.user_id, request.access_tier)
 
     # Build and invoke graph
     graph = build_graph(profile)
     final_state = graph.invoke(copy.deepcopy(initial_state))
+
+    # Save the exchange to messages table (fire-and-forget within request)
+    from core.db.schema import Message
+    msg = Message(
+        clone_id=clone_id,
+        user_id=request.user_id or "anonymous",
+        query_text=request.query,
+        response_text=final_state.get("verified_response") or final_state.get("raw_response", ""),
+        confidence=final_state.get("final_confidence", 0.0),
+        silence_triggered=final_state.get("silence_triggered", False),
+        cited_sources=final_state.get("cited_sources", []),
+    )
+    db.add(msg)
+    db.commit()
 
     # Extract response fields
     return ChatResponse(
@@ -103,14 +129,24 @@ async def chat_ws(
         data = await websocket.receive_json()
         query = data.get("query")
         user_id = data.get("user_id", "anonymous")
+        access_tier = data.get("access_tier", "public")
 
         if not query:
             await websocket.send_json({"type": "error", "message": "query is required"})
             await websocket.close()
             return
 
-        # Load clone
-        from api.deps import get_clone as get_clone_sync
+        # Validate access_tier (format check)
+        from core.models.clone_profile import AccessTier
+        valid_tiers = {t.value for t in AccessTier}
+        if access_tier not in valid_tiers:
+            await websocket.send_json(
+                {"type": "error", "message": f"Invalid access_tier. Valid: {sorted(valid_tiers)}"}
+            )
+            await websocket.close()
+            return
+
+        # Load clone and keep db session open for message save
         from api.deps import SessionLocal
 
         db = SessionLocal()
@@ -128,37 +164,51 @@ async def chat_ws(
 
             profile = CP(**clone_row.profile)
             clone_id = str(clone_row.id)
+
+            # Build initial state with access_tier
+            initial_state = build_initial_state(query, clone_id, user_id, access_tier)
+
+            # Build graph and stream
+            graph = build_graph(profile)
+
+            # Stream each node completion and capture final state
+            final_state = copy.deepcopy(initial_state)
+            for chunk in graph.stream(copy.deepcopy(initial_state)):
+                # chunk is {node_name: node_output_dict}
+                node_names = list(chunk.keys())
+                if node_names:
+                    node_name = node_names[0]
+                    # Update final_state with the latest node output
+                    final_state.update(chunk[node_name])
+                    await websocket.send_json({"type": "progress", "node": node_name})
+
+            # Save the exchange to messages table before sending final response
+            from core.db.schema import Message
+            msg = Message(
+                clone_id=clone_id,
+                user_id=user_id or "anonymous",
+                query_text=query,
+                response_text=final_state.get("verified_response") or final_state.get("raw_response", ""),
+                confidence=final_state.get("final_confidence", 0.0),
+                silence_triggered=final_state.get("silence_triggered", False),
+                cited_sources=final_state.get("cited_sources", []),
+            )
+            db.add(msg)
+            db.commit()
+
+            # Send final response after all nodes complete and message saved
+            await websocket.send_json(
+                {
+                    "type": "response",
+                    "response": final_state.get("verified_response", ""),
+                    "confidence": final_state.get("final_confidence", 0.0),
+                    "cited_sources": final_state.get("cited_sources", []),
+                    "silence_triggered": final_state.get("silence_triggered", False),
+                    "user_memory": final_state.get("user_memory", ""),
+                }
+            )
         finally:
             db.close()
-
-        # Build initial state
-        initial_state = build_initial_state(query, clone_id, user_id)
-
-        # Build graph and stream
-        graph = build_graph(profile)
-
-        # Stream each node completion and capture final state
-        final_state = copy.deepcopy(initial_state)
-        for chunk in graph.stream(copy.deepcopy(initial_state)):
-            # chunk is {node_name: node_output_dict}
-            node_names = list(chunk.keys())
-            if node_names:
-                node_name = node_names[0]
-                # Update final_state with the latest node output
-                final_state.update(chunk[node_name])
-                await websocket.send_json({"type": "progress", "node": node_name})
-
-        # Send final response after all nodes complete
-        await websocket.send_json(
-            {
-                "type": "response",
-                "response": final_state.get("verified_response", ""),
-                "confidence": final_state.get("final_confidence", 0.0),
-                "cited_sources": final_state.get("cited_sources", []),
-                "silence_triggered": final_state.get("silence_triggered", False),
-                "user_memory": final_state.get("user_memory", ""),
-            }
-        )
 
     except WebSocketDisconnect:
         pass
