@@ -137,16 +137,18 @@ async def chat_ws(
         # Build graph and stream
         graph = build_graph(profile)
 
-        # Stream each node completion
+        # Stream each node completion and capture final state
+        final_state = copy.deepcopy(initial_state)
         for chunk in graph.stream(copy.deepcopy(initial_state)):
-            # chunk is {node_name: updated_state_delta}
+            # chunk is {node_name: node_output_dict}
             node_names = list(chunk.keys())
             if node_names:
                 node_name = node_names[0]
+                # Update final_state with the latest node output
+                final_state.update(chunk[node_name])
                 await websocket.send_json({"type": "progress", "node": node_name})
 
-        # After all nodes, send final response with the complete state
-        final_state = graph.invoke(copy.deepcopy(initial_state))
+        # Send final response after all nodes complete
         await websocket.send_json(
             {
                 "type": "response",
