@@ -107,14 +107,12 @@ async def ingest_file(
         insert(Document).values(
             id=doc_id,
             clone_id=clone_id,
-            title=file.filename,
-            author="",  # Not provided in request
-            source_date=provenance.get("date"),
-            source_location=provenance.get("location"),
+            filename=file.filename,
+            mime_type=file.content_type,
+            file_path=str(file_path),
             source_type=source_type,
-            upload_id=doc_id,
-            status="pending",
-            metadata_={},
+            provenance=provenance,
+            status="queued",
         )
     )
     db.commit()
