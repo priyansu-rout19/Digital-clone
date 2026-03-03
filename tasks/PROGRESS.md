@@ -408,6 +408,10 @@ See `tasks/lessons.md` for all 11.
 - OpenAudio TTS integration (hardware pending)
 - Interleave audio with text streaming
 
+**Known Gaps to Fix Before Production:**
+- `OPENAI_API_KEY` missing from `.env` — `core/mem0_client.py` requires it for embeddings (text-embedding-3-small). Currently mocked in all tests so tests pass, but real memory will fail without it. Either add key or switch to a different embeddings provider. `.env` has `EMBEDDING_API_BASE_URL` + `EMBEDDING_MODEL` vars set but `mem0_client.py` doesn't read them — they're unused.
+- `<think>` tags in LLM responses — ✅ **FIXED (Session 6.5)** Added `reasoning_effort="none"` to `core/llm.py` for Groq. Qwen3-32B now produces clean responses (confidence improved 0.5→0.9). When PCCI GPU server is ready with Qwen3.5-35B-A3B, use `enable_thinking=False` in `extra_body` instead (different parameter for SGLang/vLLM).
+
 **To Continue Next Session (Session 7):**
 1. Read `PROGRESS.md` (this file) — recap status
 2. Check `/memory/MEMORY.md` — session context

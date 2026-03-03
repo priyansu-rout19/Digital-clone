@@ -44,4 +44,5 @@ def get_llm(temperature: float = 0.7) -> ChatOpenAI:
         temperature=temperature,
         timeout=30,
         max_retries=2,
+        model_kwargs={"reasoning_effort": "none"},  # Disable <think> tags at API level
     )

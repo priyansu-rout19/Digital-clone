@@ -10,3 +10,4 @@ build/
 .claude/
 open-questions/
 *.pdf
+logs/*.log

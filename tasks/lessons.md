@@ -233,6 +233,27 @@ Solution: Use INLINE patches for profile-specific tests, FIXTURE for shared test
 
 ---
 
+### Lesson 15: Reasoning Mode Control Varies by Backend & Model Version
+
+**What happened:** Session 6.5 fixed `<think>` tags in LLM responses. Qwen3-32B on Groq used `reasoning_effort="none"`, but production Qwen3.5-35B-A3B will use `enable_thinking=False`.
+
+**The pattern:** Different inference backends expose reasoning control differently:
+- **Groq API** (proprietary): `reasoning_effort` enum ("none", "default", "low", "medium", "high")
+- **vLLM/SGLang** (open-source): `enable_thinking` boolean (True/False)
+- **Qwen3 soft prompts**: `/think` and `/nothink` tokens (unreliable on some backends)
+
+Qwen3-32B and Qwen3.5-35B-A3B both generate `<think>...</think>` by default. Same problem, different solutions.
+
+**Rule for future:**
+- When swapping inference backends (Groq → SGLang/vLLM), reasoning control parameters change
+- Research the backend's API documentation FIRST before assuming parameter names match
+- For `core/llm.py`: use `model_kwargs` for Groq, `extra_body` for OpenAI-compatible servers
+- Qwen3.5-35B requires vLLM 0.9.0+ for stable `enable_thinking` support
+- When PCCI GPU server launches, update `get_llm()` to detect environment and use correct parameter
+- Test reasoning-disabled behavior early to catch backend-specific bugs (e.g., vLLM 0.8.5 had a bug with `enable_thinking=False`)
+
+---
+
 ## Session Patterns to Remember
 
 1. **User is learning by building** — every spec/decision should explain the why, not just the what
@@ -249,3 +270,4 @@ Solution: Use INLINE patches for profile-specific tests, FIXTURE for shared test
 12. **Environment dependency pinning matters** — pip can silently downgrade packages; verify after install
 13. **Mock path resolution: patch at source, not import site** — for lazy imports, patch where function is defined
 14. **E2E test fixtures must respect profile thresholds** — confidence thresholds differ per profile
+15. **Reasoning mode control varies by backend** — Groq uses `reasoning_effort`, vLLM/SGLang use `enable_thinking`, same problem different solutions
