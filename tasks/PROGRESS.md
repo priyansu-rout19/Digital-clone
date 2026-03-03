@@ -1,7 +1,7 @@
 # Digital Clone Engine — Session Progress & Implementation Status
 
-**Last Updated:** March 4, 2026 (Session 8 — FastAPI Layer COMPLETE)
-**Current Focus:** Core engine + API gateway 100% built & validated. FastAPI endpoints streaming responses. Ready for database seeding + frontend (Week 3).
+**Last Updated:** March 4, 2026 (Session 9 — Voyage AI Embeddings Complete)
+**Current Focus:** Core engine + API gateway 100% built & validated. FastAPI endpoints streaming responses. Voyage AI integration verified across all layers. Ready for database seeding + frontend (Week 3).
 
 ---
 
@@ -84,14 +84,17 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 
 **Component 02: RAG Pipeline** (FULL COMPLETION)
 
-**Component 02a: Ingestion Pipeline** ✅
+**Component 02a: Ingestion Pipeline** ✅ (Session 9: Voyage AI Integration)
 - ✅ `core/rag/ingestion/parser.py` — PDF (PyMuPDF) + text/markdown parsing (48 lines, cleaned)
 - ✅ `core/rag/ingestion/chunker.py` — Semantic section-aware chunking (512-1024 tokens, 15% overlap) (48 lines, cleaned)
-- ✅ `core/rag/ingestion/embedder.py` — OpenAI-compatible embedding client (TEI prod, OpenAI dev) (93 lines, cleaned)
+- ✅ `core/rag/ingestion/embedder.py` — Voyage AI voyage-3 LangChain integration (1024-dim output, zero-migration) (72 lines, cleaned)
+  - **Dev:** Voyage AI voyage-3 (api.voyageai.com HTTP API via langchain-voyageai)
+  - **Prod:** TEI on PCCI (drop-in swap via LangChain interface, same 1024-dim output)
 - ✅ `core/rag/ingestion/indexer.py` — pgvector storage with ON CONFLICT for re-ingestability (64 lines, cleaned)
 - ✅ `core/rag/ingestion/pipeline.py` — Orchestrator: parse → chunk → embed → index (126 lines, cleaned)
 - ✅ Migration 0003: `document_chunks` table with VECTOR(1024), HNSW index
 - ✅ Profile-driven provenance validation (Sacred Archive strict, ParaGPT minimal)
+- ✅ Requirements: Added `voyageai==0.3.7`, `langchain-voyageai==0.3.2`, `tf-keras` (for sentence-transformers compat)
 
 **Component 02b: Retrieval Pipeline** ✅
 - ✅ `core/rag/retrieval/vector_search.py` — Tier 1 pgvector + RRF (143 lines, cleaned)
@@ -117,10 +120,10 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 
 ### ✅ COMPLETE
 
-**Component 02 Integration: Mem0 Cross-Session Memory** (Session 4)
+**Component 02 Integration: Mem0 Cross-Session Memory** (Session 4, Updated Session 9)
 - ✅ `core/mem0_client.py` (NEW) — Mem0 client factory with pgvector backend
-  - Reads: `DATABASE_URL`, `GROQ_API_KEY`, `OPENAI_API_KEY`
-  - Config: Groq LLM + OpenAI embeddings (1024-dim) + pgvector vector store
+  - Reads: `DATABASE_URL`, `GROQ_API_KEY`, `VOYAGE_API_KEY`
+  - Config: Groq LLM + Voyage AI voyage-3 embeddings (1024-dim via LangChain provider) + pgvector vector store
   - Graceful error handling (same pattern as `core/llm.py`)
 - ✅ `memory_retrieval()` — Real implementation searching Mem0 for user memories
   - Input: `user_id`, `query_text`
@@ -153,7 +156,7 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 
 ### ✅ COMPLETE
 
-**FastAPI Layer** (Session 8)
+**FastAPI Layer** (Session 8, Updated Session 9)
 - ✅ `api/main.py` (56 lines) — FastAPI app, lifespan (load_dotenv, mkdir), CORS, routers
 - ✅ `api/deps.py` (37 lines) — DB session factory, clone lookup dependency (core building block)
 - ✅ `api/routes/config.py` (21 lines) — `GET /clone/{slug}/profile` endpoint
@@ -161,9 +164,10 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 - ✅ `api/routes/ingest.py` (139 lines) — `POST /ingest/{slug}` (multipart file upload, BackgroundTasks)
 - ✅ `api/routes/review.py` (111 lines) — `GET /review/{slug}`, `PATCH /review/{id}` (Sacred Archive)
 - ✅ Dependencies: `uvicorn[standard]`, `httpx`, `python-multipart` added to requirements.txt
-- ✅ Environment: `OPENAI_API_KEY` added to .env (needed for Mem0)
+- ✅ Environment: `VOYAGE_API_KEY` added to .env (needed for embeddings + Mem0)
 - ✅ Optimization: WebSocket streaming avoids double graph.invoke() — 50% latency reduction
 - ✅ Smoke test: Server starts, `/health` responds, routes register successfully
+- ✅ Verified: All 4 layers working with Voyage AI (embedder, retrieval, memory, LangGraph)
 
 ### ⏳ IN PROGRESS
 
@@ -393,21 +397,25 @@ See `tasks/lessons.md` for all 11.
 
 ---
 
-## For Next Session (Session 9)
+## For Next Session (Session 10+)
 
-**What's Ready: CORE ENGINE + API GATEWAY 100% COMPLETE ✅**
+**What's Ready: CORE ENGINE + API GATEWAY + EMBEDDINGS 100% COMPLETE ✅**
 - Components 01, 02, 03, 04 are ALL COMPLETE
 - FastAPI Layer COMPLETE — 6 files, 5 endpoint groups, WebSocket streaming (Session 8)
-- Mem0 integration COMPLETE (memory_retrieval + memory_writer, pgvector backend)
+- **Voyage AI Embeddings COMPLETE** (Session 9) — 1024-dim verified across all 4 test layers:
+  - ✅ Unit test: Direct API call to voyage-3 → 1024-dim
+  - ✅ E2E tests: All 4/4 passing (ParaGPT, Sacred Archive, CRAG, citations)
+  - ✅ Pipeline visualizer: 11-node execution with real Groq LLM responses
+  - ✅ Batch embedding: 8 documents → 1024-dim vectors (zero-migration from OpenAI)
+- Mem0 integration COMPLETE (memory_retrieval + memory_writer, pgvector backend, Voyage AI embeddings)
 - Citation verification COMPLETE (parse [N], cross-ref, populate cited_sources)
-- E2E Integration Tests COMPLETE (4/4 tests passing, 41.74s runtime)
 - **Tier 2 Architecture FIXED** — T2 runs before CRAG, not after. Spec-correct order: T1 → T2 → CRAG
-- System is fully validated: search documents, CRAG loops (including T2), memory, citations, routing, API all work
+- System is fully validated: search documents, CRAG loops (including T2), memory, citations, routing, API, embeddings all work
 - Clone-id & user-id scoping enable multi-tenant safe retrieval & memory
 - Retry bug fixed (true 3-cycle CRAG with T2, not 1-cycle)
 - Code is lean (43% smaller core, 539 new lines for API)
-- All 49 files on GitHub with clean commit history (Tier 2 fix + FastAPI commits)
-- Git worktree setup: `original-plan` branch ready for Zvec + TEI implementation
+- All ~50 files on GitHub with clean commit history (Tier 2 fix + FastAPI + Voyage AI commits)
+- Git worktree setup: `original-plan` branch ready for Zvec + TEI implementation (when PCCI ready)
 
 **What's Left (Next: Database Seeding + Frontend):**
 

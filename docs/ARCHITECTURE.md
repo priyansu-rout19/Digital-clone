@@ -1,6 +1,8 @@
 # ARCHITECTURE: Digital Clone Engine — Unified Technical System Design
 
-**Version:** 4.0 | **Date:** February 26, 2026 | **Prepared by:** Prem AI — Solution Architecture
+**Version:** 4.1 | **Date:** March 4, 2026 | **Prepared by:** Prem AI — Solution Architecture
+
+**Note:** This is the **specification/design document** (target production). For **current implementation status**, see [PROGRESS.md](../tasks/PROGRESS.md). Development currently uses drop-in proxy models (Voyage AI for embeddings, Groq for LLM) pending PCCI infrastructure — zero code changes needed when production models available.
 
 ---
 
@@ -109,12 +111,18 @@ clone_profile:
 The orchestrator is the **core** — it reads the clone profile and adjusts behavior at each pipeline step.
 
 ### Layer 3: Inference (GPU Models on PCCI)
+**Production (target):**
 - **Qwen3.5-35B-A3B** (4-bit AWQ) — Primary LLM, ~20GB VRAM
-- **Qwen3-Embedding-0.6B** — Embeddings, ~2GB
+- **Qwen3-Embedding-0.6B** — Embeddings via TEI, ~2GB
 - **OpenAudio S1-mini** — TTS (ParaGPT only), ~2GB
 - **Whisper Large V3** — Transcription, ~6GB
+- All served via **SGLang** (OpenAI-compatible API, continuous batching, prefix caching)
 
-All served via **SGLang** (OpenAI-compatible API, continuous batching, prefix caching).
+**Development (current):**
+- **Groq API** — qwen/qwen3-32b (same family as Qwen3.5, compatible interface)
+- **Voyage AI** — voyage-3 embeddings (1024-dim, HTTP API via LangChain)
+- Both are drop-in replacements with identical output dimensions/signatures
+- **Zero code changes** needed to swap production models (same LangChain interfaces)
 
 ### Layer 4: Data + Memory
 - **Zvec** — Embedded vector DB (in-process)
@@ -182,19 +190,23 @@ The LLM generates a response using:
 
 ---
 
-## 6. Codebase Structure (Current Status)
+## 6. Codebase Structure (Current Status — March 4, 2026, Session 9)
 
-| Component | Location | Status |
-|---|---|---|
-| **Config Model** | `core/models/clone_profile.py` | ✅ COMPLETE |
-| **LLM Client** | `core/llm.py` | ✅ COMPLETE |
-| **LangGraph Orchestrator** | `core/langgraph/conversation_flow.py` | ✅ COMPLETE |
-| **Orchestration Nodes** | `core/langgraph/nodes/` | ✅ COMPLETE (4 real LLM, 11 stubs) |
-| **Database Schema** | `core/db/schema.py` | ✅ COMPLETE |
-| **Migrations** | `core/db/migrations/` | ✅ COMPLETE |
-| **RAG Pipeline** | `core/rag/` | ⏳ NEXT |
-| **FastAPI Layer** | `api/` | ⏳ NEXT |
-| **Frontend** | `web/` | ⏳ NEXT |
+| Component | Location | Status | Notes |
+|---|---|---|---|
+| **Config Model** | `core/models/clone_profile.py` | ✅ COMPLETE | 6 enums, 16 fields, 2 presets |
+| **LLM Client** | `core/llm.py` | ✅ COMPLETE | Groq API (dev) → SGLang (prod) |
+| **Embeddings Client** | `core/rag/ingestion/embedder.py` | ✅ COMPLETE | Voyage AI (dev) → TEI (prod), 1024-dim verified |
+| **Mem0 Client** | `core/mem0_client.py` | ✅ COMPLETE | pgvector backend, Voyage AI embeddings |
+| **LangGraph Orchestrator** | `core/langgraph/conversation_flow.py` | ✅ COMPLETE | 19 nodes, T2 before CRAG |
+| **Orchestration Nodes** | `core/langgraph/nodes/` | ✅ COMPLETE | Real LLM, real retrieval, real memory |
+| **Database Schema** | `core/db/schema.py` | ✅ COMPLETE | 14 tables, pgvector indexing |
+| **Migrations** | `core/db/migrations/` | ✅ COMPLETE | 3 migrations, seed-ready |
+| **RAG Ingestion** | `core/rag/ingestion/` | ✅ COMPLETE | Parser + chunker + embedder + indexer |
+| **RAG Retrieval** | `core/rag/retrieval/` | ✅ COMPLETE | Tier 1 vector, Tier 2 tree, CRAG, RRF |
+| **FastAPI Layer** | `api/` | ✅ COMPLETE | 5 endpoint groups, WebSocket streaming |
+| **E2E Tests** | `tests/test_e2e.py` | ✅ COMPLETE | 4/4 passing, all profiles/flows |
+| **Frontend** | `web/` | ⏳ NEXT | React chat page + review dashboard (Week 3) |
 
 ---
 

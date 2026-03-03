@@ -38,14 +38,16 @@ The ingestion pipeline is also complete: feed a PDF/text file → parse → sema
 |---|---|---|
 | Clone Profile Config | ✅ Complete | `core/models/clone_profile.py` |
 | PostgreSQL Schema (14 tables) | ✅ Complete | `core/db/schema.py` |
-| LangGraph Orchestration (18 nodes) | ✅ Complete | `core/langgraph/conversation_flow.py` |
-| RAG Ingestion Pipeline | ✅ Complete | `core/rag/ingestion/pipeline.py` |
+| LangGraph Orchestration (19 nodes) | ✅ Complete | `core/langgraph/conversation_flow.py` |
+| RAG Ingestion Pipeline | ✅ Complete | `core/rag/ingestion/` (with Voyage AI verified) |
 | RAG Retrieval (pgvector + RRF) | ✅ Complete | `core/rag/retrieval/vector_search.py` |
 | Provenance Graph Query | ✅ Complete | `core/rag/retrieval/provenance.py` |
-| Cross-Session Memory (Mem0) | ⏳ Next | `core/langgraph/nodes/context_nodes.py` |
+| Cross-Session Memory (Mem0) | ✅ Complete | `core/mem0_client.py` + nodes |
+| Citation Verification | ✅ Complete | `core/langgraph/nodes/generation_nodes.py` |
+| FastAPI Gateway | ✅ Complete | `api/` (6 files, 5 endpoint groups) |
 | Voice Output (OpenAudio TTS) | ⏳ Next | `core/langgraph/nodes/routing_nodes.py` |
-| FastAPI Gateway | ⏳ Planned | `api/` |
-| React Frontend | ⏳ Planned | `web/` |
+| React Frontend | ⏳ Next | `web/` |
+| Database Seeding | ⏳ Next | Seed profiles + sample docs |
 
 ---
 
@@ -55,7 +57,7 @@ The ingestion pipeline is also complete: feed a PDF/text file → parse → sema
 
 **Models (production PCCI):** Qwen3.5-35B-A3B via SGLang · Qwen3-Embedding-0.6B via TEI · OpenAudio S1-mini (TTS) · Whisper Large V3 (transcription)
 
-**Models (dev):** Qwen3-32b via Groq API · text-embedding-3-small via OpenAI (1024-dim truncation, same schema)
+**Models (dev, Session 9):** Qwen3-32b via Groq API · voyage-3 via Voyage AI (1024-dim, LangChain drop-in, ✅ verified)
 
 **Storage:** PostgreSQL 17 + pgvector · MinIO (raw files) · Redis (cache) · Mem0 (user memory)
 

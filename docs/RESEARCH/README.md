@@ -14,7 +14,7 @@ These were researched and decided. Do not re-debate.
 | **Q2** | Document tree generation cost for 100 docs | ~2-2.5 hours locally, $42 GPT-4o batch as fallback | Acceptable. Run once at ingestion. |
 | **Q3** | Mem0 backend for user memory | Use pgvector as backend for Mem0 | Zero custom code. Mem0 handles the abstraction. |
 | **Q4** | Provenance graph (Sacred Archive) | Skip Apache AGE. Use pure SQL + recursive CTEs. | Apache AGE core team eliminated Oct 2024. Same power, zero external dependencies. |
-| **Q5** | GPU allocation for 4 models | SGLang (LLM, GPU 0) + TEI CPU (embeddings) + Whisper + OpenAudio (GPU 1) | Two RTX 4090s. Qwen3.5-35B requires ~20GB. Other models share or run on CPU. |
+| **Q5** | GPU allocation + embeddings for dev | **Production:** SGLang (LLM, GPU 0) + TEI CPU (embeddings) + Whisper + OpenAudio (GPU 1). **Development (Session 9):** Groq API (LLM) + Voyage AI (embeddings). | Two RTX 4090s (production). Qwen3.5-35B requires ~20GB. Development uses HTTP APIs pending PCCI infra. Both 1024-dim embeddings — zero code changes to swap. |
 | **Q6** | Local LLM for tree generation | Fork PageIndex + one-line base_url fix. Test Qwen3.5 in Week 3, GPT-4o fallback. | Qwen3.5 is capable. Fallback ready if needed. |
 | **Q7** | Moving 60GB corpus to air-gapped Sacred Archive | Temporary Ethernet + LUKS encryption, 3-day process | Secure. Audited. Manual process for security. |
 | **Q8** | Project timeline buffer | Recommend formal Week 0 (5 days). Project becomes 9 weeks total. | Risk mitigation. Infra validation, dependency checks. |

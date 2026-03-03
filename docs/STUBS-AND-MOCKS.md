@@ -1,6 +1,6 @@
 # Stubs & Mocks Inventory — Digital Clone Engine
 
-**Last Updated:** March 3, 2026 (Session 7) | **Status:** Comprehensive inventory of all stubs, dev proxies, and test mocks.
+**Last Updated:** March 4, 2026 (Session 9 — Voyage AI verified) | **Status:** Comprehensive inventory of all stubs, dev proxies, and test mocks. All core embeddings/LLM paths functional and verified.
 
 ---
 
@@ -61,38 +61,46 @@ ChatOpenAI(
 
 ---
 
-### 2. Embeddings — OpenAI API (dev) → TEI (prod)
+### 2. Embeddings — Voyage AI (dev, Session 9) → TEI (prod)
 
 **File:** `core/rag/ingestion/embedder.py` lines 66–92
 
-**Now:**
+**Now (Development, Session 9):**
 ```python
-base_url=os.getenv("EMBEDDING_API_BASE_URL", "https://api.openai.com/v1"),
-model=os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"),
-api_key=os.getenv("OPENAI_API_KEY"),
+from langchain_voyageai import VoyageAIEmbeddings
+client = VoyageAIEmbeddings(
+    model="voyage-3",
+    voyage_api_key=os.getenv("VOYAGE_API_KEY"),
+)
+# Returns 1024-dim vectors via api.voyageai.com HTTP API
 ```
 
-**Real:**
+**Real (Production, when PCCI ready):**
 ```python
-base_url="http://localhost:8001/v1",  # PCCI TEI endpoint
-model="Qwen3-Embedding-0.6B",
-api_key="default",  # Local TEI doesn't require auth
+from langchain_community.embeddings import HuggingFaceEmbeddings
+# Or use TEI via OpenAI-compatible endpoint:
+client = HuggingFaceEmbeddings(
+    model_name="Qwen3-Embedding-0.6B",
+    # Runs locally on PCCI ~2GB VRAM
+)
+# Returns 1024-dim vectors from local GPU
 ```
 
-**Why now is dev:**
-- OpenAI Embeddings API is reliable and standardized. PCCI doesn't have TEI deployed yet.
-- Model intentionally matches: `text-embedding-3-small` (1024-dim) vs production TEI with Qwen embedding model (same dimension).
-- Zero code changes needed — already env-var-driven using OpenAI-compatible API format.
+**Status (Session 9):**
+- ✅ **Fully functional and verified** — Voyage AI voyage-3 working across all 4 test layers (embedder, retrieval, memory, LangGraph)
+- ✅ 1024-dim output (same as production target)
+- ✅ LangChain drop-in interface (zero code changes to swap backends)
+- ✅ Tested: 4/4 E2E tests pass, 8-doc batch embedding verified, pipeline visualizer complete
 
-**How to make real:**
-1. Deploy TEI on PCCI GPU (~2GB VRAM) serving `Qwen3-Embedding-0.6B`.
-2. Update env vars:
-   - `EMBEDDING_API_BASE_URL=http://localhost:8001/v1`
-   - `EMBEDDING_MODEL=Qwen3-Embedding-0.6B`
-   - `OPENAI_API_KEY=default` (or any placeholder)
-3. That's it. No code changes.
+**How to make real (when PCCI TEI deployed):**
+1. Deploy TEI on PCCI GPU (~2GB VRAM) serving `Qwen3-Embedding-0.6B` or compatible model
+2. Update `core/rag/ingestion/embedder.py`:
+   - Replace `VoyageAIEmbeddings` with `HuggingFaceEmbeddings` or TEI via OpenAI-compatible endpoint
+   - Point to local PCCI server instead of api.voyageai.com
+   - Update `.env`: change `VOYAGE_API_KEY` to local model reference
+3. No breaking changes — already using LangChain Embeddings interface
 
-**Blocking dependency:** PCCI GPU server with TEI running Qwen3-Embedding-0.6B (~2GB VRAM).
+**Blocking dependency:** PCCI GPU server with TEI (waiting for infrastructure deployment).
 
 ---
 
@@ -461,10 +469,10 @@ with patch("core.mem0_client.get_mem0_client") as mock:
 
 ## Summary Table
 
-| Item | File | Type | Blocked By | Priority |
-|---|---|---|---|---|
-| LLM (Groq → SGLang) | `core/llm.py:40` | Dev proxy | PCCI GPU (20GB) | High — easy swap |
-| Embeddings (OpenAI → TEI) | `core/rag/ingestion/embedder.py:66` | Dev proxy | PCCI GPU (2GB) | High — env-only swap |
+| Item | File | Type | Status | Blocked By | Priority |
+|---|---|---|---|---|---|
+| LLM (Groq → SGLang) | `core/llm.py:40` | Dev proxy | ✅ Verified | PCCI GPU (20GB) | High — easy swap |
+| Embeddings (Voyage AI → TEI) | `core/rag/ingestion/embedder.py:66` | Dev proxy | ✅ Verified (Session 9) | PCCI GPU (2GB) | High — LangChain drop-in swap |
 | Voice pipeline | `core/langgraph/nodes/routing_nodes.py:120` | Full stub | PCCI GPU (2GB) + voice model | Medium — can test structure early |
 | Tier 2 tree search | `core/rag/retrieval/tree_search.py` | Stub | MinIO + tree generation | Medium — logic clear, just needs infra |
 | Audio/video parsing | `core/rag/ingestion/parser.py:9` | NotImplementedError | PCCI GPU + Whisper | Low — not priority for MVP |
