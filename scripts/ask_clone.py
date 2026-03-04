@@ -4,10 +4,13 @@ CLI Query Script — Digital Clone Engine
 Query a clone directly from the command line. Uses the full LangGraph pipeline
 with real database, real vector search, real Mem0, and real Groq LLM.
 
+Saves response text + MP3 audio to output/ folder automatically.
+
 Usage:
     python scripts/ask_clone.py "What is connectivity?"
     python scripts/ask_clone.py --clone sacred-archive "What is compassion?"
     python scripts/ask_clone.py -v "Tell me about supply chains"
+    python scripts/ask_clone.py --no-save "Quick test question"
 
 Requires: .env with GROQ_API_KEY, GOOGLE_API_KEY, DATABASE_URL
           Database seeded (run seed_db.py + ingest_samples.py first)
@@ -16,7 +19,9 @@ Requires: .env with GROQ_API_KEY, GOOGLE_API_KEY, DATABASE_URL
 import os
 import sys
 import argparse
+import base64
 import time
+from datetime import datetime
 from pathlib import Path
 
 # Add project root to sys.path so core/ imports work
@@ -52,6 +57,10 @@ def parse_args():
     parser.add_argument(
         "-v", "--verbose", action="store_true",
         help="Show detailed pipeline info"
+    )
+    parser.add_argument(
+        "--no-save", action="store_true",
+        help="Don't save output files (audio + text)"
     )
     return parser.parse_args()
 
@@ -101,6 +110,8 @@ def main():
             "cited_sources": [],
             "silence_triggered": False,
             "voice_chunks": [],
+            "audio_base64": "",
+            "audio_format": "",
         }
 
         # --- Run the pipeline ---
@@ -127,15 +138,31 @@ def main():
 
         if args.verbose:
             print("\n--- Pipeline Details ---")
-            print(f"  Intent:       {result.get('intent_class', 'unknown')}")
-            print(f"  Confidence:   {result.get('final_confidence', 0.0):.2f}")
-            print(f"  Retrieval:    {result.get('retrieval_confidence', 0.0):.2f}")
-            print(f"  Passages:     {len(result.get('retrieved_passages', []))}")
-            print(f"  Citations:    {len(citations)}")
-            print(f"  CRAG retries: {result.get('retry_count', 0)}")
-            print(f"  Silence:      {result.get('silence_triggered', False)}")
-            print(f"  Memory:       {'Yes' if result.get('user_memory') else 'No'}")
-            print(f"  Time:         {elapsed:.1f}s")
+            print(f"  Intent:        {result.get('intent_class', 'unknown')}")
+            print(f"  Token budget:  {result.get('token_budget', '?')}")
+            print(f"  Confidence:    {result.get('final_confidence', 0.0):.2f}")
+            print(f"  Retrieval:     {result.get('retrieval_confidence', 0.0):.2f}")
+            print(f"  Passages:      {len(result.get('retrieved_passages', []))}")
+            print(f"  Citations:     {len(citations)}")
+            print(f"  CRAG retries:  {result.get('retry_count', 0)}")
+            print(f"  Silence:       {result.get('silence_triggered', False)}")
+            print(f"  Memory:        {'Yes' if result.get('user_memory') else 'No'}")
+            print(f"  Time:          {elapsed:.1f}s")
+
+            # Session 16: voice chunks & audio
+            voice_chunks = result.get("voice_chunks", [])
+            audio_b64 = result.get("audio_base64", "")
+            audio_fmt = result.get("audio_format", "")
+            print(f"\n--- Voice / TTS ---")
+            print(f"  Voice chunks:  {len(voice_chunks)}")
+            if voice_chunks:
+                for i, chunk in enumerate(voice_chunks[:5], 1):
+                    preview = chunk[:80] + "..." if len(chunk) > 80 else chunk
+                    print(f"    [{i}] {preview}")
+                if len(voice_chunks) > 5:
+                    print(f"    ... and {len(voice_chunks) - 5} more")
+            print(f"  Audio format:  {audio_fmt or 'none'}")
+            print(f"  Audio size:    {len(audio_b64) * 3 // 4 // 1024} KB" if audio_b64 else "  Audio size:    0 (no audio)")
 
             if citations:
                 print("\n--- Citations ---")
@@ -143,7 +170,6 @@ def main():
                     source_type = cite.get("source_type", "unknown")
                     doc_id = cite.get("doc_id", "?")
                     passage = cite.get("passage", "")
-                    # Truncate long passages for readability
                     preview = passage[:80] + "..." if len(passage) > 80 else passage
                     print(f'  [{i}] {source_type} — {doc_id[:8]}...')
                     print(f'      "{preview}"')
@@ -152,8 +178,66 @@ def main():
                   f" | Citations: {len(citations)}"
                   f" | Time: {elapsed:.1f}s")
 
+        # --- Save output files ---
+        if not args.no_save:
+            _save_output(args, result, response, citations, elapsed)
+
     finally:
         db.close()
+
+
+def _save_output(args, result, response, citations, elapsed):
+    """Save response text and audio MP3 to output/ folder."""
+    output_dir = Path(__file__).parent.parent / "output"
+    output_dir.mkdir(exist_ok=True)
+
+    # Timestamp-based filename: 2026-03-05_14-30-22_paragpt-client
+    ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    slug = args.clone.replace("/", "-")
+    base_name = f"{ts}_{slug}"
+
+    # --- Save text response ---
+    text_path = output_dir / f"{base_name}.txt"
+    with open(text_path, "w") as f:
+        f.write(f"Query: {args.query}\n")
+        f.write(f"Clone: {args.clone}\n")
+        f.write(f"Time: {elapsed:.1f}s\n")
+        f.write(f"Confidence: {result.get('final_confidence', 0.0):.2f}\n")
+        f.write(f"Intent: {result.get('intent_class', 'unknown')}\n")
+        f.write(f"Token Budget: {result.get('token_budget', '?')}\n")
+        f.write(f"Silence: {result.get('silence_triggered', False)}\n")
+        f.write(f"\n{'=' * 60}\nRESPONSE\n{'=' * 60}\n\n")
+        f.write(response)
+        f.write("\n")
+
+        # Voice chunks
+        voice_chunks = result.get("voice_chunks", [])
+        if voice_chunks:
+            f.write(f"\n{'=' * 60}\nVOICE CHUNKS ({len(voice_chunks)})\n{'=' * 60}\n\n")
+            for i, chunk in enumerate(voice_chunks, 1):
+                f.write(f"[{i}] {chunk}\n")
+
+        # Citations
+        if citations:
+            f.write(f"\n{'=' * 60}\nCITATIONS ({len(citations)})\n{'=' * 60}\n\n")
+            for i, cite in enumerate(citations, 1):
+                f.write(f"[{i}] {cite.get('source_type', 'unknown')} — {cite.get('doc_id', '?')}\n")
+                f.write(f"    {cite.get('passage', '')[:200]}\n\n")
+
+    print(f"\n  Saved text:  {text_path}")
+
+    # --- Save audio MP3 (if generated) ---
+    audio_b64 = result.get("audio_base64", "")
+    audio_fmt = result.get("audio_format", "mp3")
+    if audio_b64:
+        audio_path = output_dir / f"{base_name}.{audio_fmt}"
+        audio_bytes = base64.b64decode(audio_b64)
+        with open(audio_path, "wb") as f:
+            f.write(audio_bytes)
+        size_kb = len(audio_bytes) / 1024
+        print(f"  Saved audio: {audio_path} ({size_kb:.0f} KB)")
+    else:
+        print("  No audio generated (text_only mode or TTS skipped)")
 
 
 if __name__ == "__main__":

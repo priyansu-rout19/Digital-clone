@@ -11,3 +11,4 @@ build/
 open-questions/
 *.pdf
 logs/*.log
+output/

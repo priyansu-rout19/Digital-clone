@@ -81,6 +81,8 @@ def make_state(query: str, clone_id: str, user_id: str = "test-user-001",
         "cited_sources": [],
         "silence_triggered": False,
         "voice_chunks": [],
+        "audio_base64": "",
+        "audio_format": "",
     }
 
 

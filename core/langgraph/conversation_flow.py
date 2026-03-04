@@ -36,7 +36,7 @@ from core.langgraph.nodes.routing_nodes import (
     strict_silence_router,
     review_queue_writer,
     stream_to_user,
-    voice_pipeline,
+    make_voice_pipeline,
 )
 
 
@@ -78,6 +78,8 @@ class ConversationState(TypedDict):
     # Output Routing (set by routing nodes)
     silence_triggered: bool
     voice_chunks: list[str]  # text chunks for TTS
+    audio_base64: str  # base64-encoded MP3 audio from TTS (empty if text_only)
+    audio_format: str  # "mp3" or "" (set by voice_pipeline)
 
 
 # ============================================================================
@@ -124,7 +126,7 @@ def build_graph(profile: CloneProfile):
     graph.add_node("review_queue_writer", review_queue_writer)
     graph.add_node("soft_hedge_router", make_soft_hedge_router(profile))  # Factory: captures profile
     graph.add_node("strict_silence_router", strict_silence_router)
-    graph.add_node("voice_pipeline", voice_pipeline)
+    graph.add_node("voice_pipeline", make_voice_pipeline(profile))
 
     # Output (1)
     graph.add_node("stream_to_user", stream_to_user)

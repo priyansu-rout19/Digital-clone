@@ -95,6 +95,8 @@ BASE_STATE = {
     "cited_sources": [],
     "silence_triggered": False,
     "voice_chunks": [],
+    "audio_base64": "",
+    "audio_format": "",
 }
 
 

@@ -61,7 +61,29 @@ def tier1_retrieval(state: TypedDict) -> TypedDict:
 
 
 def crag_evaluator(state: TypedDict) -> TypedDict:
-    return state
+    """
+    Evaluate retrieval quality and adjust confidence before routing.
+
+    Checks passage count and adjusts the raw vector similarity confidence.
+    Few passages (< 3) get penalized — a single passage with 0.9 similarity
+    might still be the wrong topic. The after_crag() routing function then
+    uses this adjusted confidence to decide: proceed or retry via CRAG loop.
+
+    No LLM call here — CRAG can run up to 3 times in the retry loop,
+    so we keep this node fast (pure math).
+    """
+    passages = state.get("retrieved_passages", [])
+    raw_confidence = state.get("retrieval_confidence", 0.0)
+
+    if not passages:
+        return {**state, "retrieval_confidence": 0.0}
+
+    # Penalize when few passages retrieved (< 3 passages = partial credit)
+    passage_count_factor = min(len(passages) / 3.0, 1.0)
+    adjusted = raw_confidence * passage_count_factor
+    adjusted = max(0.0, min(1.0, adjusted))
+
+    return {**state, "retrieval_confidence": adjusted}
 
 
 def query_reformulator(state: TypedDict) -> TypedDict:
