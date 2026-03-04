@@ -1,6 +1,6 @@
 # ARCHITECTURE: Digital Clone Engine — Unified Technical System Design
 
-**Version:** 4.1 | **Date:** March 4, 2026 | **Prepared by:** Prem AI — Solution Architecture
+**Version:** 4.2 | **Date:** March 4, 2026 | **Prepared by:** Prem AI — Solution Architecture
 
 **Note:** This is the **specification/design document** (target production). For **current implementation status**, see [PROGRESS.md](../tasks/PROGRESS.md). Development currently uses drop-in proxy models (Voyage AI for embeddings, Groq for LLM) pending PCCI infrastructure — zero code changes needed when production models available.
 
@@ -103,7 +103,7 @@ clone_profile:
 
 ### Layer 2: Gateway + Orchestration
 - FastAPI + Nginx (OAuth, rate limiting)
-- **LangGraph Orchestrator** — 18-node stateless pipeline
+- **LangGraph Orchestrator** — 19-node stateless pipeline
 - Persona Manager
 - Ingestion Pipeline (Celery)
 - Review Queue + notification service
@@ -190,7 +190,7 @@ The LLM generates a response using:
 
 ---
 
-## 6. Codebase Structure (Current Status — March 4, 2026, Session 9)
+## 6. Codebase Structure (Current Status — March 4, 2026, Session 12)
 
 | Component | Location | Status | Notes |
 |---|---|---|---|
@@ -200,12 +200,13 @@ The LLM generates a response using:
 | **Mem0 Client** | `core/mem0_client.py` | ✅ COMPLETE | pgvector backend, Voyage AI embeddings |
 | **LangGraph Orchestrator** | `core/langgraph/conversation_flow.py` | ✅ COMPLETE | 19 nodes, T2 before CRAG |
 | **Orchestration Nodes** | `core/langgraph/nodes/` | ✅ COMPLETE | Real LLM, real retrieval, real memory |
-| **Database Schema** | `core/db/schema.py` | ✅ COMPLETE | 14 tables, pgvector indexing |
-| **Migrations** | `core/db/migrations/` | ✅ COMPLETE | 3 migrations, seed-ready |
+| **Database Schema** | `core/db/schema.py` | ✅ COMPLETE | 15 tables, pgvector indexing |
+| **Migrations** | `core/db/migrations/` | ✅ COMPLETE | 4 migrations, applied + seeded |
 | **RAG Ingestion** | `core/rag/ingestion/` | ✅ COMPLETE | Parser + chunker + embedder + indexer |
 | **RAG Retrieval** | `core/rag/retrieval/` | ✅ COMPLETE | Tier 1 vector, Tier 2 tree, CRAG, RRF |
 | **FastAPI Layer** | `api/` | ✅ COMPLETE | 5 endpoint groups, WebSocket streaming |
 | **E2E Tests** | `tests/test_e2e.py` | ✅ COMPLETE | 4/4 passing, all profiles/flows |
+| **Database Seeding** | `scripts/` | ✅ COMPLETE | 2 clones, 1 user, provenance, 4 chunks |
 | **Frontend** | `web/` | ⏳ NEXT | React chat page + review dashboard (Week 3) |
 
 ---

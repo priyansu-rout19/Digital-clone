@@ -6,9 +6,10 @@ Engineering specifications for each component of the Digital Clone Engine.
 |---|---|---|---|
 | **01** | Clone Profile Config Model | ✅ COMPLETE | `core/models/clone_profile.py` |
 | **02** | RAG Pipeline (Ingestion + Retrieval) | ✅ COMPLETE | `core/rag/` |
-| **03** | PostgreSQL Database Schema | ✅ COMPLETE (v1.4) | `core/db/schema.py`, `core/db/migrations/` |
+| **03** | PostgreSQL Database Schema | ✅ COMPLETE (v1.5 — applied + seeded) | `core/db/schema.py`, `core/db/migrations/` |
 | **04** | LangGraph Orchestration (19-node graph) | ✅ COMPLETE (v2.1) | `core/langgraph/conversation_flow.py` |
 | **05** | FastAPI Gateway + 3 Improvements | ✅ COMPLETE (v1.1) | `api/main.py`, `api/middleware.py`, `api/routes/` |
+| **06** | Database Seeding Scripts | ✅ COMPLETE (Session 12) | `scripts/seed_db.py`, `scripts/ingest_samples.py` |
 
 ## Component 01: Clone Profile Config
 
@@ -26,9 +27,9 @@ Ingestion pipeline (parse → chunk → embed → index) and retrieval (Tier 1 v
 
 ## Component 03: Database Schema
 
-**Location:** `core/db/schema.py` (360 lines) + `core/db/migrations/` (14 tables)
+**Location:** `core/db/schema.py` (360 lines) + `core/db/migrations/` (15 tables, 4 migrations)
 
-SQLAlchemy 2.0 ORM models. 6 core tables (all clients) + 8 provenance tables (Sacred Archive).
+SQLAlchemy 2.0 ORM models. 6 core tables (all clients) + 8 provenance tables (Sacred Archive) + document_chunks (pgvector). Session 12: All migrations applied, database seeded.
 
 See [core/db/README.md](../../core/db/README.md) for schema details.
 
@@ -66,3 +67,18 @@ The HTTP gateway layer. 5 endpoint groups (health, config, chat, ingest, review)
 - Use case: Authenticate API requests, enforce content access tiers
 
 **Tests:** 33 HTTP endpoint tests (18 original + 15 new), all passing
+
+## Component 06: Database Seeding Scripts (Session 12)
+
+**Location:** `scripts/` (4 files)
+
+Database setup utilities for populating the system with initial data.
+
+- `seed_db.py` (~120 lines) — Idempotent seeder using factory functions from `clone_profile.py`
+  - 2 clone profiles (ParaGPT + Sacred Archive)
+  - 1 admin user (Sacred Archive reviewer)
+  - Provenance graph data (2 teachings, 2 topics, 1 scripture, 1 source)
+- `ingest_samples.py` (~80 lines) — Runs sample docs through real IngestionPipeline
+  - 2 markdown documents → 4 chunks with Voyage AI 1024-dim embeddings
+- `sample_docs/paragpt_sample.md` — ParaGPT sample (geopolitics/connectivity)
+- `sample_docs/sacred_archive_sample.md` — Sacred Archive sample (compassion teachings)

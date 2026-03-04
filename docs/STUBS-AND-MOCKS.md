@@ -1,6 +1,6 @@
 # Stubs & Mocks Inventory — Digital Clone Engine
 
-**Last Updated:** March 4, 2026 (Session 11 — Mem0 config fixed, FastAPI complete) | **Status:** Comprehensive inventory of all stubs, dev proxies, and test mocks. All core embeddings/LLM/API paths functional and verified. 26 tests passing, zero xfails.
+**Last Updated:** March 4, 2026 (Session 12 — Database live, seeded) | **Status:** Comprehensive inventory of all stubs, dev proxies, and test mocks. All core embeddings/LLM/API paths functional and verified. 55 tests passing, zero xfails. PostgreSQL running with pgvector 0.8.2.
 
 ---
 
@@ -9,7 +9,7 @@
 The codebase contains **12 things** that are currently stubbed, mocked, or using dev proxies. They fall into three categories:
 
 1. **Hardware-Blocked** (5 items) — PCCI GPU server or MinIO required
-2. **Infra-Blocked** (2 items) — Running PostgreSQL + auth middleware needed (FastAPI layer complete since Session 8)
+2. **Infra-Blocked** (1 item) — Review queue DB writes need wiring (PostgreSQL now running since Session 12, auth middleware complete since Session 11)
 3. **Intentional/Partial** (3 items) — Not bugs; design choices or awaiting data
 4. **Test Mocks** (2 items) — Test environment limitations
 
@@ -481,11 +481,11 @@ with patch("core.mem0_client.get_mem0_client") as mock:
 | Voice pipeline | `core/langgraph/nodes/routing_nodes.py:120` | Full stub | PCCI GPU (2GB) + voice model | Medium — can test structure early |
 | Tier 2 tree search | `core/rag/retrieval/tree_search.py` | Stub | MinIO + tree generation | Medium — logic clear, just needs infra |
 | Audio/video parsing | `core/rag/ingestion/parser.py:9` | NotImplementedError | PCCI GPU + Whisper | Low — not priority for MVP |
-| Review queue writer | `core/langgraph/nodes/routing_nodes.py:65` | Print stub | Running PostgreSQL | High — FastAPI done, needs DB |
-| access_tier + token_budget | `core/langgraph/nodes/query_analysis_node.py:87` | Hardcoded | Auth middleware (~80 lines) | High — needed for multi-tenant |
+| Review queue writer | `core/langgraph/nodes/routing_nodes.py:65` | Print stub | DB write wiring (PostgreSQL running ✅) | High — FastAPI done, needs DB |
+| access_tier + token_budget | `core/langgraph/nodes/query_analysis_node.py:87` | Hardcoded | Auth middleware ✅ (Session 11) | High — needed for multi-tenant |
 | CRAG evaluator | `core/langgraph/nodes/retrieval_nodes.py:59` | Intentional | Design choice | Low — optional enhancement |
 | stream_to_user | `core/langgraph/nodes/routing_nodes.py:91` | Partial | ✅ FastAPI WebSocket done | Low — sentence splitting improvement |
-| provenance_graph_query | `core/langgraph/nodes/retrieval_nodes.py:5` | Real code, no data | Sacred Archive data ingestion | Low — awaits data |
+| provenance_graph_query | `core/langgraph/nodes/retrieval_nodes.py:5` | Real code, no data | Real query wiring (data ingested ✅ Session 12) | Low — awaits data |
 | test: vector_search mock | `tests/test_e2e.py:91` | Mock | Test DB not available | Low — acceptable trade-off |
 | test: mem0_client mock | `tests/test_e2e.py:103` | Mock | Test env setup | Low — acceptable trade-off |
 
@@ -498,10 +498,12 @@ with patch("core.mem0_client.get_mem0_client") as mock:
 - ✅ 18 HTTP tests + 4 Voyage AI tests passing
 - ✅ Mem0 config fix (`langchain_embeddings` → `model`)
 
-**Week 3 (Database + Frontend) — CURRENT:**
-- Unlock: `review_queue_writer` (needs running PostgreSQL + `alembic upgrade head`)
-- Unlock: `access_tier` + `token_budget` (needs auth middleware, ~80 lines)
-- Build: Database seeding, Docker Compose, React Chat Page + Review Dashboard
+**Week 3 (Database + Frontend) — IN PROGRESS:**
+- ✅ Done: PostgreSQL running, pgvector installed, migrations applied, database seeded (Session 12)
+- ✅ Done: Auth middleware (Session 11)
+- Partially unlocked: `review_queue_writer` (PostgreSQL running, needs DB write wiring in node)
+- Partially unlocked: `access_tier` + `token_budget` (auth middleware done, needs query-level enforcement)
+- Next: React Chat Page + Review Dashboard, Docker Compose
 
 **Week 3+ (Voice, if hardware ready):**
 - Unlock: `voice_pipeline` (if PCCI GPU + voice model available).

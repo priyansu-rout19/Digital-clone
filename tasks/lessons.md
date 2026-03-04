@@ -337,6 +337,40 @@ The current approach worked (all tests passed), but it meant CRAG couldn't benef
 
 ---
 
+### Lesson 20: DATABASE_URL format mismatch (SQLAlchemy vs raw psycopg)
+
+**Date:** Session 12 | **Category:** Database connectivity
+
+**What happened:** The `IngestionPipeline` and `indexer.py` call `psycopg.connect(db_url)` directly (not via SQLAlchemy). The `.env` has `DATABASE_URL=postgresql+psycopg://postgres@localhost/dce_dev` which works for SQLAlchemy's `create_engine()` but causes errors with raw `psycopg.connect()` because psycopg doesn't understand the `+psycopg` dialect prefix.
+
+**Fix:** Strip the dialect prefix before passing to pipeline/indexer:
+```python
+PSYCOPG_URL = DATABASE_URL.replace("+psycopg", "")
+```
+
+**Rule for future:**
+- SQLAlchemy URLs use dialect format: `postgresql+psycopg://`
+- Raw psycopg URLs use standard format: `postgresql://`
+- When mixing ORM (SQLAlchemy) and raw driver (psycopg) in the same codebase, maintain both URL formats
+- Always check whether the consuming library is SQLAlchemy or raw psycopg before passing DATABASE_URL
+
+---
+
+### Lesson 21: Alembic shebang trap on Fedora
+
+**Date:** Session 12 | **Category:** Python tooling
+
+**What happened:** Running bare `alembic upgrade head` used `/usr/bin/alembic` which has `#!/usr/bin/python3 -sP` shebang. The `-sP` flags strip site-packages from sys.path, causing `ModuleNotFoundError: No module named 'pydantic'` (and any other pip-installed package).
+
+**Fix:** Always use `python3 -m alembic` instead of bare `alembic` — this runs Alembic through the Python interpreter with the full sys.path including site-packages.
+
+**Rule for future:**
+- Never trust system-installed Python tool wrappers (`/usr/bin/alembic`, `/usr/bin/pytest`, etc.) — they may have restrictive shebangs
+- Always prefer `python3 -m <tool>` for pip-installed tools (alembic, pytest, uvicorn)
+- This is especially common on Fedora/RHEL where system Python has strict isolation policies
+
+---
+
 ## Session Patterns to Remember
 
 1. **User is learning by building** — every spec/decision should explain the why, not just the what
@@ -358,3 +392,5 @@ The current approach worked (all tests passed), but it meant CRAG couldn't benef
 17. **Sync code in async framework doesn't require full async rewrite** — FastAPI supports sync dependencies. Measure first (if <100ms, use sync directly). Only use async wrappers if operations are slow.
 18. **FastAPI testing with async fixtures and dependency overrides** — Use httpx.AsyncClient(transport=ASGITransport), override dependencies globally, mock flexible models with side_effect dispatchers. Always restore original side_effect to avoid recursion.
 19. **Mem0 langchain provider uses `model` key, not `langchain_embeddings`** — Mem0's `BaseEmbedderConfig.__init__()` accepts `model: Optional[str]` which the `LangchainEmbedding` class duck-types to accept a LangChain `Embeddings` instance. The config dict keys must match `BaseEmbedderConfig` constructor params exactly since `EmbedderFactory.create()` unpacks them as `BaseEmbedderConfig(**config)`. Always read the library source to confirm parameter names.
+20. **DATABASE_URL format: SQLAlchemy vs psycopg** — `+psycopg` dialect prefix works for SQLAlchemy but fails for raw psycopg. Strip it when passing to pipeline/indexer.
+21. **Always `python3 -m alembic` not bare `alembic`** — system wrappers may strip site-packages via shebang flags (-sP).

@@ -1,6 +1,6 @@
 # DEVELOPMENT PLAN: Digital Clone Engine — Week 1-3 Roadmap
 
-**Version:** 3.6 | **Date:** March 4, 2026 (Session 11) | **Prepared by:** Prem AI Engineering
+**Version:** 3.7 | **Date:** March 4, 2026 (Session 12) | **Prepared by:** Prem AI Engineering
 
 ---
 
@@ -8,7 +8,7 @@
 
 **What:** A unified AI clone engine serving two clients (ParaGPT + Sacred Archive) through one codebase, behavior controlled by configuration.
 
-**Status:** Session 11 complete (3 API improvements). **FULL BACKEND COMPLETE** — All core engine components + API gateway + comprehensive tests (55 passing, zero xfails). Spec-compliant orchestration, memory integration, citation verification, two-tier retrieval, conversation persistence, ingest status polling, and API key validation all tested. FastAPI layer fully tested with 33 unit tests (18 original + 15 new) using mocked dependencies. Mem0 config fix applied. 19-node LangGraph + API layer fully functional for both clone profiles. Messages table + status polling + auth middleware live. Ready for database seeding + frontend (Week 3).
+**Status:** Session 12 complete (database setup + seeding). **FULL BACKEND + DATABASE COMPLETE** — All core engine components + API gateway + comprehensive tests (55 passing, zero xfails) + live PostgreSQL database with seeded data. 4 Alembic migrations applied (17 tables). 2 clones seeded, sample documents ingested. Ready for React frontend (Week 3).
 
 **Confidence Level:** VERY HIGH — Full stack proven via working code. All ~50+ files on GitHub (components + E2E tests + pipeline viz + Tier 2 fix + FastAPI layer + Voyage AI + tests verified). API endpoints stream real responses from orchestrator. Voyage AI 1024-dim embeddings confirmed working. All HTTP endpoints tested without real DB/LLM. Production path clear: dev proxies (Groq, Voyage AI, pgvector) → prod (SGLang, TEI, Zvec) with zero code changes. No blockers.
 
@@ -147,6 +147,7 @@ Every query flows through this sequence. The clone profile controls behavior at 
 | **Conversation Persistence** | PostgreSQL messages table (Migration 0004) | Save chat exchanges to DB for audit trail | ✅ BUILT Session 11 (2 tests) |
 | **Ingest Status Polling** | GET /ingest/{slug}/status/{doc_id} | Track document ingestion progress (async) | ✅ BUILT Session 11 (4 tests) |
 | **API Key Validation** | APIKeyMiddleware + X-API-Key header | Authenticate API requests + access tier checks | ✅ BUILT Session 11 (9 tests) |
+| **Database Seeding** | Python scripts (seed_db.py, ingest_samples.py) | Populate clones + sample documents | ✅ BUILT Session 12 (2 clones, 4 chunks) |
 
 ### 3.2 Stub Services (Small Remaining)
 
@@ -159,7 +160,6 @@ Every query flows through this sequence. The clone profile controls behavior at 
 
 | Service | Technology | Purpose | Target |
 |---|---|---|---|
-| **Database Seeding** | SQL insert scripts | Populate clones + sample documents | Week 3 |
 | **MinIO — Corpus Storage** | MinIO S3-compatible | Store raw uploaded files (PDF, markdown, text) | Week 3 (optional) |
 | **MinIO — PageIndex Trees** | MinIO + JSON files | Store hierarchical document trees for Tier 2 search | Week 3 (optional) |
 | **Review Dashboard** | React | Sacred Archive reviewer UI | Week 3 |
@@ -173,7 +173,7 @@ Every query flows through this sequence. The clone profile controls behavior at 
 
 ### 4.1 PostgreSQL Schema
 
-**14 Tables across 3 migrations:**
+**15 Tables across 4 migrations:**
 
 **Migration 0001 (Core):**
 - `clone_profiles` — One row per clone (ParaGPT, Sacred Archive)
@@ -260,7 +260,7 @@ This single configuration object controls all behavioral routing in the pipeline
 
 **COMPLETE (Week 1 + Session 4):**
 - ✅ Component 01: Clone profile configuration model (6 enums, 16 fields, 2 presets)
-- ✅ Component 03: PostgreSQL schema (14 tables, 3 migrations, Alembic setup)
+- ✅ Component 03: PostgreSQL schema (15 tables, 4 migrations, applied + seeded)
 - ✅ Component 04: LangGraph orchestration (19-node graph, factory pattern, profile-driven routing, memory_writer added)
 - ✅ Component 02: RAG ingestion (parser, chunker, embedder, indexer, pipeline)
 - ✅ Component 02: RAG retrieval (vector search, provenance graph, CRAG retry fix)
@@ -576,8 +576,8 @@ web/                             (NOT YET STARTED — Week 3)
 
 ## 10. Next Steps
 
-**Immediate (Session 11 Complete):**
-✅ **FULL BACKEND COMPLETE** — Core engine 100% + API gateway + 3 API improvements + comprehensive tests. All 55 tests passing (zero xfails). Ready for database seeding + frontend.
+**Immediate (Session 12 Complete):**
+✅ **FULL BACKEND + DATABASE COMPLETE** — Core engine 100% + API gateway + 3 API improvements + comprehensive tests + live database. All 55 tests passing (zero xfails). 4 migrations applied, 2 clones seeded, 4 sample chunks ingested. Ready for React frontend.
 
 **✅ DONE: FastAPI Gateway + 3 API Improvements (Session 11)** — 33 HTTP endpoint tests
 - `tests/test_api.py`: 33 total test cases (18 original + 15 new)
@@ -589,6 +589,14 @@ web/                             (NOT YET STARTED — Week 3)
 - Full test suite: **55 passed** (33 API + 4 E2E + 4 Voyage + 14 other) — zero xfails
 - Mock strategy: DB session + graph fixtures (no real DB/LLM in tests)
 - New features: Conversation persistence (messages table), ingest status polling, API key validation, access tier checks
+
+**✅ DONE: Database Setup + Seeding (Session 12)** — Live database operational
+- PostgreSQL 17 + pgvector 0.8.2 running locally (pg_hba.conf → trust)
+- `dce_dev` database created, 4 Alembic migrations applied (17 tables)
+- `scripts/seed_db.py`: Idempotent seeder (2 clones, 1 admin, provenance graph)
+- `scripts/ingest_samples.py`: 2 sample docs → 4 chunks with Voyage AI embeddings
+- FastAPI smoke test: `/clone/*/profile` returns real data from database
+- 33/33 API tests still pass (no regressions)
 
 **✅ DONE: FastAPI Layer (Session 8)** — 6 files, 5 endpoint groups, WebSocket streaming
 - `api/main.py`: FastAPI app, lifespan, CORS, routers
@@ -604,9 +612,9 @@ web/                             (NOT YET STARTED — Week 3)
 
 **✅ DONE: E2E Integration Tests (Session 6)** — All 4 tests passing
 
-**Next: Database Seeding + Frontend (Week 3 kickoff)**
-1. Seed PostgreSQL with clone profiles (ParaGPT + Sacred Archive)
-2. Insert sample documents for testing
+**Next: React Frontend (Week 3)**
+1. ~~Seed PostgreSQL with clone profiles~~ ✅ Done (Session 12)
+2. ~~Insert sample documents for testing~~ ✅ Done (Session 12)
 3. Implement React Chat Page (ParaGPT public interface)
 4. Implement Review Dashboard (Sacred Archive reviewer UI)
 5. E2E integration test: Chat page → API → LangGraph → response
@@ -614,12 +622,12 @@ web/                             (NOT YET STARTED — Week 3)
 7. Smoke test on PCCI production environment
 
 **Infrastructure (Week 3 setup):**
-- [ ] PostgreSQL 17 + pgvector locally (DATABASE_URL in .env already configured)
+- [x] PostgreSQL 17 + pgvector 0.8.2 locally (Session 12)
 - [ ] Redis 7 — Session cache + WebSocket state (optional for Week 3, add if scaling needed)
 - [ ] MinIO — Optional for Week 3. Ingest endpoint currently saves to `/tmp/dce_uploads/`. For persistence, migrate to MinIO.
-- [ ] Alembic migrations: `alembic upgrade head` (creates 14 tables)
-- [ ] Seed database: INSERT clone profiles (ParaGPT + Sacred Archive)
-- [ ] Seed test documents: Sample PDFs/markdown for both clones
+- [x] Alembic migrations: 4 applied via `python3 -m alembic upgrade head` (17 tables) (Session 12)
+- [x] Seed database: `scripts/seed_db.py` — 2 clones + admin user + provenance (Session 12)
+- [x] Seed test documents: `scripts/ingest_samples.py` — 2 docs, 4 chunks (Session 12)
 - [ ] Test chat flow: Query API → LangGraph → response streaming
 - [ ] Deploy locally via Docker Compose
 
@@ -627,5 +635,5 @@ web/                             (NOT YET STARTED — Week 3)
 
 **Confidence Level: VERY HIGH**
 
-All core architecture proven via working code. All components complete (config, RAG, DB, orchestration, memory, citation, E2E tests, pipeline viz, FastAPI gateway, HTTP tests). **Voyage AI embeddings verified** (1024-dim) across all 4 test layers (unit test, E2E, visualizer, batch). 19-node graph + REST API fully functional and validated for both clients (ParaGPT + Sacred Archive). E2E integration tests pass (4/4) with real Groq LLM + Voyage AI calls. **FastAPI endpoints fully tested** (18 HTTP unit tests + 4 E2E + 4 Voyage = 26 passing, zero xfails) with mocked dependencies (no real DB/LLM in HTTP tests). All HTTP endpoint groups validated: health, profile, chat sync, ingest, review queue. <think> tags disabled for clean inference. WebSocket optimized (50% latency improvement). No unknowns remaining. **Ready to seed database + build frontend (Week 3).** Production path clear: dev proxies (Groq, Voyage AI, pgvector) → prod (SGLang, TEI, Zvec) with zero code changes. All ~50+ files on GitHub with clean commit history.
+All core architecture proven via working code. All components complete (config, RAG, DB, orchestration, memory, citation, E2E tests, pipeline viz, FastAPI gateway, HTTP tests). **Voyage AI embeddings verified** (1024-dim) across all 4 test layers (unit test, E2E, visualizer, batch). 19-node graph + REST API fully functional and validated for both clients (ParaGPT + Sacred Archive). E2E integration tests pass (4/4) with real Groq LLM + Voyage AI calls. **FastAPI endpoints fully tested** (18 HTTP unit tests + 4 E2E + 4 Voyage = 26 passing, zero xfails) with mocked dependencies (no real DB/LLM in HTTP tests). All HTTP endpoint groups validated: health, profile, chat sync, ingest, review queue. <think> tags disabled for clean inference. WebSocket optimized (50% latency improvement). No unknowns remaining. **Ready to build frontend (Week 3).** Production path clear: dev proxies (Groq, Voyage AI, pgvector) → prod (SGLang, TEI, Zvec) with zero code changes. All ~50+ files on GitHub with clean commit history. Database live with seeded clones + sample documents (Session 12). Seeding verified via FastAPI smoke test.
 
