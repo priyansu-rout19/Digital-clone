@@ -1,6 +1,6 @@
 # Stubs & Mocks Inventory — Digital Clone Engine
 
-**Last Updated:** March 5, 2026 (Session 16 — 6 stubs replaced with real implementations) | **Status:** 69 tests passing (33 API + 10 chunker + 26 session 16), zero xfails. Only 3 hardware-blocked stubs remain.
+**Last Updated:** March 5, 2026 (Session 17 — Backend Audit & Hardening) | **Status:** 69 tests passing (33 API + 10 chunker + 26 session 16 + 4 E2E real), zero xfails. Only 3 hardware-blocked stubs remain. Session 17 hardened all real implementations (security fixes, bug fixes, code quality).
 
 ---
 
@@ -210,6 +210,30 @@ adjusted = raw_confidence * passage_count_factor
 
 ---
 
+## Category 2b: Session 17 Hardening (12 fixes to real implementations)
+
+Session 17 ran a 3-agent backend audit and fixed 12 issues across the codebase. These aren't stub replacements — they're improvements to already-real code:
+
+**Bugs Fixed:**
+- `soft_hedge_router`: Now overwrites BOTH `raw_response` AND `verified_response` (silence mechanism was broken)
+- `api/routes/ingest.py`: Strips `+psycopg` from DATABASE_URL before passing to `psycopg.connect()`
+- `generation_nodes.py`: Sacred Archive uses `temperature=0.0` for mirror_only mode (was hardcoded 0.7)
+
+**Security Fixed:**
+- `provenance.py`: SQL injection — f-string interpolated IDs replaced with parameterized `= ANY(%s)`
+- `api/routes/ingest.py`: Path traversal — `file.filename` sanitized with `Path(name).name`
+- `api/routes/review.py`: Cross-tenant — `PATCH /review/{id}` → `PATCH /review/{clone_slug}/{review_id}` with clone-scoping
+- `api/routes/chat.py`: WebSocket DB session leak — removed unused `Depends(get_db)` from handler
+- `api/routes/chat.py`: Privacy leak — removed `user_memory` from API response (internal data only)
+
+**Code Quality:**
+- `api/routes/ingest.py`: `BackgroundTasks` mutable default removed
+- `core/db/__init__.py`: `psycopg_url()` shared utility (was duplicated in 2 node files)
+- `routing_nodes.py`: Regex-based sentence splitting (fixed double periods in `_naive_split`)
+- `requirements.txt`: Removed orphaned `tf-keras`, pinned `pymupdf`, `mem0ai`, `edge-tts`
+
+---
+
 ## Category 3: Intentional / Unchanged
 
 ### 1. provenance_graph_query — Real Code, Data Present (Session 12)
@@ -257,7 +281,8 @@ Real recursive CTE SQL. Works with sample data. Returns real results for Sacred 
 - Stub replacement session (Session 16): 6 stubs → real code
 
 **Next:**
-- React Chat Page + Review Dashboard
+- Frontend mockup designs in Variant (manager directive)
+- React Chat Page + Review Dashboard (after design approval)
 - Docker Compose for dev environment
 
 **When PCCI ready:**

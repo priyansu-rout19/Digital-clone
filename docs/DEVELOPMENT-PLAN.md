@@ -1,6 +1,6 @@
 # DEVELOPMENT PLAN: Digital Clone Engine — Week 1-3 Roadmap
 
-**Version:** 3.9 | **Date:** March 5, 2026 (Session 14) | **Prepared by:** Prem AI Engineering
+**Version:** 4.0 | **Date:** March 5, 2026 (Session 17) | **Prepared by:** Prem AI Engineering
 
 ---
 
@@ -8,9 +8,9 @@
 
 **What:** A unified AI clone engine serving two clients (ParaGPT + Sacred Archive) through one codebase, behavior controlled by configuration.
 
-**Status:** Session 14 complete (real integration tests + Google Gemini embeddings). **FULL BACKEND + DATABASE COMPLETE** — All core engine components + API gateway + semantic chunking + REAL integration tests (no mocks in E2E) + live PostgreSQL database with seeded data. 4 Alembic migrations applied (17 tables). 2 clones seeded, sample documents ingested (8 semantic chunks with Google Gemini embeddings). 4 production bugs found and fixed. 45 tests passing, 6 skipped. Ready for React frontend (Week 3).
+**Status:** Session 17 complete (backend audit & hardening). **FULL BACKEND COMPLETE + HARDENED** — All core engine components + API gateway + 6 stub replacements (Session 16) + 12 audit fixes (Session 17: 3 bugs, 5 security, 4 code quality). Only 3 hardware-blocked stubs remain (LLM, embeddings, tree search — PCCI). 69 tests passing, 6 skipped. Manager directive: mockup designs in Variant before React coding.
 
-**Confidence Level:** VERY HIGH — Full stack proven via working code with REAL integration tests (no mocks in E2E). All ~50+ files on GitHub. API endpoints stream real responses from orchestrator. Google Gemini embeddings confirmed working (3072→1024 Matryoshka truncation). E2E tests use real DB, real vector search, real Mem0, real LLM — 4 production bugs were found and fixed by removing mocks. Semantic chunking (SemanticChunker + Google Gemini) produces higher-quality topic-boundary chunks. CLI query script (`scripts/ask_clone.py`) enables manual pipeline testing. Production path clear: dev proxies (Groq, Google Gemini, pgvector) → prod (SGLang, TEI, Zvec) with zero code changes. No blockers.
+**Confidence Level:** VERY HIGH — Full stack proven via working code with REAL integration tests (no mocks in E2E). Backend hardened with security audit (SQL injection, path traversal, cross-tenant isolation, session leak, privacy leak all fixed). All ~50+ files on GitHub. 69 tests passing. Production path clear: dev proxies (Groq, Google Gemini, pgvector) → prod (SGLang, TEI, Zvec) with zero code changes. No blockers.
 
 ---
 
@@ -151,12 +151,15 @@ Every query flows through this sequence. The clone profile controls behavior at 
 | **Database Seeding** | Python scripts (seed_db.py, ingest_samples.py) | Populate clones + sample documents | ✅ BUILT Session 12 (2 clones, 8 chunks) |
 | **Semantic Chunking** | LangChain SemanticChunker + Google Gemini | Topic-boundary aware document chunking | ✅ BUILT Session 13 (10 tests) |
 
-### 3.2 Stub Services (Small Remaining)
+### 3.2 Remaining Stubs (Hardware-Blocked Only)
 
 | Service | Technology | Purpose | Status |
 |---|---|---|---|
-| **Voice Output** | OpenAudio S1-mini TTS | Audio response streaming | ⏳ STUB — hardware pending |
-| **Review Queue** | PostgreSQL queue | Sacred Archive human review | ⏳ STUB — DB structure ready |
+| **LLM Swap** | Groq → SGLang/vLLM | Production inference | Dev proxy working — PCCI GPU needed |
+| **Embeddings Swap** | Google Gemini → TEI | Production embeddings | Dev proxy working — PCCI GPU needed |
+| **Tier 2 Tree Search** | MinIO + PageIndex | Hierarchical doc search | Designed stub — MinIO needed |
+
+**Resolved in Session 16:** Review queue (real DB INSERT), voice pipeline (edge-tts), audio parsing (Groq Whisper), token budget (LLM-decided), sentence splitting (LLM-based), CRAG evaluator (confidence math).
 
 ### 3.3 Not Yet Started (Week 3)
 
@@ -358,14 +361,36 @@ This single configuration object controls all behavioral routing in the pipeline
   - **Updated Files**: api/middleware.py (NEW), api/main.py, api/routes/chat.py, api/routes/ingest.py, core/db/schema.py, .env
   - **Test Results**: 33/33 PASSED (18 original + 15 new)
 
+**COMPLETE (Sessions 15-17):**
+
+- ✅ **Session 15 — Voyage AI Cleanup** (dependency removal)
+  - Removed `voyageai`, `langchain-voyageai`, `tf-keras` from requirements.txt
+  - Deleted `tests/test_voyage_integration.py` (provider changed to Google Gemini)
+
+- ✅ **Session 16 — Stub Replacements** (6 stubs → real code, 26 new tests)
+  - `review_queue_writer`: Real DB INSERT (psycopg, review_queue table)
+  - `audio/video parsing`: Groq Whisper Large v3 Turbo (25MB limit, 8 formats)
+  - `voice_pipeline`: edge-tts (Microsoft Edge TTS, factory pattern, MP3 output)
+  - `token_budget`: LLM-decided (clamped [1000-4000])
+  - `stream_to_user`: LLM-based sentence splitting (context-aware)
+  - `crag_evaluator`: Passage-count confidence adjustment (no LLM, fast)
+  - New ConversationState keys: `audio_base64`, `audio_format`
+  - New dependency: `edge-tts==7.2.7`
+
+- ✅ **Session 17 — Backend Audit & Hardening** (12 fixes)
+  - P0 Bugs: silence mechanism (verified_response overwrite), ingest DB URL format, Sacred Archive temperature (0.0)
+  - P1 Security: SQL injection (parameterized queries), path traversal (filename sanitization), cross-tenant review (clone-scoped PATCH), WebSocket session leak, user_memory privacy leak
+  - P2 Code Quality: BackgroundTasks mutable default, _psycopg_url() DRY, regex sentence split, dependency cleanup
+
 **All Success Criteria Met:**
 - ✅ FastAPI endpoints stream real responses from LangGraph orchestrator
 - ✅ Ingest endpoint processes files and triggers background pipeline
 - ✅ WebSocket handles streaming with progress events
-- ✅ Full test suite: 45 passed, 6 skipped (33 API + 4 E2E + 10 chunker — Voyage tests removed Session 15)
+- ✅ Full test suite: **69 passed, 6 skipped** (33 API + 10 chunker + 26 session16 + 4 E2E real)
 - ✅ Conversation history persisted to messages table
 - ✅ Ingest status polling (for async document processing)
 - ✅ API key validation + access tier checks
+- ✅ Security hardened (SQL injection, path traversal, cross-tenant isolation, session leak, privacy leak)
 
 **Remaining (deferred to Week 3):**
 - [ ] OAuth/JWT for user authentication (beyond basic API key)
@@ -396,7 +421,7 @@ This single configuration object controls all behavioral routing in the pipeline
 
 **Review Endpoint:**
 - [x] `GET /review/{slug}` — List pending reviews (Sacred Archive only, 403 for others)
-- [x] `PATCH /review/{id}` — Approve/reject with notes, timestamp
+- [x] `PATCH /review/{clone_slug}/{review_id}` — Approve/reject with notes, clone-scoped (Session 17)
 
 **Configuration Endpoint:**
 - [x] `GET /clone/{slug}/profile` — Return full CloneProfile as JSON
@@ -405,8 +430,8 @@ This single configuration object controls all behavioral routing in the pipeline
 - [x] Google Gemini gemini-embedding-001 (3072→1024 Matryoshka) — replaced Voyage AI Session 14
 
 **Testing:**
-- [x] 18 HTTP endpoint tests (httpx.AsyncClient + ASGITransport)
-- [x] ~~4 Voyage AI integration tests~~ (removed Session 15 — provider changed to Google Gemini)
+- [x] 33 HTTP endpoint tests (httpx.AsyncClient + ASGITransport) — updated Session 17
+- [x] 26 stub replacement tests (Session 16)
 - [x] Mem0 config fix verified (Session 11)
 
 ---
@@ -416,23 +441,22 @@ This single configuration object controls all behavioral routing in the pipeline
 **Owner:** Frontend engineer + DevOps
 **Deliverables:**
 
-**React Chat Page (ParaGPT):**
-- [ ] Public-facing chat interface (no auth required)
-- [ ] Real-time message streaming (WebSocket to `/chat/{clone_id}`)
-- [ ] Citation display (linked to source documents)
-- [ ] Voice playback (if voice_mode enabled)
-- [ ] User memory context display (if user logged in)
+**Phase 1: Design Mockups (Manager Directive)**
+- [ ] Create ParaGPT Chat Page mockup in Variant (AI design tool)
+- [ ] Create Sacred Archive Review Dashboard mockup in Variant
+- [ ] Get manager approval on designs before coding
 
-**Review Dashboard (Sacred Archive):**
+**Phase 2: React Chat Page (ParaGPT):**
+- [ ] Public-facing chat interface (from approved Variant designs)
+- [ ] Real-time message streaming (WebSocket to `/chat/{clone_slug}/ws`)
+- [ ] Citation display (linked to source documents)
+- [ ] Voice playback (audio_base64 from API — edge-tts backend ready)
+
+**Phase 3: Review Dashboard (Sacred Archive):**
 - [ ] Reviewer interface for pending queue
 - [ ] Side-by-side: generated response vs. original corpus
-- [ ] Approve/reject buttons (calls `/review/{review_id}`)
+- [ ] Approve/reject buttons (calls `/review/{clone_slug}/{review_id}` — clone-scoped)
 - [ ] Audit trail of approvals
-
-**Voice Pipeline (if hardware ready):**
-- [ ] OpenAudio TTS integration (from stub to real)
-- [ ] Stream audio interleaved with text on chat page
-- [ ] Handle voice model timeouts gracefully
 
 **Docker Compose Stack:**
 ```yaml
@@ -540,14 +564,14 @@ core/
         ├── provenance.py        (recursive CTEs)
         └── tree_search.py       (stub for PageIndex)
 
-tests/                           (✅ COMPLETE — Session 14: 45 passed, 6 skipped)
+tests/                           (✅ COMPLETE — Session 17: 69 passed, 6 skipped)
 ├── __init__.py
 ├── conftest.py                (Session 14 — real DB seeding fixtures, pytest-asyncio config)
-├── test_e2e.py                (Session 14 — 4 REAL E2E tests, no mocks)
-├── test_api.py                (575 lines — 33 HTTP endpoint tests, mocked)
+├── test_e2e.py                (Session 17 — 4 REAL E2E tests, GOOGLE_API_KEY skipif)
+├── test_api.py                (33 HTTP endpoint tests, updated Session 17 for route/response changes)
 ├── test_chunker.py            (Session 13 — 10 semantic chunking tests)
-├── (test_voyage_integration.py DELETED Session 15 — provider changed to Google Gemini)
-└── show_pipeline.py           (Session 14 — Pipeline visualizer with --real flag)
+├── test_session16.py          (Session 16 — 26 stub replacement tests, NEW)
+└── show_pipeline.py           (Session 17 — Pipeline visualizer with audio_base64/audio_format)
 
 api/                             (✅ COMPLETE — Session 8 + Session 11)
 ├── __init__.py
@@ -559,7 +583,7 @@ api/                             (✅ COMPLETE — Session 8 + Session 11)
     ├── config.py              (22 lines — GET /clone/{slug}/profile)
     ├── chat.py                (210 lines — POST + WebSocket streaming + access_tier + message persistence, Session 11)
     ├── ingest.py              (190 lines — POST multipart + BackgroundTasks + status polling GET, Session 11)
-    └── review.py              (112 lines — GET/PATCH Sacred Archive review)
+    └── review.py              (GET/PATCH Sacred Archive review, clone-scoped Session 17)
 
 web/                             (NOT YET STARTED — Week 3)
 ├── public/
@@ -579,80 +603,45 @@ web/                             (NOT YET STARTED — Week 3)
 
 ## 10. Next Steps
 
-**Immediate (Session 14 Complete):**
-✅ **FULL BACKEND + DATABASE COMPLETE + REAL INTEGRATION TESTS** — Core engine 100% + API gateway + 3 API improvements + semantic chunking + REAL E2E tests (no mocks) + live database. 45 tests passing, 6 skipped. 4 production bugs found and fixed. Google Gemini embeddings. CLI query script. Ready for React frontend.
+**Current Status (Session 17 Complete):**
+✅ **FULL BACKEND COMPLETE + HARDENED** — Core engine + API gateway + 6 stub replacements (Session 16) + 12 audit fixes (Session 17). 69 tests passing, 6 skipped. Only 3 hardware-blocked stubs remain. Manager directive: mockup designs in Variant before React coding.
 
-**✅ DONE: FastAPI Gateway + 3 API Improvements (Session 11)** — 33 HTTP endpoint tests
-- `tests/test_api.py`: 33 total test cases (18 original + 15 new)
-  - Original 18: health, profile, chat sync, ingest, review endpoints
-  - New 15: conversation persistence (2), ingest status (4), auth middleware (6), access tier (3)
-- `tests/conftest.py`: Pytest async configuration + shared fixtures (unchanged)
-- `pytest.ini`: Asyncio mode setup for mixed async/sync tests (unchanged)
-- ~~`tests/test_voyage_integration.py`~~: DELETED Session 15 (provider changed to Google Gemini)
-- Full test suite: **45 passed, 6 skipped** (33 API + 4 E2E + 10 chunker) — Voyage tests removed Session 15
-- Mock strategy: DB session + graph fixtures (no real DB/LLM in tests)
-- New features: Conversation persistence (messages table), ingest status polling, API key validation, access tier checks
+**✅ DONE: Sessions 15-17 Summary**
 
-**✅ DONE: Real Integration Tests + Google Gemini (Session 14)** — Full real pipeline!
-- E2E tests: ALL REAL — real PostgreSQL, real pgvector, real Mem0, real Groq LLM (no mocks)
-- Embedding swap: Voyage AI → Google Gemini gemini-embedding-001 (3072→1024 Matryoshka truncation)
-- CLI script: `scripts/ask_clone.py` for manual pipeline testing from terminal
-- Pipeline visualizer: `--real` flag for live DB mode
-- 4 production bugs found and fixed (access_tier overwrite, provenance SQL, DB URL format, vector_str)
-- Updated conftest.py with session-scoped DB seeding fixtures
-- Test suite: 45 passed, 6 skipped
+| Session | Focus | Key Changes |
+|---------|-------|-------------|
+| 15 | Voyage AI Cleanup | Removed voyageai, langchain-voyageai, tf-keras |
+| 16 | Stub Replacements (6) | review_queue, whisper, edge-tts, token_budget, sentence_split, CRAG |
+| 17 | Backend Audit (12 fixes) | 3 bugs + 5 security + 4 code quality |
 
-**✅ DONE: Semantic Chunking Upgrade (Session 13)** — True semantic chunking
-- Upgraded chunker from paragraph-aware fixed-size to TRUE semantic chunking
-- Uses LangChain's `SemanticChunker` + Google Gemini embeddings to detect topic boundaries
-- Old chunker preserved as fallback (`fixed_size` strategy via `ChunkingStrategy` enum)
-- New `ChunkingStrategy` enum + `chunking_strategy` field added to CloneProfile (now 7 enums, 17 fields)
-- Re-ingested sample docs: 8 semantic chunks (better topic separation)
+**Next Steps:**
 
-**✅ DONE: Database Setup + Seeding (Session 12)** — Live database operational
-- PostgreSQL 17 + pgvector 0.8.2 running locally (pg_hba.conf → trust)
-- `dce_dev` database created, 4 Alembic migrations applied (17 tables)
-- `scripts/seed_db.py`: Idempotent seeder (2 clones, 1 admin, provenance graph)
-- `scripts/ingest_samples.py`: 2 sample docs → 8 semantic chunks with Google Gemini embeddings (re-ingested Session 14)
-- FastAPI smoke test: `/clone/*/profile` returns real data from database
-- 45 tests passed, 6 skipped (Session 14)
+1. **Design Phase (Current):**
+   - [ ] Create ParaGPT Chat Page mockup in Variant
+   - [ ] Create Sacred Archive Review Dashboard mockup in Variant
+   - [ ] Get manager approval on designs
 
-**✅ DONE: FastAPI Layer (Session 8)** — 6 files, 5 endpoint groups, WebSocket streaming
-- `api/main.py`: FastAPI app, lifespan, CORS, routers
-- `api/deps.py`: DB session factory, clone lookup dependency
-- `api/routes/config.py`: `GET /clone/{slug}/profile`
-- `api/routes/chat.py`: `POST /chat/{slug}` (sync) + `WS /chat/{slug}/ws` (streaming)
-- `api/routes/ingest.py`: `POST /ingest/{slug}` (multipart, BackgroundTasks)
-- `api/routes/review.py`: `GET /review/{slug}`, `PATCH /review/{id}` (Sacred Archive)
+2. **React Frontend (After Design Approval):**
+   - [ ] Implement Chat Page from approved designs
+   - [ ] Implement Review Dashboard from approved designs
+   - [ ] Docker Compose full-stack setup
 
-**✅ DONE: Tier 2 Architecture Fix (Session 7)**
-- T2 runs immediately after T1 (before CRAG), not after CRAG
-- Graph topology matches original spec
+3. **Production Deployment (When PCCI Ready):**
+   - [ ] Replace dev proxies: Groq → SGLang, Google Gemini → TEI
+   - [ ] CORS lockdown (needs frontend origin URL)
+   - [ ] Auth hardening (fail-close in production)
 
-**✅ DONE: E2E Integration Tests (Session 6)** — All 4 tests passing
-
-**Next: React Frontend (Week 3)**
-1. ~~Seed PostgreSQL with clone profiles~~ ✅ Done (Session 12)
-2. ~~Insert sample documents for testing~~ ✅ Done (Session 12)
-3. Implement React Chat Page (ParaGPT public interface)
-4. Implement Review Dashboard (Sacred Archive reviewer UI)
-5. E2E integration test: Chat page → API → LangGraph → response
-6. Docker Compose full-stack setup
-7. Smoke test on PCCI production environment
-
-**Infrastructure (Week 3 setup):**
+**Infrastructure:**
 - [x] PostgreSQL 17 + pgvector 0.8.2 locally (Session 12)
-- [ ] Redis 7 — Session cache + WebSocket state (optional for Week 3, add if scaling needed)
-- [ ] MinIO — Optional for Week 3. Ingest endpoint currently saves to `/tmp/dce_uploads/`. For persistence, migrate to MinIO.
-- [x] Alembic migrations: 4 applied via `python3 -m alembic upgrade head` (17 tables) (Session 12)
-- [x] Seed database: `scripts/seed_db.py` — 2 clones + admin user + provenance (Session 12)
-- [x] Seed test documents: `scripts/ingest_samples.py` — 2 docs, 4 chunks (Session 12)
-- [ ] Test chat flow: Query API → LangGraph → response streaming
-- [ ] Deploy locally via Docker Compose
+- [x] All 4 Alembic migrations applied (17 tables)
+- [x] Database seeded (2 clones, admin user, provenance, sample docs)
+- [ ] Redis 7 — Session cache (optional, add if scaling needed)
+- [ ] MinIO — For Tier 2 tree search (PCCI blocked)
+- [ ] Docker Compose — Full-stack local dev environment
 
 ---
 
 **Confidence Level: VERY HIGH**
 
-All core architecture proven via working code with REAL integration tests (no mocks in E2E). All components complete (config, RAG, DB, orchestration, memory, citation, semantic chunking, real E2E tests, pipeline viz, FastAPI gateway, HTTP tests). **Google Gemini embeddings verified** (3072→1024 Matryoshka truncation). **Semantic chunking** (SemanticChunker + Google Gemini) detects topic boundaries for higher-quality chunks. 19-node graph + REST API fully functional and validated for both clients (ParaGPT + Sacred Archive). E2E integration tests pass (4/4) with **REAL everything** — real DB, real vector search, real Mem0, real Groq LLM. **4 production bugs found and fixed** by removing mocks (access_tier overwrite, provenance SQL, DB URL format, vector_str). **45 tests passing, 6 skipped**. CLI query script (`scripts/ask_clone.py`) enables manual pipeline testing. All HTTP endpoint groups validated. No unknowns remaining. **Ready to build frontend (Week 3).** Production path clear: dev proxies (Groq, Google Gemini, pgvector) → prod (SGLang, TEI, Zvec) with zero code changes. All ~50+ files on GitHub. Database live with seeded clones + sample documents.
+All core architecture proven via working code with REAL integration tests (no mocks in E2E). Backend hardened with 3-agent security audit (Session 17). **69 tests passing, 6 skipped**. All stubs resolved except 3 hardware-blocked (PCCI). Production path clear: dev proxies (Groq, Google Gemini, pgvector) → prod (SGLang, TEI, Zvec) with zero code changes. All ~50+ files on GitHub. Database live with seeded clones + sample documents. Ready for frontend design phase.
 

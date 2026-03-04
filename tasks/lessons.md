@@ -392,6 +392,74 @@ PSYCOPG_URL = DATABASE_URL.replace("+psycopg", "")
 
 ---
 
+### Lesson 23: Silence Mechanism — Both Response Fields Must Be Overwritten
+
+**Date:** Session 17 | **Category:** Pipeline bug
+
+**What happened:** `soft_hedge_router` set `raw_response = profile.silence_message` when confidence was low, but left `verified_response` unchanged. The downstream `stream_to_user` node reads `verified_response` first (it's the citation-verified version). So the hedge message never reached the user — they got the original un-hedged LLM response instead.
+
+**Root cause:** The pipeline has two response fields: `raw_response` (from LLM) and `verified_response` (from citation_verifier). When overwriting a response (hedge, silence, etc.), BOTH must be set. Otherwise the downstream consumer picks up the old value from the field you didn't touch.
+
+**Fix:** Added `"verified_response": profile.silence_message` alongside `"raw_response"` in the hedge router return.
+
+**Rule for future:**
+- When ANY node overwrites a response, it must overwrite ALL response-carrying state fields
+- Check which field downstream consumers actually read (not which one you think they read)
+- State fields that are "copies" or "refined versions" of each other must stay in sync when either is modified
+
+---
+
+### Lesson 24: SQL Parameterization — Defense-in-Depth Even for Trusted Inputs
+
+**Date:** Session 17 | **Category:** Security
+
+**What happened:** `provenance.py` built SQL queries with f-string interpolated IDs: `seed_ids_sql = ",".join([f"'{id}'" ...])` then `WHERE ... IN ({seed_ids_sql})`. The IDs came from our own database (chunk IDs from vector search), so practical risk was low. But this is still a SQL injection vector — if any upstream change causes user-controlled data to flow into those IDs, the vulnerability activates silently.
+
+**Fix:** Replaced all `IN ({seed_ids_sql})` with parameterized `= ANY(%s)` passing a Python list. The same file already used `ANY(%s)` correctly in other queries, making the inconsistency obvious.
+
+**Rule for future:**
+- NEVER interpolate values into SQL strings, even if they "come from the database"
+- Use `= ANY(%s)` with a list parameter instead of `IN (...)` with interpolated values
+- If you see `f"'{variable}'"` in SQL, it's a bug. Fix it immediately.
+- Check for consistency within the same file — if some queries are parameterized and others aren't, fix the outliers
+
+---
+
+### Lesson 25: Path Traversal in File Uploads — Always Sanitize Filenames
+
+**Date:** Session 17 | **Category:** Security
+
+**What happened:** `api/routes/ingest.py` used `file_path = upload_dir / file.filename` directly from the multipart upload. A crafted filename like `../../etc/passwd` or `../../../home/user/.env` could write files outside the upload directory.
+
+**Fix:** Sanitize to basename only: `file_path = upload_dir / Path(file.filename).name`. The `Path.name` property strips all directory components, returning only the filename part.
+
+**Rule for future:**
+- NEVER use `file.filename` from HTTP uploads directly in path construction
+- Always sanitize with `Path(filename).name` (strips directory traversal)
+- Consider additional sanitization: reject names with special chars, limit length
+- This applies to ANY user-provided filename — multipart uploads, form fields, API parameters
+
+---
+
+### Lesson 26: Multi-Tenant API Routes — Every Mutation Needs Clone-Scoping
+
+**Date:** Session 17 | **Category:** Security / Architecture
+
+**What happened:** `PATCH /review/{review_id}` had no clone-scoping — any API key holder could approve/reject any clone's reviews by guessing the UUID. The `GET /review/{slug}` endpoint was correctly scoped (required clone slug), but the PATCH endpoint accepted a bare review ID without verifying which clone it belonged to.
+
+**Fix:** Changed route to `PATCH /review/{clone_slug}/{review_id}`, added `get_clone` dependency, and added `ReviewQueue.clone_id == clone_id` to the query filter.
+
+**The pattern:** Read endpoints might be acceptable without strict scoping (public profiles, etc.), but write/update/delete endpoints MUST verify the resource belongs to the authenticated tenant. It's easy to scope GET but forget to scope PATCH/PUT/DELETE because they were added later.
+
+**Rule for future:**
+- Every mutation endpoint (POST, PUT, PATCH, DELETE) must include tenant scoping
+- Use the same `get_clone(slug)` dependency that read endpoints use
+- Add `clone_id` to the database query filter, not just the URL path
+- Audit all endpoints when adding multi-tenancy — check read AND write paths
+- Test cross-tenant access: can tenant A modify tenant B's resources?
+
+---
+
 ## Session Patterns to Remember
 
 1. **User is learning by building** — every spec/decision should explain the why, not just the what
@@ -416,3 +484,7 @@ PSYCOPG_URL = DATABASE_URL.replace("+psycopg", "")
 20. **DATABASE_URL format: SQLAlchemy vs psycopg** — `+psycopg` dialect prefix works for SQLAlchemy but fails for raw psycopg. Strip it when passing to pipeline/indexer.
 21. **Always `python3 -m alembic` not bare `alembic`** — system wrappers may strip site-packages via shebang flags (-sP).
 22. **True semantic chunking requires embedding-based similarity** — fixed-size with paragraph boundaries is NOT semantic chunking. Use SemanticChunker + embeddings for topic-boundary detection.
+23. **Silence mechanism: overwrite ALL response fields** — `raw_response` AND `verified_response` must both be set when hedging. Downstream consumers read `verified_response` first.
+24. **SQL parameterization is non-negotiable** — even when inputs come from trusted DB. Use `= ANY(%s)` not `IN ({interpolated})`. Defense-in-depth prevents future vulnerabilities.
+25. **Sanitize uploaded filenames** — always `Path(filename).name` to strip directory traversal. Never trust `file.filename` from multipart uploads.
+26. **Multi-tenant mutation endpoints need clone-scoping** — every PATCH/PUT/DELETE must verify `clone_id` matches the authenticated tenant. Easy to scope reads but forget writes.
