@@ -26,8 +26,8 @@ from core.langgraph.nodes.generation_nodes import citation_verifier
 # ---------------------------------------------------------------------------
 
 pytestmark = pytest.mark.skipif(
-    not os.environ.get("DATABASE_URL") or not os.environ.get("GROQ_API_KEY"),
-    reason="Integration tests require DATABASE_URL and GROQ_API_KEY",
+    not os.environ.get("DATABASE_URL") or not os.environ.get("GROQ_API_KEY") or not os.environ.get("GOOGLE_API_KEY"),
+    reason="Integration tests require DATABASE_URL, GROQ_API_KEY, and GOOGLE_API_KEY",
 )
 
 

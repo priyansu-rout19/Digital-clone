@@ -79,20 +79,26 @@ async def list_pending_reviews(
     ]
 
 
-@router.patch("/{review_id}")
+@router.patch("/{clone_slug}/{review_id}")
 async def update_review(
+    clone_slug: str,
     review_id: str,
     request: ReviewUpdateRequest,
+    clone_info: tuple[str, CloneProfile] = Depends(get_clone),
     db: Session = Depends(get_db),
 ) -> ReviewUpdateResponse:
     """
-    Approve or reject a review.
+    Approve or reject a review (clone-scoped for multi-tenant isolation).
     Updates the review_queue table with the decision and timestamp.
     """
-    # Load the review
-    review = db.query(ReviewQueue).filter(ReviewQueue.id == review_id).first()
+    clone_id, profile = clone_info
+
+    # Load the review and verify it belongs to this clone
+    review = db.query(ReviewQueue).filter(
+        and_(ReviewQueue.id == review_id, ReviewQueue.clone_id == clone_id)
+    ).first()
     if not review:
-        raise HTTPException(status_code=404, detail=f"Review '{review_id}' not found")
+        raise HTTPException(status_code=404, detail=f"Review '{review_id}' not found for clone '{clone_slug}'")
 
     # Update status and reviewer notes
     new_status = "approved" if request.action == "approve" else "rejected"

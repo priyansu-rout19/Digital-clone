@@ -18,10 +18,9 @@ psycopg2-binary==2.9.10
 SQLAlchemy==2.0.40
 alembic==1.14.1
 pgvector==0.3.6
-pymupdf
-mem0ai
+pymupdf==1.26.7
+mem0ai==1.0.4
 groq==1.0.0
-edge-tts
-tf-keras
+edge-tts==7.2.7
 pytest==9.0.2
 pytest-asyncio==0.25.2

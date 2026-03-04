@@ -65,10 +65,10 @@ def run_ingest_task(
 @router.post("/{clone_slug}")
 async def ingest_file(
     clone_slug: str,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     source_type: str = Form("document"),
     provenance_json: Optional[str] = Form(None),
-    background_tasks: BackgroundTasks = BackgroundTasks(),
     clone_info: tuple[str, CloneProfile] = Depends(get_clone),
     db: Session = Depends(get_db),
 ) -> IngestResponse:
@@ -108,7 +108,7 @@ async def ingest_file(
     upload_dir.mkdir(parents=True, exist_ok=True)
 
     # Save uploaded file
-    file_path = upload_dir / file.filename
+    file_path = upload_dir / Path(file.filename).name
     contents = await file.read()
     with open(file_path, "wb") as f:
         f.write(contents)
@@ -129,7 +129,7 @@ async def ingest_file(
     db.commit()
 
     # Trigger background ingestion task
-    db_url = os.environ.get("DATABASE_URL", "postgresql+psycopg://localhost/dce_dev")
+    db_url = os.environ.get("DATABASE_URL", "postgresql+psycopg://localhost/dce_dev").replace("+psycopg", "")
     background_tasks.add_task(
         run_ingest_task,
         clone_id=clone_id,

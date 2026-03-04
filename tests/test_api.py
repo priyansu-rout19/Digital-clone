@@ -219,13 +219,10 @@ async def test_chat_sync(client):
     assert "confidence" in data
     assert "cited_sources" in data
     assert "silence_triggered" in data
-    assert "user_memory" in data
-
     assert isinstance(data["response"], str)
     assert isinstance(data["confidence"], (int, float))
     assert isinstance(data["cited_sources"], list)
     assert isinstance(data["silence_triggered"], bool)
-    assert isinstance(data["user_memory"], str)
 
 
 @pytest.mark.asyncio
@@ -445,7 +442,7 @@ async def test_review_approve(client, mock_db_session):
     mock_db_session.query.side_effect = new_query_side_effect
 
     response = await client.patch(
-        "/review/review-001",
+        "/review/sacred-archive/review-001",
         json={"action": "approve"}
     )
 
@@ -459,7 +456,7 @@ async def test_review_approve(client, mock_db_session):
 
 @pytest.mark.asyncio
 async def test_review_reject(client, mock_db_session):
-    """PATCH /review/{id} with action=reject updates status."""
+    """PATCH /review/{clone_slug}/{id} with action=reject updates status."""
     review = MagicMock(spec=ReviewQueue)
     review.id = "review-001"
     review.status = "rejected"
@@ -481,7 +478,7 @@ async def test_review_reject(client, mock_db_session):
     mock_db_session.query.side_effect = new_query_side_effect
 
     response = await client.patch(
-        "/review/review-001",
+        "/review/sacred-archive/review-001",
         json={"action": "reject", "notes": "Not on topic"}
     )
 
@@ -494,24 +491,29 @@ async def test_review_reject(client, mock_db_session):
 
 
 @pytest.mark.asyncio
-async def test_review_not_found(client):
-    """PATCH /review/unknown returns 404."""
-    with patch("api.routes.review.get_db") as mock_get_db:
-        mock_session = MagicMock()
-        mock_get_db.return_value = mock_session
+async def test_review_not_found(client, mock_db_session):
+    """PATCH /review/{clone_slug}/{id} with unknown review_id returns 404."""
+    query_mock = MagicMock()
+    filter_mock = MagicMock()
+    filter_mock.first.return_value = None
+    query_mock.filter.return_value = filter_mock
 
-        query_mock = MagicMock()
-        filter_mock = MagicMock()
-        filter_mock.first.return_value = None
-        query_mock.filter.return_value = filter_mock
-        mock_session.query.return_value = query_mock
+    original_side_effect = mock_db_session.query.side_effect
+    def new_query_side_effect(model):
+        if model == ReviewQueue:
+            return query_mock
+        return original_side_effect(model)
 
-        response = await client.patch(
-            "/review/unknown",
-            json={"action": "approve"}
-        )
+    mock_db_session.query.side_effect = new_query_side_effect
 
-        assert response.status_code == 404
+    response = await client.patch(
+        "/review/sacred-archive/unknown-review-id",
+        json={"action": "approve"}
+    )
+
+    mock_db_session.query.side_effect = original_side_effect
+
+    assert response.status_code == 404
 
 
 # ---------------------------------------------------------------------------

@@ -25,7 +25,6 @@ class ChatResponse(BaseModel):
     confidence: float
     cited_sources: list[dict]
     silence_triggered: bool
-    user_memory: str
 
 
 def build_initial_state(query: str, clone_id: str, user_id: str, access_tier: str = "public") -> dict:
@@ -99,13 +98,12 @@ async def chat_sync(
     db.add(msg)
     db.commit()
 
-    # Extract response fields
+    # Extract response fields (user_memory excluded — internal pipeline use only)
     return ChatResponse(
         response=final_state.get("verified_response", ""),
         confidence=final_state.get("final_confidence", 0.0),
         cited_sources=final_state.get("cited_sources", []),
         silence_triggered=final_state.get("silence_triggered", False),
-        user_memory=final_state.get("user_memory", ""),
     )
 
 
@@ -113,7 +111,6 @@ async def chat_sync(
 async def chat_ws(
     websocket: WebSocket,
     clone_slug: str,
-    db: Session = Depends(get_db),
 ):
     """
     WebSocket chat endpoint with streaming response.
@@ -206,7 +203,6 @@ async def chat_ws(
                     "confidence": final_state.get("final_confidence", 0.0),
                     "cited_sources": final_state.get("cited_sources", []),
                     "silence_triggered": final_state.get("silence_triggered", False),
-                    "user_memory": final_state.get("user_memory", ""),
                 }
             )
         finally:

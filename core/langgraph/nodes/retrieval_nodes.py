@@ -1,11 +1,6 @@
-import os
 from typing import TypedDict
 from core.models.clone_profile import RetrievalTier
-
-
-def _psycopg_url() -> str:
-    """Convert SQLAlchemy DATABASE_URL to raw psycopg format."""
-    return os.environ.get("DATABASE_URL", "").replace("+psycopg", "")
+from core.db import psycopg_url as _psycopg_url
 
 
 def provenance_graph_query(state: TypedDict) -> TypedDict:

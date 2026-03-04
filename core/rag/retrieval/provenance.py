@@ -130,13 +130,13 @@ def _traverse_teaching_graph(
         if not seed_teaching_ids:
             return []
 
-        seed_ids_sql = ",".join([f"'{id}'" for id in set(seed_teaching_ids)])
+        seed_ids = list(set(seed_teaching_ids))
 
         results = []
         try:
             with psycopg.connect(db_url) as conn:
                 with conn.cursor() as cur:
-                    query = f"""
+                    query = """
                     WITH RECURSIVE chain AS (
                         -- Base: forward edges from seeds
                         SELECT to_teaching_id AS id,
@@ -145,7 +145,7 @@ def _traverse_teaching_graph(
                                ARRAY[from_teaching_id::text,
                                      to_teaching_id::text] AS path
                         FROM teaching_relations
-                        WHERE from_teaching_id IN ({seed_ids_sql})
+                        WHERE from_teaching_id = ANY(%s)
 
                         UNION
 
@@ -156,7 +156,7 @@ def _traverse_teaching_graph(
                                ARRAY[to_teaching_id::text,
                                      from_teaching_id::text] AS path
                         FROM teaching_relations
-                        WHERE to_teaching_id IN ({seed_ids_sql})
+                        WHERE to_teaching_id = ANY(%s)
 
                         UNION ALL
 
@@ -185,18 +185,18 @@ def _traverse_teaching_graph(
                     SELECT DISTINCT ON (source, id)
                         source AS teaching_id,
                         id AS related_teaching_id,
-                        array_to_string(path, ' → ') AS path
+                        array_to_string(path, ' \u2192 ') AS path
                     FROM chain
                     WHERE id IN (
                         SELECT id FROM teachings
                         WHERE clone_id = %s
                           AND access_tier = ANY(%s)
                     )
-                      AND id NOT IN ({seed_ids_sql})
+                      AND NOT id = ANY(%s)
                     ORDER BY source, id
                     """
 
-                    cur.execute(query, (max_depth, max_depth, clone_id, access_tiers))
+                    cur.execute(query, (seed_ids, seed_ids, max_depth, max_depth, clone_id, access_tiers, seed_ids))
                     rows = cur.fetchall()
 
                     results = [

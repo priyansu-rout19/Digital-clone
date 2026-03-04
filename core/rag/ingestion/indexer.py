@@ -21,7 +21,7 @@ def index_chunks(
     for i, emb in enumerate(embeddings):
         if len(emb) != 1024:
             raise ValueError(
-                f"Embedding {i} has {len(emb)} dimensions, expected 1024 for Qwen3-Embedding-0.6B"
+                f"Embedding {i} has {len(emb)} dimensions, expected 1024 (Google Gemini, truncated)"
             )
     try:
         with psycopg.connect(db_url) as conn:

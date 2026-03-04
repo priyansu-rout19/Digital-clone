@@ -72,8 +72,9 @@ Guidelines:
             user_message += f"\nRelevant context from memory:\n{memory}\n"
         user_message += "\nAnswer:"
 
-        # Call LLM with appropriate temperature
-        llm = get_llm(temperature=0.7)
+        # Call LLM: temperature 0.0 for mirror_only (deterministic quotes), 0.7 for interpretive
+        temp = 0.0 if profile.generation_mode == GenerationMode.mirror_only else 0.7
+        llm = get_llm(temperature=temp)
 
         try:
             response = llm.invoke([

@@ -117,7 +117,7 @@ def build_graph(profile: CloneProfile):
     graph.add_node("citation_verifier", citation_verifier)
     graph.add_node("confidence_scorer", confidence_scorer)
 
-    # Conditional (8)
+    # Conditional (9)
     graph.add_node("provenance_graph_query", provenance_graph_query)
     graph.add_node("tier2_tree_search", tier2_tree_search)
     graph.add_node("query_reformulator", query_reformulator)

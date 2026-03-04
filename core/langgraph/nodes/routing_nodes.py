@@ -7,18 +7,15 @@ Includes review queue writing, silence hedging, and voice pipeline.
 
 import json
 import logging
-import os
+import re
 import uuid
 from typing import TypedDict
 
 import psycopg
 
+from core.db import psycopg_url as _psycopg_url
+
 logger = logging.getLogger(__name__)
-
-
-def _psycopg_url() -> str:
-    """Convert SQLAlchemy DATABASE_URL to raw psycopg format."""
-    return os.environ.get("DATABASE_URL", "").replace("+psycopg", "")
 
 
 def make_soft_hedge_router(profile):
@@ -48,6 +45,7 @@ def make_soft_hedge_router(profile):
         return {
             **state,
             "raw_response": profile.silence_message,
+            "verified_response": profile.silence_message,
             "silence_triggered": True,
         }
 
@@ -58,8 +56,8 @@ def strict_silence_router(state: TypedDict) -> TypedDict:
     """
     Mark response as requiring silence or review (Sacred Archive pattern).
 
-    PARTIAL IMPLEMENTATION: Sets silence_triggered flag. Routing decision
-    (review queue vs silence fallback) is handled by conditional edge after this node.
+    Sets silence_triggered flag. Routing decision (review queue vs silence
+    fallback) is handled by conditional edge after this node.
 
     Input: (state from confidence_scorer)
     Output: silence_triggered
@@ -190,9 +188,9 @@ def stream_to_user(state: TypedDict) -> TypedDict:
 
 
 def _naive_split(text: str) -> list[str]:
-    """Fallback sentence splitting on '. ' boundaries."""
-    sentences = text.split(". ")
-    return [s.strip() + "." for s in sentences if s.strip()]
+    """Fallback sentence splitting using regex on sentence-ending punctuation."""
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+    return [s.strip() for s in sentences if s.strip()]
 
 
 def make_voice_pipeline(profile):
