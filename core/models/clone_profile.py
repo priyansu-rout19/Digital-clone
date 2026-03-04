@@ -53,6 +53,14 @@ class AccessTier(str, Enum):
     follower = "follower"
 
 
+class ChunkingStrategy(str, Enum):
+    """Controls how documents are split into chunks during ingestion.
+    fixed_size: paragraph-aware token counting (original).
+    semantic: embedding-based topic boundary detection (uses Voyage AI)."""
+    fixed_size = "fixed_size"
+    semantic = "semantic"
+
+
 
 # CLONE PROFILE MODEL
 
@@ -116,6 +124,12 @@ class CloneProfile(BaseModel):
         description="Which content tiers this clone can access"
     )
 
+    # Ingestion behavior
+    chunking_strategy: ChunkingStrategy = Field(
+        default=ChunkingStrategy.semantic,
+        description="fixed_size=paragraph-aware token counting, semantic=embedding-based topic boundaries"
+    )
+
     # Infrastructure
     deployment_mode: DeploymentMode = Field(
         description="standard=network connected, air_gapped=zero external calls"
@@ -162,6 +176,7 @@ def paragpt_profile() -> CloneProfile:
         retrieval_tiers=[RetrievalTier.vector],
         provenance_graph_enabled=False,
         access_tiers=[AccessTier.public],
+        chunking_strategy=ChunkingStrategy.semantic,
         deployment_mode=DeploymentMode.standard,
     )
 
@@ -192,5 +207,6 @@ def sacred_archive_profile() -> CloneProfile:
         retrieval_tiers=[RetrievalTier.vector, RetrievalTier.tree_search],
         provenance_graph_enabled=True,
         access_tiers=[AccessTier.devotee, AccessTier.friend, AccessTier.follower],
+        chunking_strategy=ChunkingStrategy.semantic,
         deployment_mode=DeploymentMode.air_gapped,
     )

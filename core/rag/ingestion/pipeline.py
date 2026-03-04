@@ -42,10 +42,20 @@ class IngestionPipeline:
             blocks = parse(file_path)
             logger.info(f"Parsed {len(blocks)} blocks from {file_path}")
 
-            chunks = chunk_text(blocks)
-            logger.info(f"Chunked into {len(chunks)} chunks")
-
             embedder = get_embedder()
+            strategy = self.profile.chunking_strategy.value
+
+            if strategy == "semantic":
+                embedder._init_client()
+                lc_embeddings = embedder._client
+            else:
+                lc_embeddings = None
+
+            chunks = chunk_text(blocks, strategy=strategy, embeddings=lc_embeddings)
+            logger.info(f"Chunked into {len(chunks)} chunks (strategy={strategy})")
+
+            self._delete_existing_chunks(doc_id)
+
             embeddings = embedder.embed(chunks)
             logger.info(f"Generated {len(embeddings)} embeddings")
 
@@ -98,6 +108,20 @@ class IngestionPipeline:
         else:
             if "access_tier" not in provenance:
                 raise ValueError("Provenance must include 'access_tier'")
+
+    def _delete_existing_chunks(self, doc_id: str) -> None:
+        try:
+            with psycopg.connect(self.db_url) as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "DELETE FROM document_chunks WHERE doc_id = %s", (doc_id,)
+                    )
+                    deleted = cur.rowcount
+                conn.commit()
+                if deleted > 0:
+                    logger.info(f"Deleted {deleted} old chunks for doc {doc_id}")
+        except Exception as e:
+            logger.warning(f"Failed to clean old chunks for {doc_id}: {e}")
 
     def _update_status(
         self,
