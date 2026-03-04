@@ -5,7 +5,7 @@ Engineering specifications for each component of the Digital Clone Engine.
 | # | Component | Status | Files |
 |---|---|---|---|
 | **01** | Clone Profile Config Model | ✅ COMPLETE | `core/models/clone_profile.py` |
-| **02** | RAG Pipeline (Ingestion + Retrieval) | ✅ COMPLETE | `core/rag/` |
+| **02** | RAG Pipeline (Ingestion + Retrieval + Semantic Chunking) | ✅ COMPLETE (v1.1 — Session 13) | `core/rag/` |
 | **03** | PostgreSQL Database Schema | ✅ COMPLETE (v1.5 — applied + seeded) | `core/db/schema.py`, `core/db/migrations/` |
 | **04** | LangGraph Orchestration (19-node graph) | ✅ COMPLETE (v2.1) | `core/langgraph/conversation_flow.py` |
 | **05** | FastAPI Gateway + 3 Improvements | ✅ COMPLETE (v1.1) | `api/main.py`, `api/middleware.py`, `api/routes/` |
@@ -15,15 +15,24 @@ Engineering specifications for each component of the Digital Clone Engine.
 
 **Location:** `core/models/clone_profile.py` (197 lines)
 
-The configuration object that drives all behavioral differences between ParaGPT and Sacred Archive. 6 enums, 16 fields, Pydantic model with cross-field validators.
+The configuration object that drives all behavioral differences between ParaGPT and Sacred Archive. 7 enums, 17 fields, Pydantic model with cross-field validators. Session 13 added `ChunkingStrategy` enum and `chunking_strategy` field.
 
 See [ARCHITECTURE.md](../ARCHITECTURE.md#3-clone-profile--the-configuration-object) for details.
 
 ## Component 02: RAG Pipeline
 
-**Location:** `core/rag/` (to be built)
+**Location:** `core/rag/`
 
 Ingestion pipeline (parse → chunk → embed → index) and retrieval (Tier 1 vector search + Tier 2 tree search with self-correction).
+
+**Session 13 — Semantic Chunking Upgrade:**
+- Upgraded chunker from paragraph-aware fixed-size to TRUE semantic chunking
+- Uses LangChain's `SemanticChunker` + Voyage AI embeddings to detect topic boundaries
+- Old chunker preserved as fallback (`fixed_size` strategy via `ChunkingStrategy` enum)
+- Re-ingested sample docs: 4 fixed-size chunks → 8 semantic chunks (better topic separation)
+- New dependency: `langchain-experimental==0.4.1`
+- Files modified: `chunker.py`, `pipeline.py`, `clone_profile.py`, `requirements.txt`
+- Files created: `tests/test_chunker.py` (10 new tests)
 
 ## Component 03: Database Schema
 
@@ -66,7 +75,7 @@ The HTTP gateway layer. 5 endpoint groups (health, config, chat, ingest, review)
 - Access tier: Added to ChatRequest, validates against AccessTier enum
 - Use case: Authenticate API requests, enforce content access tiers
 
-**Tests:** 33 HTTP endpoint tests (18 original + 15 new), all passing
+**Tests:** 33 HTTP endpoint tests (18 original + 15 new), all passing. Total suite: 65 tests (+ 10 chunker tests Session 13).
 
 ## Component 06: Database Seeding Scripts (Session 12)
 
@@ -79,6 +88,6 @@ Database setup utilities for populating the system with initial data.
   - 1 admin user (Sacred Archive reviewer)
   - Provenance graph data (2 teachings, 2 topics, 1 scripture, 1 source)
 - `ingest_samples.py` (~80 lines) — Runs sample docs through real IngestionPipeline
-  - 2 markdown documents → 4 chunks with Voyage AI 1024-dim embeddings
+  - 2 markdown documents → 8 semantic chunks with Voyage AI 1024-dim embeddings
 - `sample_docs/paragpt_sample.md` — ParaGPT sample (geopolitics/connectivity)
 - `sample_docs/sacred_archive_sample.md` — Sacred Archive sample (compassion teachings)

@@ -1,7 +1,7 @@
 # Digital Clone Engine — Session Progress & Implementation Status
 
-**Last Updated:** March 4, 2026 (Session 12 — Database Setup + Seeding Complete)
-**Current Focus:** Full backend complete + database live. PostgreSQL 17 running with pgvector 0.8.2. All 4 migrations applied (17 tables). 2 clones seeded, sample documents ingested (4 chunks). 55 tests passing (33 API + 4 E2E + 4 Voyage + 14 other). Ready for React frontend (Week 3).
+**Last Updated:** March 4, 2026 (Session 13 — Semantic Chunking Upgrade)
+**Current Focus:** Semantic chunking complete. Upgraded chunker from paragraph-aware fixed-size to TRUE semantic chunking (LangChain SemanticChunker + Voyage AI embeddings). Re-ingested sample docs: 8 semantic chunks (was 4 fixed-size). 65 tests passing (33 API + 10 chunker + 4 E2E + 4 Voyage + 14 other). Ready for React frontend (Week 3).
 
 ---
 
@@ -21,8 +21,8 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 
 **Component 01: Clone Profile Config**
 - File: `core/models/clone_profile.py`
-- 6 Pydantic enums (GenerationMode, SilenceBehavior, VoiceMode, DeploymentMode, RetrievalTier, AccessTier)
-- CloneProfile class with 16 fields (identity, generation, review, memory, voice, retrieval, access, infrastructure)
+- 7 Pydantic enums (GenerationMode, SilenceBehavior, VoiceMode, DeploymentMode, RetrievalTier, AccessTier, ChunkingStrategy) — Session 13 added ChunkingStrategy
+- CloneProfile class with 17 fields (identity, generation, review, memory, voice, retrieval, access, infrastructure, chunking_strategy) — Session 13 added chunking_strategy
 - Field validators (cross-field validation via `@model_validator`)
 - Two preset factory functions: `paragpt_profile()`, `sacred_archive_profile()`
 - Verified: Both profiles serialize to valid JSON, validators catch invalid combos
@@ -87,9 +87,9 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 
 **Component 02: RAG Pipeline** (FULL COMPLETION)
 
-**Component 02a: Ingestion Pipeline** ✅ (Session 9: Voyage AI Integration)
+**Component 02a: Ingestion Pipeline** ✅ (Session 9: Voyage AI, Session 13: Semantic Chunking Upgrade)
 - ✅ `core/rag/ingestion/parser.py` — PDF (PyMuPDF) + text/markdown parsing (48 lines, cleaned)
-- ✅ `core/rag/ingestion/chunker.py` — Semantic section-aware chunking (512-1024 tokens, 15% overlap) (48 lines, cleaned)
+- ✅ `core/rag/ingestion/chunker.py` — TRUE semantic chunking via LangChain SemanticChunker + Voyage AI embeddings (detects topic boundaries by cosine similarity). Old fixed-size chunker preserved as fallback (`fixed_size` strategy). ChunkingStrategy enum on CloneProfile selects mode. Re-ingested: 4 fixed-size chunks → 8 semantic chunks (topic-coherent).
 - ✅ `core/rag/ingestion/embedder.py` — Voyage AI voyage-3 LangChain integration (1024-dim output, zero-migration) (72 lines, cleaned)
   - **Dev:** Voyage AI voyage-3 (api.voyageai.com HTTP API via langchain-voyageai)
   - **Prod:** TEI on PCCI (drop-in swap via LangChain interface, same 1024-dim output)
@@ -190,7 +190,20 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
   - Mem0 instantiation skips if PostgreSQL not reachable (infrastructure dependency)
   - Auto-skips if VOYAGE_API_KEY not in env
 - ✅ `requirements.txt` — Added pytest==9.0.2, pytest-asyncio==0.25.2
-- ✅ Full test suite: **55 passed** (33 API + 4 E2E + 4 Voyage + 14 other) — zero xfails
+- ✅ Full test suite: **65 passed** (33 API + 10 chunker + 4 E2E + 4 Voyage + 14 other) — zero xfails
+
+### ✅ COMPLETE
+
+**Semantic Chunking Upgrade** (Session 13)
+- ✅ Upgraded chunker from paragraph-aware fixed-size to TRUE semantic chunking
+- ✅ Uses LangChain's `SemanticChunker` (`langchain-experimental`) + Voyage AI embeddings to detect topic boundaries
+- ✅ Old fixed-size chunker preserved as fallback (`fixed_size` strategy via `ChunkingStrategy` enum)
+- ✅ New `ChunkingStrategy` enum + `chunking_strategy` field added to CloneProfile (now 7 enums, 17 fields)
+- ✅ Re-ingested sample docs: 4 fixed-size chunks → 8 semantic chunks (topic-coherent)
+- ✅ New dependency: `langchain-experimental==0.4.1`
+- ✅ Files modified: `chunker.py`, `pipeline.py`, `clone_profile.py`, `requirements.txt`
+- ✅ Files created: `tests/test_chunker.py` (10 tests: 8 unit + 2 integration)
+- ✅ Total test suite: **65 passed** (33 API + 10 chunker + 4 E2E + 4 Voyage + 14 other)
 
 ### ⏳ IN PROGRESS
 
@@ -204,9 +217,9 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 - ✅ pgvector 0.8.2 installed (HNSW indexing enabled)
 - ✅ `dce_dev` database created, 4 migrations applied (17 tables total)
 - ✅ `scripts/seed_db.py` — Idempotent seeder (2 clones, 1 admin user, provenance graph)
-- ✅ `scripts/ingest_samples.py` — Sample document ingestion (2 docs → 4 chunks with Voyage AI embeddings)
+- ✅ `scripts/ingest_samples.py` — Sample document ingestion (2 docs → 8 semantic chunks with Voyage AI embeddings)
 - ✅ FastAPI smoke test: GET /clone/*/profile returns real data from database
-- ✅ 33/33 API tests still pass (no regressions)
+- ✅ 33/33 API tests still pass (no regressions) — total suite now 65 after Session 13
 
 ---
 
@@ -235,7 +248,7 @@ docs/                       ← Reference library (organized Feb 28, 2026)
 core/                       ← Runtime implementation
   __init__.py
   models/
-    clone_profile.py        ← Component 01 ✅ (6 enums, 16 fields, 2 presets)
+    clone_profile.py        ← Component 01 ✅ (7 enums, 17 fields, 2 presets)
   llm.py                    ← LLM client factory (Groq + Qwen)
   mem0_client.py            ← Mem0 client factory (pgvector backend) ✅ NEW Session 4
   db/                       ← Component 03 ✅
@@ -265,6 +278,14 @@ scripts/                    ← Database setup utilities (NEW Session 12)
     paragpt_sample.md       ← ParaGPT sample (geopolitics)
     sacred_archive_sample.md ← Sacred Archive sample (compassion)
 
+tests/                      ← Test suite (65 tests)
+  test_api.py               ← FastAPI endpoint tests (33 tests)
+  test_chunker.py           ← Semantic chunking tests (10 tests: 8 unit + 2 integration) — NEW Session 13
+  test_e2e.py               ← End-to-end integration tests (4 tests)
+  test_voyage_integration.py ← Voyage AI embedding tests (4 tests)
+  show_pipeline.py          ← Educational pipeline visualizer
+  conftest.py               ← Pytest configuration + fixtures
+
 build/                      ← Specification documents (reference only)
   components/
     03-db-schema.md
@@ -277,7 +298,7 @@ open-questions/             ← Research archive (locked decisions)
 
 tasks/                      ← Session tracking
   todo.md                   ← Build checklist
-  lessons.md                ← Learned patterns (11 documented)
+  lessons.md                ← Learned patterns (22 documented)
   PROGRESS.md               ← This file
 ```
 
@@ -380,8 +401,16 @@ These were researched and decided. Do NOT re-debate:
 - All 4 migrations applied, 17 tables created
 - 2 clones seeded (paragpt-client, sacred-archive)
 - 1 admin user, provenance graph data populated
-- 2 sample documents ingested (4 chunks with real embeddings)
+- 2 sample documents ingested (8 semantic chunks with real embeddings — re-ingested Session 13)
 - FastAPI serving real data from database
+
+**✅ DONE: Semantic Chunking Upgrade (Session 13)** — TRUE semantic chunking!
+- Upgraded chunker from paragraph-aware fixed-size to SemanticChunker + Voyage AI embeddings
+- Old chunker preserved as fallback (`fixed_size` strategy)
+- ChunkingStrategy enum + chunking_strategy field on CloneProfile (7 enums, 17 fields)
+- Re-ingested: 4 fixed-size chunks → 8 semantic chunks (topic-coherent)
+- 10 new tests (8 unit + 2 integration), total suite: 65 tests
+- New dependency: langchain-experimental==0.4.1
 
 **Next Priority: React Frontend (Workstream 3, Week 3)**
 - Chat Page (ParaGPT):
@@ -401,6 +430,7 @@ These were researched and decided. Do NOT re-debate:
 **Status:**
 - ✅ Backend (core engine + API + tests): 100% COMPLETE
 - ✅ Database (setup + seeding + sample data): COMPLETE
+- ✅ Semantic chunking upgrade: COMPLETE (Session 13)
 - ⏳ Frontend: Ready to build (API endpoints live, database populated)
 
 ---
@@ -426,13 +456,13 @@ These were researched and decided. Do NOT re-debate:
 
 ## Lessons Learned (from tasks/lessons.md)
 
-11 lessons documented. Key ones:
+22 lessons documented. Key ones:
 1. **Lesson 10:** Factory pattern for profile-aware nodes (closures)
 2. **Lesson 11:** Real LLM integration with graceful fallbacks
 3. **Lesson 8:** Conditional routing drives unified codebase
 4. **Lesson 6:** Pydantic enum serialization (str, Enum)
 
-See `tasks/lessons.md` for all 11.
+See `tasks/lessons.md` for all 22.
 
 ---
 
@@ -477,13 +507,14 @@ See `tasks/lessons.md` for all 11.
 - ✅ WebSocket double invoke fixed (50% latency improvement)
 - `<think>` tags in LLM responses — ✅ **FIXED (Session 6.5)** Added `reasoning_effort="none"` to `core/llm.py` for Groq. Qwen3-32B now produces clean responses (confidence improved 0.5→0.9). When PCCI GPU server is ready with Qwen3.5-35B-A3B, use `enable_thinking=False` in `extra_body` instead (different parameter for SGLang/vLLM).
 
-**To Continue Next Session (Session 13):**
+**To Continue Next Session (Session 14):**
 1. Read `PROGRESS.md` (this file) — recap status
 2. Check `/memory/MEMORY.md` — session context
-3. Start React frontend: Chat page for ParaGPT (WebSocket streaming)
-4. Run full test suite to verify local setup: `pytest tests/ -v`
-5. Start FastAPI server: `python3 -m uvicorn api.main:app --port 8000`
-6. Test chat API with real documents: `curl -X POST http://localhost:8000/chat/paragpt-client -H "Content-Type: application/json" -d '{"query":"What is connectivity?"}'`
+3. Run full test suite to verify local setup: `pytest tests/ -v` (expect 65 passing)
+4. Start FastAPI server: `python3 -m uvicorn api.main:app --port 8000`
+5. Test chat API with real documents: `curl -X POST http://localhost:8000/chat/paragpt-client -H "Content-Type: application/json" -d '{"query":"What is connectivity?"}'`
+6. Start React frontend: Chat page for ParaGPT (WebSocket streaming)
+7. Verify semantic chunks in DB: sample docs should have 8 chunks (not 4)
 
 **Quick Architecture Refresh:**
 - **ParaGPT:** Interpretive, voice-enabled, public documents, minimal review
@@ -492,6 +523,15 @@ See `tasks/lessons.md` for all 11.
 - **Query flow:** intent → retrieve → context → generate → verify → route → (voice|review)
 
 **Key Files Modified This Session:**
+
+**Session 13 (Semantic Chunking Upgrade):**
+- `core/rag/ingestion/chunker.py` (MODIFIED) — TRUE semantic chunking via SemanticChunker + Voyage AI
+  - Old paragraph-aware fixed-size chunker preserved as fallback (`fixed_size` strategy)
+  - New `semantic` strategy uses LangChain's SemanticChunker with cosine similarity topic detection
+- `core/rag/ingestion/pipeline.py` (MODIFIED) — Passes chunking_strategy from CloneProfile to chunker
+- `core/models/clone_profile.py` (MODIFIED) — Added ChunkingStrategy enum + chunking_strategy field (7 enums, 17 fields)
+- `requirements.txt` (MODIFIED) — Added langchain-experimental==0.4.1
+- `tests/test_chunker.py` (NEW, 10 tests) — 8 unit tests + 2 integration tests for semantic chunking
 
 **Session 12 (Database Setup + Seeding):**
 - `scripts/seed_db.py` (NEW, ~120 lines) — Idempotent database seeder
@@ -561,4 +601,4 @@ See `tasks/lessons.md` for all 11.
 
 ---
 
-**Status (Session 12):** FULL SYSTEM OPERATIONAL. Backend 100% complete + database live with real data. PostgreSQL 17 + pgvector 0.8.2 running locally. All 4 Alembic migrations applied (17 tables). 2 clones seeded, 1 admin user, provenance graph populated. 2 sample documents ingested (4 chunks with 1024-dim Voyage AI embeddings in pgvector). FastAPI serves real data from database. 55 tests passing (33 API + 4 E2E + 4 Voyage + 14 other). Ready for React frontend (Week 3).
+**Status (Session 13):** FULL SYSTEM OPERATIONAL + SEMANTIC CHUNKING. Backend 100% complete + database live with real data. PostgreSQL 17 + pgvector 0.8.2 running locally. All 4 Alembic migrations applied (17 tables). 2 clones seeded, 1 admin user, provenance graph populated. 2 sample documents ingested (8 semantic chunks with 1024-dim Voyage AI embeddings in pgvector). Chunker upgraded to TRUE semantic chunking (SemanticChunker + Voyage AI, topic-boundary detection). FastAPI serves real data from database. 65 tests passing (33 API + 10 chunker + 4 E2E + 4 Voyage + 14 other). Ready for React frontend (Week 3).

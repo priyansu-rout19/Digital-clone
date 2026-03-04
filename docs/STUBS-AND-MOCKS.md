@@ -1,6 +1,6 @@
 # Stubs & Mocks Inventory — Digital Clone Engine
 
-**Last Updated:** March 4, 2026 (Session 12 — Database live, seeded) | **Status:** Comprehensive inventory of all stubs, dev proxies, and test mocks. All core embeddings/LLM/API paths functional and verified. 55 tests passing, zero xfails. PostgreSQL running with pgvector 0.8.2.
+**Last Updated:** March 4, 2026 (Session 13 — Semantic chunking upgrade) | **Status:** Comprehensive inventory of all stubs, dev proxies, and test mocks. All core embeddings/LLM/API paths functional and verified. 65 tests passing, zero xfails. PostgreSQL running with pgvector 0.8.2.
 
 ---
 

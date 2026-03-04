@@ -371,6 +371,27 @@ PSYCOPG_URL = DATABASE_URL.replace("+psycopg", "")
 
 ---
 
+### Lesson 22: Semantic Chunking vs Fixed-Size Chunking
+
+**Date:** Session 13 | **Category:** RAG pipeline
+
+**What happened:** Called our chunker "semantic" but it was actually paragraph-aware fixed-size (splits by token count, not topic). Chunks accumulated paragraphs until hitting 512 tokens with 15% overlap — no embedding similarity was used during chunking.
+
+**Root cause:** No embedding similarity used during chunking. The old chunker respected paragraph boundaries but still split based on token count limits, not topic coherence. A chunk could contain the end of one topic and the beginning of another if they fit within the token budget.
+
+**Fix:** Replaced with LangChain's `SemanticChunker` (`langchain-experimental==0.4.1`) + Voyage AI embeddings. The SemanticChunker embeds sentence groups, compares cosine similarity between consecutive groups, and splits at points where similarity drops (topic boundaries). Old chunker preserved as fallback via `ChunkingStrategy` enum (`fixed_size` vs `semantic`) on CloneProfile.
+
+**Result:** Re-ingested sample documents: 4 fixed-size chunks became 8 semantic chunks. Each chunk is now a self-contained topic unit, improving retrieval precision (queries match the right topic, not a mixed chunk).
+
+**Rule for future:**
+- True semantic chunking requires embedding-based similarity comparison between text segments
+- Fixed-size chunking with paragraph boundaries is NOT semantic chunking — it's paragraph-aware fixed-size
+- When choosing chunking strategy: semantic = better retrieval quality, fixed-size = more predictable chunk sizes
+- Always verify chunk quality by inspecting actual output (not just counting chunks)
+- Keep the old strategy as a fallback — some use cases may prefer predictable sizes over topic coherence
+
+---
+
 ## Session Patterns to Remember
 
 1. **User is learning by building** — every spec/decision should explain the why, not just the what
@@ -394,3 +415,4 @@ PSYCOPG_URL = DATABASE_URL.replace("+psycopg", "")
 19. **Mem0 langchain provider uses `model` key, not `langchain_embeddings`** — Mem0's `BaseEmbedderConfig.__init__()` accepts `model: Optional[str]` which the `LangchainEmbedding` class duck-types to accept a LangChain `Embeddings` instance. The config dict keys must match `BaseEmbedderConfig` constructor params exactly since `EmbedderFactory.create()` unpacks them as `BaseEmbedderConfig(**config)`. Always read the library source to confirm parameter names.
 20. **DATABASE_URL format: SQLAlchemy vs psycopg** — `+psycopg` dialect prefix works for SQLAlchemy but fails for raw psycopg. Strip it when passing to pipeline/indexer.
 21. **Always `python3 -m alembic` not bare `alembic`** — system wrappers may strip site-packages via shebang flags (-sP).
+22. **True semantic chunking requires embedding-based similarity** — fixed-size with paragraph boundaries is NOT semantic chunking. Use SemanticChunker + embeddings for topic-boundary detection.

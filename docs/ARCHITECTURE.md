@@ -1,6 +1,6 @@
 # ARCHITECTURE: Digital Clone Engine — Unified Technical System Design
 
-**Version:** 4.2 | **Date:** March 4, 2026 | **Prepared by:** Prem AI — Solution Architecture
+**Version:** 4.3 | **Date:** March 4, 2026 | **Prepared by:** Prem AI — Solution Architecture
 
 **Note:** This is the **specification/design document** (target production). For **current implementation status**, see [PROGRESS.md](../tasks/PROGRESS.md). Development currently uses drop-in proxy models (Voyage AI for embeddings, Groq for LLM) pending PCCI infrastructure — zero code changes needed when production models available.
 
@@ -190,11 +190,11 @@ The LLM generates a response using:
 
 ---
 
-## 6. Codebase Structure (Current Status — March 4, 2026, Session 12)
+## 6. Codebase Structure (Current Status — March 4, 2026, Session 13)
 
 | Component | Location | Status | Notes |
 |---|---|---|---|
-| **Config Model** | `core/models/clone_profile.py` | ✅ COMPLETE | 6 enums, 16 fields, 2 presets |
+| **Config Model** | `core/models/clone_profile.py` | ✅ COMPLETE | 7 enums, 17 fields, 2 presets (+ ChunkingStrategy enum, Session 13) |
 | **LLM Client** | `core/llm.py` | ✅ COMPLETE | Groq API (dev) → SGLang (prod) |
 | **Embeddings Client** | `core/rag/ingestion/embedder.py` | ✅ COMPLETE | Voyage AI (dev) → TEI (prod), 1024-dim verified |
 | **Mem0 Client** | `core/mem0_client.py` | ✅ COMPLETE | pgvector backend, Voyage AI embeddings |
@@ -202,11 +202,11 @@ The LLM generates a response using:
 | **Orchestration Nodes** | `core/langgraph/nodes/` | ✅ COMPLETE | Real LLM, real retrieval, real memory |
 | **Database Schema** | `core/db/schema.py` | ✅ COMPLETE | 15 tables, pgvector indexing |
 | **Migrations** | `core/db/migrations/` | ✅ COMPLETE | 4 migrations, applied + seeded |
-| **RAG Ingestion** | `core/rag/ingestion/` | ✅ COMPLETE | Parser + chunker + embedder + indexer |
+| **RAG Ingestion** | `core/rag/ingestion/` | ✅ COMPLETE | Parser + chunker (semantic, Session 13) + embedder + indexer |
 | **RAG Retrieval** | `core/rag/retrieval/` | ✅ COMPLETE | Tier 1 vector, Tier 2 tree, CRAG, RRF |
 | **FastAPI Layer** | `api/` | ✅ COMPLETE | 5 endpoint groups, WebSocket streaming |
 | **E2E Tests** | `tests/test_e2e.py` | ✅ COMPLETE | 4/4 passing, all profiles/flows |
-| **Database Seeding** | `scripts/` | ✅ COMPLETE | 2 clones, 1 user, provenance, 4 chunks |
+| **Database Seeding** | `scripts/` | ✅ COMPLETE | 2 clones, 1 user, provenance, 8 semantic chunks |
 | **Frontend** | `web/` | ⏳ NEXT | React chat page + review dashboard (Week 3) |
 
 ---
@@ -219,6 +219,7 @@ The LLM generates a response using:
 - **Stubs with correct state shapes** to verify orchestration before building dependencies
 - **No Apache AGE** — use pure SQL tables + recursive CTEs (team eliminated Oct 2024)
 - **BIGSERIAL for audit_log + query_analytics** — guarantees immutable ordering
+- **Semantic chunking** via LangChain SemanticChunker + Voyage AI embeddings (Session 13). Old fixed-size chunker preserved as fallback. New dependency: `langchain-experimental==0.4.1`
 
 ---
 
