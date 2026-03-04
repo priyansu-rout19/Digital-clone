@@ -1,10 +1,13 @@
 import os
-from typing import Optional
 from dotenv import load_dotenv
-from langchain_voyageai import VoyageAIEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 
 load_dotenv()
+
+# Truncation target — Gemini outputs 3072 dims, we truncate to 1024
+# for pgvector compatibility (Matryoshka property preserves quality)
+TARGET_DIMS = 1024
 
 
 class EmbeddingClient:
@@ -12,12 +15,12 @@ class EmbeddingClient:
     def __init__(self, model: str, api_key: str):
         self.model = model
         self.api_key = api_key
-        self._client: Optional[VoyageAIEmbeddings] = None
+        self._client: GoogleGenerativeAIEmbeddings | None = None
 
     def _init_client(self) -> None:
-        self._client = VoyageAIEmbeddings(
+        self._client = GoogleGenerativeAIEmbeddings(
             model=self.model,
-            voyage_api_key=self.api_key,
+            google_api_key=self.api_key,
         )
 
     def _embed_batch(self, batch: list[str]) -> list[list[float]]:
@@ -26,7 +29,7 @@ class EmbeddingClient:
 
         try:
             embeddings = self._client.embed_documents(batch)
-            return embeddings
+            return [v[:TARGET_DIMS] for v in embeddings]
 
         except Exception as e:
             raise ValueError(f"Embedding API failed: {str(e)}")
@@ -56,14 +59,14 @@ def get_embedder() -> EmbeddingClient:
     if not model:
         raise KeyError(
             "EMBEDDING_MODEL environment variable not set. "
-            "Please set it to voyage-3 (or other Voyage models)"
+            "Please set it to models/gemini-embedding-001"
         )
 
-    api_key = os.environ.get("VOYAGE_API_KEY")
+    api_key = os.environ.get("GOOGLE_API_KEY")
     if not api_key:
         raise KeyError(
-            "VOYAGE_API_KEY environment variable not set. "
-            "Please create a .env file with VOYAGE_API_KEY=<your_key>"
+            "GOOGLE_API_KEY environment variable not set. "
+            "Please create a .env file with GOOGLE_API_KEY=<your_key>"
         )
 
     return EmbeddingClient(

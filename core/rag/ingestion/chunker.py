@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 
-from langchain_voyageai import VoyageAIEmbeddings
+from langchain_core.embeddings import Embeddings
 from langchain_experimental.text_splitter import SemanticChunker
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 def chunk_text(
     blocks: list[str],
     strategy: str = "semantic",
-    embeddings: Optional[VoyageAIEmbeddings] = None,
+    embeddings: Optional[Embeddings] = None,
     breakpoint_threshold_type: str = "percentile",
     breakpoint_threshold_amount: float = 85,
     min_chunk_chars: int = 200,
@@ -26,7 +26,7 @@ def chunk_text(
     if strategy == "semantic":
         if embeddings is None:
             raise ValueError(
-                "VoyageAIEmbeddings instance required for semantic chunking. "
+                "Embeddings instance required for semantic chunking. "
                 "Pass embeddings= or use strategy='fixed_size'."
             )
         return _semantic_chunk(
@@ -47,7 +47,7 @@ def chunk_text(
 
 def _semantic_chunk(
     blocks: list[str],
-    embeddings: VoyageAIEmbeddings,
+    embeddings: Embeddings,
     breakpoint_threshold_type: str,
     breakpoint_threshold_amount: float,
     min_chunk_chars: int,

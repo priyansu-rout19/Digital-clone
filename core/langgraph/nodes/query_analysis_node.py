@@ -28,7 +28,6 @@ def query_analysis(state: TypedDict) -> TypedDict:
             **state,
             "intent_class": "exploratory",
             "sub_queries": [],
-            "access_tier": "public",
             "token_budget": 2000,
         }
 
@@ -79,11 +78,10 @@ For simple questions, sub_queries is [original_query]. For complex questions, de
             intent = "exploratory"
         sub_queries = [query]
 
-    # Return updated state
+    # Return updated state — preserve access_tier from initial state (set by caller)
     return {
         **state,
         "intent_class": intent,
         "sub_queries": sub_queries,
-        "access_tier": "public",  # Will be refined based on profile + user permissions
-        "token_budget": 2000,  # Standard budget; would vary based on intent
+        "token_budget": 2000,
     }

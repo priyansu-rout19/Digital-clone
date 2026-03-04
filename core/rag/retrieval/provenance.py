@@ -64,18 +64,20 @@ def _find_seed_teachings(
 
         doc_ids = []
         try:
+            vector_str = "[" + ",".join(str(v) for v in query_vector) + "]"
+
             with psycopg.connect(db_url) as conn:
                 with conn.cursor() as cur:
                     cur.execute(
                         """
-                        SELECT DISTINCT doc_id
+                        SELECT doc_id
                         FROM document_chunks
                         WHERE clone_id = %s
                           AND access_tier = ANY(%s)
                         ORDER BY embedding <=> %s::vector
                         LIMIT %s
                         """,
-                        (clone_id, access_tiers, query_vector, limit),
+                        (clone_id, access_tiers, vector_str, limit),
                     )
                     doc_ids = [row[0] for row in cur.fetchall()]
                     logger.debug(f"Found {len(doc_ids)} documents via vector search")
@@ -136,22 +138,49 @@ def _traverse_teaching_graph(
                 with conn.cursor() as cur:
                     query = f"""
                     WITH RECURSIVE chain AS (
+                        -- Base: forward edges from seeds
                         SELECT to_teaching_id AS id,
                                from_teaching_id AS source,
                                1 AS depth,
-                               ARRAY[from_teaching_id::text] AS path
+                               ARRAY[from_teaching_id::text,
+                                     to_teaching_id::text] AS path
                         FROM teaching_relations
                         WHERE from_teaching_id IN ({seed_ids_sql})
 
+                        UNION
+
+                        -- Base: reverse edges from seeds
+                        SELECT from_teaching_id AS id,
+                               to_teaching_id AS source,
+                               1 AS depth,
+                               ARRAY[to_teaching_id::text,
+                                     from_teaching_id::text] AS path
+                        FROM teaching_relations
+                        WHERE to_teaching_id IN ({seed_ids_sql})
+
                         UNION ALL
 
+                        -- Recursive: forward (with cycle guard)
                         SELECT tr.to_teaching_id,
+                               c.source,
+                               c.depth + 1,
+                               c.path || tr.to_teaching_id::text
+                        FROM teaching_relations tr
+                        JOIN chain c ON tr.from_teaching_id = c.id
+                        WHERE c.depth < %s
+                          AND NOT tr.to_teaching_id::text = ANY(c.path)
+
+                        UNION ALL
+
+                        -- Recursive: reverse (with cycle guard)
+                        SELECT tr.from_teaching_id,
                                c.source,
                                c.depth + 1,
                                c.path || tr.from_teaching_id::text
                         FROM teaching_relations tr
-                        JOIN chain c ON tr.from_teaching_id = c.id
+                        JOIN chain c ON tr.to_teaching_id = c.id
                         WHERE c.depth < %s
+                          AND NOT tr.from_teaching_id::text = ANY(c.path)
                     )
                     SELECT DISTINCT ON (source, id)
                         source AS teaching_id,
@@ -163,10 +192,11 @@ def _traverse_teaching_graph(
                         WHERE clone_id = %s
                           AND access_tier = ANY(%s)
                     )
+                      AND id NOT IN ({seed_ids_sql})
                     ORDER BY source, id
                     """
 
-                    cur.execute(query, (max_depth, clone_id, access_tiers))
+                    cur.execute(query, (max_depth, max_depth, clone_id, access_tiers))
                     rows = cur.fetchall()
 
                     results = [

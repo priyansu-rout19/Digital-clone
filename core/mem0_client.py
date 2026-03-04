@@ -6,7 +6,7 @@ Reads configuration from environment variables.
 
 Uses:
 - LLM: Groq API + qwen/qwen3-32b (same as core/llm.py)
-- Embedder: Voyage AI voyage-3 with 1024 dimensions
+- Embedder: Google Gemini gemini-embedding-001 truncated to 1024 dimensions
 - Vector Store: PostgreSQL pgvector (same DB as documents)
 """
 
@@ -14,10 +14,22 @@ import os
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 from mem0 import Memory
-from langchain_voyageai import VoyageAIEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 
 load_dotenv()
+
+
+def _truncated_google_embeddings() -> GoogleGenerativeAIEmbeddings:
+    """Create a Google embeddings instance. Truncation is handled by Mem0's vector store config."""
+    google_key = os.environ.get("GOOGLE_API_KEY")
+    if not google_key:
+        raise KeyError("GOOGLE_API_KEY environment variable not set.")
+
+    return GoogleGenerativeAIEmbeddings(
+        model=os.environ.get("EMBEDDING_MODEL", "models/gemini-embedding-001"),
+        google_api_key=google_key,
+    )
 
 
 def _parse_database_url(db_url: str) -> dict:
@@ -42,7 +54,7 @@ def get_mem0_client() -> Memory:
     Get a configured Mem0 instance for cross-session user memory.
 
     Uses pgvector backend in the same PostgreSQL database as the application.
-    LLM uses Groq API, embedder uses Voyage AI (same as core/rag/ingestion/embedder.py).
+    LLM uses Groq API, embedder uses Google Gemini (same as core/rag/ingestion/embedder.py).
 
     Returns:
         Memory instance ready to search() and add() memories
@@ -67,13 +79,6 @@ def get_mem0_client() -> Memory:
             "Please create a .env file with GROQ_API_KEY=<your_key>"
         )
 
-    voyage_key = os.environ.get("VOYAGE_API_KEY")
-    if not voyage_key:
-        raise KeyError(
-            "VOYAGE_API_KEY environment variable not set. "
-            "Please create a .env file with VOYAGE_API_KEY=<your_key>"
-        )
-
     # Parse DB URL for pgvector config
     db_config = _parse_database_url(db_url)
 
@@ -89,7 +94,7 @@ def get_mem0_client() -> Memory:
         "embedder": {
             "provider": "langchain",
             "config": {
-                "model": VoyageAIEmbeddings(model="voyage-3"),
+                "model": _truncated_google_embeddings(),
                 "embedding_dims": 1024,
             },
         },

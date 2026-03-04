@@ -28,7 +28,7 @@ def test_invalid_strategy():
 
 
 def test_semantic_requires_embeddings():
-    with pytest.raises(ValueError, match="VoyageAIEmbeddings instance required"):
+    with pytest.raises(ValueError, match="Embeddings instance required"):
         chunk_text(["test"], strategy="semantic", embeddings=None)
 
 

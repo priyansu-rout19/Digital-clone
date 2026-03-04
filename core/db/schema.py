@@ -439,6 +439,8 @@ class Teaching(Base):
     __table_args__ = (
         Index("idx_teachings_clone_id", "clone_id"),
         Index("idx_teachings_access_tier", "access_tier"),
+        # GIN index on chunk_refs created via migration 0005
+        # (jsonb_path_ops for @> containment queries)
     )
 
 

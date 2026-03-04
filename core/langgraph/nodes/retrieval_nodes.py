@@ -1,9 +1,14 @@
+import os
 from typing import TypedDict
 from core.models.clone_profile import RetrievalTier
 
 
+def _psycopg_url() -> str:
+    """Convert SQLAlchemy DATABASE_URL to raw psycopg format."""
+    return os.environ.get("DATABASE_URL", "").replace("+psycopg", "")
+
+
 def provenance_graph_query(state: TypedDict) -> TypedDict:
-    import os
     from core.rag.retrieval import provenance
 
     try:
@@ -11,7 +16,7 @@ def provenance_graph_query(state: TypedDict) -> TypedDict:
             sub_queries=state.get("sub_queries") or [state.get("query_text", "")],
             clone_id=state.get("clone_id", ""),
             access_tiers=[state.get("access_tier", "public")],
-            db_url=os.environ.get("DATABASE_URL", ""),
+            db_url=_psycopg_url(),
         )
 
         return {
@@ -29,7 +34,6 @@ def provenance_graph_query(state: TypedDict) -> TypedDict:
 
 
 def tier1_retrieval(state: TypedDict) -> TypedDict:
-    import os
     from core.rag.retrieval import vector_search
 
     try:
@@ -37,7 +41,7 @@ def tier1_retrieval(state: TypedDict) -> TypedDict:
             sub_queries=state.get("sub_queries") or [state.get("query_text", "")],
             clone_id=state.get("clone_id", ""),
             access_tiers=[state.get("access_tier", "public")],
-            db_url=os.environ.get("DATABASE_URL", ""),
+            db_url=_psycopg_url(),
         )
 
         return {
@@ -129,7 +133,6 @@ Suggest 1-3 alternative phrasings that might retrieve better results."""
 
 
 def tier2_tree_search(state: TypedDict) -> TypedDict:
-    import os
     from core.rag.retrieval import tree_search
 
     try:
@@ -137,7 +140,7 @@ def tier2_tree_search(state: TypedDict) -> TypedDict:
             query_text=state.get("query_text", ""),
             existing_passages=state.get("retrieved_passages", []),
             clone_id=state.get("clone_id", ""),
-            db_url=os.environ.get("DATABASE_URL", ""),
+            db_url=_psycopg_url(),
         )
 
         return {
