@@ -1,17 +1,21 @@
 # Stubs & Mocks Inventory — Digital Clone Engine
 
-**Last Updated:** March 4, 2026 (Session 13 — Semantic chunking upgrade) | **Status:** Comprehensive inventory of all stubs, dev proxies, and test mocks. All core embeddings/LLM/API paths functional and verified. 65 tests passing, zero xfails. PostgreSQL running with pgvector 0.8.2.
+**Last Updated:** March 5, 2026 (Session 15 — Real integration tests + Google Gemini embeddings update) | **Status:** Comprehensive inventory of all stubs, dev proxies, and test mocks. All core embeddings/LLM/API paths functional and verified. 51 tests collected (45 passed, 6 skipped), zero xfails. PostgreSQL running with pgvector 0.8.2.
 
 ---
 
 ## Overview
 
-The codebase contains **12 things** that are currently stubbed, mocked, or using dev proxies. They fall into three categories:
+The codebase contains **9 active items** that are currently stubbed or using dev proxies. They fall into three categories:
 
 1. **Hardware-Blocked** (5 items) — PCCI GPU server or MinIO required
-2. **Infra-Blocked** (1 item) — Review queue DB writes need wiring (PostgreSQL now running since Session 12, auth middleware complete since Session 11)
-3. **Intentional/Partial** (3 items) — Not bugs; design choices or awaiting data
-4. **Test Mocks** (2 items) — Test environment limitations
+2. **Infra-Blocked** (1 item) — Review queue DB writes need wiring (PostgreSQL running since Session 12, auth middleware complete since Session 11)
+3. **Intentional/Partial** (3 items) — Not bugs; design choices or data-dependent
+
+**Resolved since Session 13:**
+- E2E test mocks (vector_search, mem0_client) **removed** — all 4 E2E tests now use real services (Session 14)
+- Auth middleware **complete** — `api/middleware.py` with X-API-Key validation (Session 11)
+- access_tier hardcoding bug **fixed** — `query_analysis_node.py` preserves caller-set tier (Session 14)
 
 For each item below: **Now** (current behavior) → **Real** (production behavior) → **How** (implementation steps) → **Dependency** (what's blocking it).
 
@@ -61,18 +65,32 @@ ChatOpenAI(
 
 ---
 
-### 2. Embeddings — Voyage AI (dev, Session 9) → TEI (prod)
+### 2. Embeddings — Google Gemini (dev, Session 14) → TEI (prod)
 
-**File:** `core/rag/ingestion/embedder.py` lines 66–92
+**File:** `core/rag/ingestion/embedder.py` (full file)
 
-**Now (Development, Session 9):**
+**Now (Development, Session 14 — replaced Voyage AI from Session 9):**
 ```python
-from langchain_voyageai import VoyageAIEmbeddings
-client = VoyageAIEmbeddings(
-    model="voyage-3",
-    voyage_api_key=os.getenv("VOYAGE_API_KEY"),
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
+TARGET_DIMS = 1024  # Gemini outputs 3072, truncated via Matryoshka property
+
+client = GoogleGenerativeAIEmbeddings(
+    model=os.environ.get("EMBEDDING_MODEL"),  # models/gemini-embedding-001
+    google_api_key=os.environ.get("GOOGLE_API_KEY"),
 )
-# Returns 1024-dim vectors via api.voyageai.com HTTP API
+# embed_documents() returns 3072-dim vectors; truncated to [:1024] in _embed_batch()
+```
+
+**Mem0 also uses Google Gemini** (`core/mem0_client.py`):
+```python
+"embedder": {
+    "provider": "langchain",
+    "config": {
+        "model": GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001", ...),
+        "embedding_dims": 1024,
+    },
+},
 ```
 
 **Real (Production, when PCCI ready):**
@@ -83,22 +101,26 @@ client = HuggingFaceEmbeddings(
     model_name="Qwen3-Embedding-0.6B",
     # Runs locally on PCCI ~2GB VRAM
 )
-# Returns 1024-dim vectors from local GPU
+# Returns 1024-dim vectors from local GPU (no Matryoshka truncation needed)
 ```
 
-**Status (Session 9):**
-- ✅ **Fully functional and verified** — Voyage AI voyage-3 working across all 4 test layers (embedder, retrieval, memory, LangGraph)
-- ✅ 1024-dim output (same as production target)
+**Status (Session 14):**
+- ✅ **Fully functional and verified** — Google Gemini gemini-embedding-001 working across all 4 layers (embedder, retrieval, memory, chunking)
+- ✅ 3072-dim output truncated to 1024 via Matryoshka property — zero schema migration from Voyage AI
 - ✅ LangChain drop-in interface (zero code changes to swap backends)
-- ✅ Tested: 4/4 E2E tests pass, 8-doc batch embedding verified, pipeline visualizer complete
+- ✅ Tested: 4/4 real E2E tests pass, all sample docs re-ingested, pipeline visualizer complete
+- Previously Voyage AI voyage-3 (Session 9). Replaced due to 3 RPM rate limit on free tier during real integration tests.
 
 **How to make real (when PCCI TEI deployed):**
 1. Deploy TEI on PCCI GPU (~2GB VRAM) serving `Qwen3-Embedding-0.6B` or compatible model
 2. Update `core/rag/ingestion/embedder.py`:
-   - Replace `VoyageAIEmbeddings` with `HuggingFaceEmbeddings` or TEI via OpenAI-compatible endpoint
-   - Point to local PCCI server instead of api.voyageai.com
-   - Update `.env`: change `VOYAGE_API_KEY` to local model reference
-3. No breaking changes — already using LangChain Embeddings interface
+   - Replace `GoogleGenerativeAIEmbeddings` with `HuggingFaceEmbeddings` or TEI via OpenAI-compatible endpoint
+   - Remove Matryoshka truncation (TEI can serve native 1024-dim)
+   - Update `.env`: replace `GOOGLE_API_KEY` + `EMBEDDING_MODEL` with local model reference
+3. Update `core/mem0_client.py`: swap Google embeddings for TEI in Mem0 config
+4. No breaking changes — LangChain Embeddings interface is identical
+
+**ENV requirements:** `GOOGLE_API_KEY`, `EMBEDDING_MODEL=models/gemini-embedding-001`
 
 **Blocking dependency:** PCCI GPU server with TEI (waiting for infrastructure deployment).
 
@@ -236,9 +258,9 @@ Raises error if user tries to upload audio/video. Only PDF, markdown, text suppo
 
 ---
 
-## Category 2: Infra-Blocked Stubs (FastAPI Complete — Needs DB + Auth)
+## Category 2: Infra-Blocked Stubs (FastAPI + Auth Complete — Needs DB Write Wiring)
 
-FastAPI gateway is **fully built** (Session 8) with 5 endpoint groups and 18 passing tests (Session 10). These items now only need a running PostgreSQL database and auth middleware implementation.
+FastAPI gateway is **fully built** (Session 8) with 5 endpoint groups and 33 passing tests (Session 11). Auth middleware is **complete** (Session 11, `api/middleware.py`). PostgreSQL is **running** with seeded data (Session 12). The only remaining infra-blocked item is wiring the review_queue_writer node to actually write to the database.
 
 ### 1. Review Queue Writer — Print stub → DB Insert
 
@@ -264,11 +286,12 @@ Then optionally send reviewer notification (email, webhook, dashboard signal).
 
 **Why it's still stubbed:**
 - `review_queue` table is fully designed (migration 0001 ✅), but node never writes to it.
-- FastAPI layer is built ✅ but PostgreSQL isn't running locally yet — need `alembic upgrade head` first.
+- PostgreSQL is running ✅ (Session 12), migrations applied ✅, database seeded ✅.
+- The node simply prints to stdout instead of inserting into the table.
 
 **How to make real:**
-1. Start PostgreSQL locally (or via Docker)
-2. Run `alembic upgrade head` to create tables
+1. ~~Start PostgreSQL locally~~ ✅ Done (Session 12)
+2. ~~Run `alembic upgrade head`~~ ✅ Done (Session 12)
 3. Add `psycopg` connection in the node:
    ```python
    db_url = os.getenv("DATABASE_URL")
@@ -282,27 +305,23 @@ Then optionally send reviewer notification (email, webhook, dashboard signal).
    ```
 4. Optionally: Send notification to reviewers (email, webhook, Redis pubsub).
 
-**Blocking dependency:** Running PostgreSQL + `alembic upgrade head`. No hardware needed. Can implement as soon as DB is up.
+**Blocking dependency:** DB write wiring in the node (~20 lines of code). No hardware or infrastructure needed — PostgreSQL is running and the table exists.
 
 ---
 
-### 2. access_tier + token_budget — Hardcoded → Auth Lookup
+### 2. access_tier + token_budget — Partially Resolved
 
-**File:** `core/langgraph/nodes/query_analysis_node.py` lines 87–88
+**File:** `core/langgraph/nodes/query_analysis_node.py`
 
-**Now:**
+**Now (Session 14):**
 ```python
-"access_tier": "public",  # Always public
-"token_budget": 2000,     # Always 2000
+# access_tier: FIXED — now preserved from initial state via {**state, ...} spread
+# Previously hardcoded to "public", overwriting caller-set tier (bug fixed Session 14)
+"token_budget": 2000,     # Still hardcoded — minor remaining item
 ```
-Hardcoded. No user authentication; everyone gets public access and fixed token budget.
 
-**Real:**
+**Ideal (token_budget enhancement):**
 ```python
-# From FastAPI middleware:
-user_id = request.context.get("user_id")
-access_tier = request.context.get("access_tier")  # Resolved from JWT claim or users table
-
 # token_budget varies by intent:
 intent_to_budget = {
     "factual": 2000,
@@ -314,20 +333,18 @@ intent_to_budget = {
 token_budget = intent_to_budget.get(intent_class, 2000)
 ```
 
-**Why it's hardcoded:**
-- FastAPI gateway exists ✅ but auth middleware hasn't been added yet.
-- No JWT validation or user lookup in the request flow.
+**Current status (Session 14):**
+- **access_tier: FIXED** ✅ — `query_analysis_node.py` uses `{**state, ...}` spread which preserves the caller-set `access_tier`. Bug was that it previously hardcoded `"public"`, overwriting the value set by the API layer. Fixed Session 14.
+- **Auth middleware: COMPLETE** ✅ (Session 11) — `api/middleware.py` (67 lines) validates `X-API-Key` header against `DCE_API_KEY` env var. Returns 401 if missing, 403 if invalid. 7 passing tests.
+- **token_budget: STILL HARDCODED** — Always 2000. The intent-to-budget mapping above would be an enhancement.
 
-**How to make real:**
-1. Add auth middleware to FastAPI (`api/deps.py` or new `api/auth.py`):
-   - Parse JWT token from `Authorization` header.
-   - Look up user in `users` table (schema done in migration 0001 ✅).
-   - Extract `access_tier` from user row.
-2. Pass `access_tier` in initial state to graph (chat route already builds initial state).
-3. In `query_analysis` node, use it instead of hardcoding.
-4. For `token_budget`, use the intent_to_budget mapping (can be a profile setting).
+**Remaining work (token_budget only):**
+1. ~~Add auth middleware to FastAPI~~ ✅ Done (Session 11, `api/middleware.py`)
+2. ~~Pass `access_tier` in initial state to graph~~ ✅ Done (Session 14 bug fix)
+3. For `token_budget`, implement the intent_to_budget mapping (~10 lines).
+4. Could be a profile-level setting instead of hardcoded mapping.
 
-**Blocking dependency:** Auth middleware implementation (~80 lines of code, no hardware needed).
+**Blocking dependency:** None for access_tier (done). token_budget enhancement is optional (~10 lines, low priority).
 
 ---
 
@@ -372,11 +389,11 @@ Splits `verified_response` into sentence-level chunks using `split(". ")` and st
 
 ---
 
-### 3. provenance_graph_query — Real Code, No Data
+### 3. provenance_graph_query — Real Code, Data Present (Session 12)
 
-**File:** `core/langgraph/nodes/retrieval_nodes.py` lines 5–28
+**File:** `core/langgraph/nodes/retrieval_nodes.py` lines 11–33
 
-**Now:** Real recursive CTE SQL runs flawlessly. However, `teachings` and `teaching_relations` tables are empty.
+**Now:** Real recursive CTE SQL runs flawlessly. As of Session 12, `teachings` and `teaching_relations` tables are seeded with Sacred Archive sample data via `conftest.py` fixture `seed_provenance()`.
 
 ```sql
 WITH RECURSIVE graph_traversal AS (
@@ -394,81 +411,32 @@ SELECT * FROM graph_traversal
 
 The SQL is correct. It runs only for Sacred Archive (`provenance_graph_enabled=true`). It returns results when there's data; returns empty results when tables are empty.
 
-**Blocking dependency:** Sacred Archive corpus ingestion with provenance metadata. The DB schema is complete; just needs data loaded.
+**Blocking dependency:** Full Sacred Archive corpus ingestion with production-scale provenance metadata. Sample data is loaded (Session 12); production corpus is pending.
 
-**Status:** Not a stub. Working as intended. Awaiting data.
-
----
-
-## Category 4: Test Mocks
-
-These exist because the test environment doesn't have a live database or all dependencies.
-
-### Mock 1 — vector_search.search
-
-**File:** `tests/test_e2e.py` lines 91–93, 151–152, 183–188
-
-**Why mocked:**
-`vector_search.search()` requires:
-- Live PostgreSQL with pgvector extension.
-- Populated `document_chunks` table with embeddings.
-- `clone_documents_idx` HNSW index.
-
-Tests don't have this setup. Instead of hitting a live DB, the mock returns deterministic data.
-
-**What's mocked:**
-```python
-with patch("core.rag.retrieval.vector_search.search") as mock:
-    mock.return_value = (SAMPLE_PASSAGES, 0.85)  # ParaGPT happy path
-```
-
-**Mock return:**
-- `SAMPLE_PASSAGES`: 2 hardcoded passage dicts (chunk_id, doc_id, passage text, source_type, etc.).
-- Confidence float: 0.85 (ParaGPT), 0.96 (Sacred Archive needs > 0.95), or side_effect list `[0.3, 0.3, 0.9]` for CRAG retry test.
-
-**When it becomes real:**
-1. Set up test database with populated `document_chunks` table.
-2. Remove the mock.
-3. Tests will hit the real `vector_search.search()` and return actual results.
-
-**Note:** All other LLM nodes (query_analysis, in_persona_generator, confidence_scorer, query_reformulator, citation_verifier) are **not mocked** — they make real Groq API calls in the tests. Only retrieval is mocked because DB setup is complex.
+**Status:** Not a stub. Working as intended with sample data. Returns real results for Sacred Archive queries in E2E tests.
 
 ---
 
-### Mock 2 — get_mem0_client
+## Category 4: Test Mocks — RESOLVED (Session 14)
 
-**File:** `tests/test_e2e.py` lines 103–108
+Both E2E test mocks were **removed** in Session 14. All 4 tests in `tests/test_e2e.py` now use real services: real PostgreSQL + pgvector, real Groq LLM, real Mem0 with Google Gemini embeddings. No mocks.
 
-**Why mocked:**
-`get_mem0_client()` requires:
-- `DATABASE_URL` to connect to pgvector (for memory embeddings storage).
-- `VOYAGE_API_KEY` for embeddings (Session 9: switched from OpenAI to Voyage AI voyage-3).
-- `GROQ_API_KEY` for LLM extraction.
-- Running PostgreSQL + Mem0 setup.
+**What changed (Session 14):**
+- `vector_search.search()` mock removed — tests hit real pgvector with seeded `document_chunks` table
+- `get_mem0_client()` mock removed — tests use real Mem0 with pgvector backend + Google Gemini embeddings
+- `conftest.py` provides session-scoped fixtures: `ensure_db_seeded` (idempotent), `paragpt_clone_id`, `sacred_clone_id`
+- Tests skip gracefully if `DATABASE_URL` or `GROQ_API_KEY` are not set (unit tests still run)
 
-Tests don't have a running Mem0 DB. Instead, return a mock client.
+**API tests (`tests/test_api.py`) still use mocks — intentionally:**
+- 33 tests mock the DB session and `build_graph` — this is correct because API tests validate HTTP behavior (status codes, JSON shape, auth), not pipeline logic
+- Mock strategy: `MagicMock` for DB session with two pre-configured Clone rows; `MagicMock` for `build_graph` returning preset responses
+- These mocks are **intentional and permanent** — API unit tests should not require a live database
 
-**Session 11 fix:** The embedder config key was corrected from `langchain_embeddings` to `model` (Mem0's `BaseEmbedderConfig` parameter). Instantiation now works when PostgreSQL is available.
+**Note on `tests/test_voyage_integration.py`:**
+- 4 tests that validated Voyage AI integration. Now skipped because `VOYAGE_API_KEY` is no longer in `.env` (provider changed to Google Gemini in Session 14).
+- This file could be removed or rewritten as `test_gemini_integration.py` — low priority since E2E tests already validate Google Gemini embeddings end-to-end.
 
-**What's mocked:**
-```python
-with patch("core.mem0_client.get_mem0_client") as mock:
-    mem_client = MagicMock()
-    mem_client.search.return_value = {"results": []}  # No prior memories
-    mem_client.add.return_value = None                # Silent no-op
-    mock.return_value = mem_client
-```
-
-**Mock behavior:**
-- `.search()` returns empty results (no prior user memories).
-- `.add()` does nothing (silently succeeds, doesn't persist).
-
-**When it becomes real:**
-1. Set up PostgreSQL with Mem0 backend (pgvector extension required).
-2. Populate `.env` with: `DATABASE_URL`, `VOYAGE_API_KEY`, `GROQ_API_KEY`.
-3. For unit tests: Keep the mock (DB setup overhead not worth it for simple unit tests).
-4. For integration tests: Remove the mock. Tests will use real Mem0.
-5. Config key is already correct (`model: VoyageAIEmbeddings(...)` — fixed Session 11).
+**Minor cosmetic:** `test_e2e.py` header (line 5) still says "Voyage AI vector search" — should say "Google Gemini embeddings".
 
 ---
 
@@ -477,46 +445,55 @@ with patch("core.mem0_client.get_mem0_client") as mock:
 | Item | File | Type | Status | Blocked By | Priority |
 |---|---|---|---|---|---|
 | LLM (Groq → SGLang) | `core/llm.py:40` | Dev proxy | ✅ Verified | PCCI GPU (20GB) | High — easy swap |
-| Embeddings (Voyage AI → TEI) | `core/rag/ingestion/embedder.py:66` | Dev proxy | ✅ Verified (Session 9) | PCCI GPU (2GB) | High — LangChain drop-in swap |
+| Embeddings (Google Gemini → TEI) | `core/rag/ingestion/embedder.py` | Dev proxy | ✅ Verified (Session 14) | PCCI GPU (2GB) | High — LangChain drop-in swap |
 | Voice pipeline | `core/langgraph/nodes/routing_nodes.py:120` | Full stub | PCCI GPU (2GB) + voice model | Medium — can test structure early |
 | Tier 2 tree search | `core/rag/retrieval/tree_search.py` | Stub | MinIO + tree generation | Medium — logic clear, just needs infra |
 | Audio/video parsing | `core/rag/ingestion/parser.py:9` | NotImplementedError | PCCI GPU + Whisper | Low — not priority for MVP |
-| Review queue writer | `core/langgraph/nodes/routing_nodes.py:65` | Print stub | DB write wiring (PostgreSQL running ✅) | High — FastAPI done, needs DB |
-| access_tier + token_budget | `core/langgraph/nodes/query_analysis_node.py:87` | Hardcoded | Auth middleware ✅ (Session 11) | High — needed for multi-tenant |
-| CRAG evaluator | `core/langgraph/nodes/retrieval_nodes.py:59` | Intentional | Design choice | Low — optional enhancement |
+| Review queue writer | `core/langgraph/nodes/routing_nodes.py:65` | Print stub | DB write wiring (~20 LOC) | High — FastAPI done, DB running ✅ |
+| access_tier | `core/langgraph/nodes/query_analysis_node.py` | ~~Hardcoded~~ | ✅ **FIXED** (Session 14) | None | Done |
+| token_budget | `core/langgraph/nodes/query_analysis_node.py` | Hardcoded (2000) | Minor remaining | Optional enhancement | Low |
+| CRAG evaluator | `core/langgraph/nodes/retrieval_nodes.py:63` | Intentional | Design choice | Low — optional enhancement |
 | stream_to_user | `core/langgraph/nodes/routing_nodes.py:91` | Partial | ✅ FastAPI WebSocket done | Low — sentence splitting improvement |
-| provenance_graph_query | `core/langgraph/nodes/retrieval_nodes.py:5` | Real code, no data | Real query wiring (data ingested ✅ Session 12) | Low — awaits data |
-| test: vector_search mock | `tests/test_e2e.py:91` | Mock | Test DB not available | Low — acceptable trade-off |
-| test: mem0_client mock | `tests/test_e2e.py:103` | Mock | Test env setup | Low — acceptable trade-off |
+| provenance_graph_query | `core/langgraph/nodes/retrieval_nodes.py:11` | Real code | ✅ Data present (Session 12) | Production corpus pending | Low |
+| ~~test: vector_search mock~~ | ~~`tests/test_e2e.py`~~ | ~~Mock~~ | ✅ **REMOVED** (Session 14) | N/A | Resolved |
+| ~~test: mem0_client mock~~ | ~~`tests/test_e2e.py`~~ | ~~Mock~~ | ✅ **REMOVED** (Session 14) | N/A | Resolved |
 
 ---
 
 ## Roadmap
 
-**✅ Week 2 (FastAPI) — COMPLETE (Sessions 8-11):**
+**✅ Week 2 (FastAPI + Auth) — COMPLETE (Sessions 8-11):**
 - ✅ FastAPI gateway: 6 files, 5 endpoint groups, WebSocket streaming
-- ✅ 18 HTTP tests + 4 Voyage AI tests passing
+- ✅ Auth middleware: `api/middleware.py` (67 lines), X-API-Key validation, 7 tests
+- ✅ 33 API tests passing (mocked DB + graph)
 - ✅ Mem0 config fix (`langchain_embeddings` → `model`)
 
-**Week 3 (Database + Frontend) — IN PROGRESS:**
-- ✅ Done: PostgreSQL running, pgvector installed, migrations applied, database seeded (Session 12)
-- ✅ Done: Auth middleware (Session 11)
-- Partially unlocked: `review_queue_writer` (PostgreSQL running, needs DB write wiring in node)
-- Partially unlocked: `access_tier` + `token_budget` (auth middleware done, needs query-level enforcement)
-- Next: React Chat Page + Review Dashboard, Docker Compose
+**✅ Week 2.5 (Real Integration) — COMPLETE (Sessions 12-14):**
+- ✅ PostgreSQL running, pgvector installed, migrations applied, database seeded
+- ✅ Google Gemini embeddings replacing Voyage AI (all 4 layers: embedder, retrieval, memory, chunking)
+- ✅ E2E test mocks removed — 4 real integration tests (real DB, real vector search, real Mem0, real LLM)
+- ✅ access_tier bug fixed (Session 14)
+- ✅ Provenance SQL bug fixed (Session 14)
+- ✅ 45 tests passing, 6 skipped
+
+**Week 3 (Frontend + Remaining Wiring) — NEXT:**
+- Remaining: `review_queue_writer` DB write wiring (~20 lines of code)
+- Remaining: `token_budget` intent-to-budget mapping (optional, ~10 lines)
+- Next: React Chat Page + Review Dashboard
+- Next: Docker Compose for dev environment
 
 **Week 3+ (Voice, if hardware ready):**
-- Unlock: `voice_pipeline` (if PCCI GPU + voice model available).
+- Unlock: `voice_pipeline` (if PCCI GPU + voice model available)
 
 **Week 4+ (PCCI deployment):**
-- Unlock: LLM, embeddings, Whisper, Tier 2 tree search (hardware-blocked).
-- Swap env vars; no code changes.
+- Unlock: LLM (Groq → SGLang), embeddings (Google Gemini → TEI), Whisper, Tier 2 tree search
+- Swap env vars; no code changes
 
 **Optional future:**
-- CRAG evaluator enhancement (explicit quality check).
-- `stream_to_user` sentence splitting improvement (use `nltk.sent_tokenize()`).
-- Zvec swap for ParaGPT (original-plan branch).
-- TEI + SGLang when PCCI ready.
+- CRAG evaluator enhancement (explicit quality check)
+- `stream_to_user` sentence splitting improvement (use `nltk.sent_tokenize()`)
+- Zvec swap for ParaGPT (original-plan branch)
+- Remove or rewrite `test_voyage_integration.py` as `test_gemini_integration.py`
 
 ---
 

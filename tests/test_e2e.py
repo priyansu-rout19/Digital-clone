@@ -2,7 +2,7 @@
 E2E Integration Tests — Digital Clone Engine
 
 Tests the full 19-node LangGraph pipeline for both clone profiles.
-ALL nodes use REAL services: Groq LLM, Voyage AI vector search, Mem0 memory,
+ALL nodes use REAL services: Groq LLM, Google Gemini embeddings, Mem0 memory,
 and PostgreSQL database. No mocks.
 
 Run:
@@ -10,7 +10,7 @@ Run:
     pytest tests/test_e2e.py -v -s      # show stdout (review_queue prints)
     pytest tests/test_e2e.py::test_citation_verifier_direct -v   # fast, no LLM
 
-Requires: DATABASE_URL, GROQ_API_KEY, and VOYAGE_API_KEY in .env.
+Requires: DATABASE_URL, GROQ_API_KEY, and GOOGLE_API_KEY in .env.
 """
 
 import os

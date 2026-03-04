@@ -2,7 +2,7 @@
 
 **Version:** 4.3 | **Date:** March 4, 2026 | **Prepared by:** Prem AI — Solution Architecture
 
-**Note:** This is the **specification/design document** (target production). For **current implementation status**, see [PROGRESS.md](../tasks/PROGRESS.md). Development currently uses drop-in proxy models (Voyage AI for embeddings, Groq for LLM) pending PCCI infrastructure — zero code changes needed when production models available.
+**Note:** This is the **specification/design document** (target production). For **current implementation status**, see [PROGRESS.md](../tasks/PROGRESS.md). Development currently uses drop-in proxy models (Google Gemini for embeddings, Groq for LLM) pending PCCI infrastructure — zero code changes needed when production models available.
 
 ---
 
@@ -120,7 +120,7 @@ The orchestrator is the **core** — it reads the clone profile and adjusts beha
 
 **Development (current):**
 - **Groq API** — qwen/qwen3-32b (same family as Qwen3.5, compatible interface)
-- **Voyage AI** — voyage-3 embeddings (1024-dim, HTTP API via LangChain)
+- **Google Gemini** — gemini-embedding-001 (3072→1024-dim Matryoshka, HTTP API via LangChain)
 - Both are drop-in replacements with identical output dimensions/signatures
 - **Zero code changes** needed to swap production models (same LangChain interfaces)
 
@@ -196,8 +196,8 @@ The LLM generates a response using:
 |---|---|---|---|
 | **Config Model** | `core/models/clone_profile.py` | ✅ COMPLETE | 7 enums, 17 fields, 2 presets (+ ChunkingStrategy enum, Session 13) |
 | **LLM Client** | `core/llm.py` | ✅ COMPLETE | Groq API (dev) → SGLang (prod) |
-| **Embeddings Client** | `core/rag/ingestion/embedder.py` | ✅ COMPLETE | Voyage AI (dev) → TEI (prod), 1024-dim verified |
-| **Mem0 Client** | `core/mem0_client.py` | ✅ COMPLETE | pgvector backend, Voyage AI embeddings |
+| **Embeddings Client** | `core/rag/ingestion/embedder.py` | ✅ COMPLETE | Google Gemini (dev) → TEI (prod), 1024-dim verified |
+| **Mem0 Client** | `core/mem0_client.py` | ✅ COMPLETE | pgvector backend, Google Gemini embeddings |
 | **LangGraph Orchestrator** | `core/langgraph/conversation_flow.py` | ✅ COMPLETE | 19 nodes, T2 before CRAG |
 | **Orchestration Nodes** | `core/langgraph/nodes/` | ✅ COMPLETE | Real LLM, real retrieval, real memory |
 | **Database Schema** | `core/db/schema.py` | ✅ COMPLETE | 15 tables, pgvector indexing |
@@ -219,7 +219,7 @@ The LLM generates a response using:
 - **Stubs with correct state shapes** to verify orchestration before building dependencies
 - **No Apache AGE** — use pure SQL tables + recursive CTEs (team eliminated Oct 2024)
 - **BIGSERIAL for audit_log + query_analytics** — guarantees immutable ordering
-- **Semantic chunking** via LangChain SemanticChunker + Voyage AI embeddings (Session 13). Old fixed-size chunker preserved as fallback. New dependency: `langchain-experimental==0.4.1`
+- **Semantic chunking** via LangChain SemanticChunker + Google Gemini embeddings (Session 13, updated Session 14). Old fixed-size chunker preserved as fallback. New dependency: `langchain-experimental==0.4.1`
 
 ---
 

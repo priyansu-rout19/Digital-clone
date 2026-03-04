@@ -362,7 +362,7 @@ This single configuration object controls all behavioral routing in the pipeline
 - ✅ FastAPI endpoints stream real responses from LangGraph orchestrator
 - ✅ Ingest endpoint processes files and triggers background pipeline
 - ✅ WebSocket handles streaming with progress events
-- ✅ Full test suite: 33 passed, zero xfails (18 original API + 15 new + 4 E2E + 4 Voyage + 10 chunker = 65 total)
+- ✅ Full test suite: 45 passed, 6 skipped (33 API + 4 E2E + 10 chunker — Voyage tests removed Session 15)
 - ✅ Conversation history persisted to messages table
 - ✅ Ingest status polling (for async document processing)
 - ✅ API key validation + access tier checks
@@ -406,7 +406,7 @@ This single configuration object controls all behavioral routing in the pipeline
 
 **Testing:**
 - [x] 18 HTTP endpoint tests (httpx.AsyncClient + ASGITransport)
-- [x] 4 Voyage AI integration tests
+- [x] ~~4 Voyage AI integration tests~~ (removed Session 15 — provider changed to Google Gemini)
 - [x] Mem0 config fix verified (Session 11)
 
 ---
@@ -546,7 +546,7 @@ tests/                           (✅ COMPLETE — Session 14: 45 passed, 6 skip
 ├── test_e2e.py                (Session 14 — 4 REAL E2E tests, no mocks)
 ├── test_api.py                (575 lines — 33 HTTP endpoint tests, mocked)
 ├── test_chunker.py            (Session 13 — 10 semantic chunking tests)
-├── test_voyage_integration.py (88 lines — 4 tests, SKIPPED — provider changed to Google)
+├── (test_voyage_integration.py DELETED Session 15 — provider changed to Google Gemini)
 └── show_pipeline.py           (Session 14 — Pipeline visualizer with --real flag)
 
 api/                             (✅ COMPLETE — Session 8 + Session 11)
@@ -588,8 +588,8 @@ web/                             (NOT YET STARTED — Week 3)
   - New 15: conversation persistence (2), ingest status (4), auth middleware (6), access tier (3)
 - `tests/conftest.py`: Pytest async configuration + shared fixtures (unchanged)
 - `pytest.ini`: Asyncio mode setup for mixed async/sync tests (unchanged)
-- `tests/test_voyage_integration.py`: 4 tests passing (Mem0 config key fixed Session 11)
-- Full test suite: **65 passed** (33 API + 4 E2E + 4 Voyage + 10 chunker + 14 other) — zero xfails
+- ~~`tests/test_voyage_integration.py`~~: DELETED Session 15 (provider changed to Google Gemini)
+- Full test suite: **45 passed, 6 skipped** (33 API + 4 E2E + 10 chunker) — Voyage tests removed Session 15
 - Mock strategy: DB session + graph fixtures (no real DB/LLM in tests)
 - New features: Conversation persistence (messages table), ingest status polling, API key validation, access tier checks
 

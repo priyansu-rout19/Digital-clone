@@ -39,7 +39,7 @@ The ingestion pipeline is also complete: feed a PDF/text file → parse → sema
 | Clone Profile Config | ✅ Complete | `core/models/clone_profile.py` |
 | PostgreSQL Schema (15 tables) | ✅ Complete | `core/db/schema.py` |
 | LangGraph Orchestration (19 nodes) | ✅ Complete | `core/langgraph/conversation_flow.py` |
-| RAG Ingestion Pipeline | ✅ Complete | `core/rag/ingestion/` (with Voyage AI verified) |
+| RAG Ingestion Pipeline | ✅ Complete | `core/rag/ingestion/` (with Google Gemini verified) |
 | RAG Retrieval (pgvector + RRF) | ✅ Complete | `core/rag/retrieval/vector_search.py` |
 | Provenance Graph Query | ✅ Complete | `core/rag/retrieval/provenance.py` |
 | Cross-Session Memory (Mem0) | ✅ Complete | `core/mem0_client.py` + nodes |
@@ -57,7 +57,7 @@ The ingestion pipeline is also complete: feed a PDF/text file → parse → sema
 
 **Models (production PCCI):** Qwen3.5-35B-A3B via SGLang · Qwen3-Embedding-0.6B via TEI · OpenAudio S1-mini (TTS) · Whisper Large V3 (transcription)
 
-**Models (dev, Session 12):** Qwen3-32b via Groq API · voyage-3 via Voyage AI (1024-dim, LangChain drop-in, ✅ verified)
+**Models (dev, Session 14):** Qwen3-32b via Groq API · gemini-embedding-001 via Google Gemini (3072→1024-dim Matryoshka, LangChain drop-in, ✅ verified)
 
 **Storage:** PostgreSQL 17 + pgvector · MinIO (raw files) · Redis (cache) · Mem0 (user memory)
 
@@ -86,11 +86,11 @@ Where the implementation differs from the original spec, and why:
 | **Zvec** for vector search (embedded, in-process) | **pgvector** (PostgreSQL extension) | Zvec API wasn't confirmed stable; pgvector works today, Zvec is a drop-in swap when ready |
 | **Apache AGE** for provenance graph queries | Pure SQL **recursive CTEs** | Apache AGE core team was eliminated in Oct 2024 — extension is effectively dead |
 | **SGLang** for LLM serving (production) | **Groq API** (dev fallback) | Hardware (PCCI GPU server) not available yet; Groq uses Qwen3-32b, same family as production Qwen3.5-35B |
-| **TEI** for embedding (production) | **Voyage AI voyage-3** (dev, 1024-dim native) | Same hardware dependency; same schema, zero migration needed when TEI arrives |
+| **TEI** for embedding (production) | **Google Gemini gemini-embedding-001** (dev, 3072→1024 Matryoshka) | Same hardware dependency; same schema, zero migration needed when TEI arrives |
 | **Whisper** for audio/video transcription | Not implemented | GPU server not available yet; parser raises `NotImplementedError` for audio files as a clear placeholder |
 | **OpenAudio TTS** for voice output | Not implemented (stub) | Same hardware dependency; voice pipeline node exists, just returns empty |
 | **PageIndex tree search** (Tier 2) | Designed stub | Requires MinIO for tree JSON storage — MinIO setup is Week 3; interface is correct and ready |
-| **Mem0** for cross-session user memory | ✅ Implemented (Session 4) | pgvector backend, Voyage AI embeddings, user-scoped memories |
+| **Mem0** for cross-session user memory | ✅ Implemented (Session 4) | pgvector backend, Google Gemini embeddings, user-scoped memories |
 
 **Short version:** The core logic (orchestration, retrieval, generation, routing) is real and working. The hardware-dependent features (Whisper, voice, production LLM/embedding) run on dev fallbacks or stubs until the PCCI server is provisioned.
 

@@ -9,7 +9,7 @@ Usage:
     python scripts/ask_clone.py --clone sacred-archive "What is compassion?"
     python scripts/ask_clone.py -v "Tell me about supply chains"
 
-Requires: .env with GROQ_API_KEY, VOYAGE_API_KEY, DATABASE_URL
+Requires: .env with GROQ_API_KEY, GOOGLE_API_KEY, DATABASE_URL
           Database seeded (run seed_db.py + ingest_samples.py first)
 """
 

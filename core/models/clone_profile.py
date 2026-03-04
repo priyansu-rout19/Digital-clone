@@ -56,7 +56,7 @@ class AccessTier(str, Enum):
 class ChunkingStrategy(str, Enum):
     """Controls how documents are split into chunks during ingestion.
     fixed_size: paragraph-aware token counting (original).
-    semantic: embedding-based topic boundary detection (uses Voyage AI)."""
+    semantic: embedding-based topic boundary detection (uses Google Gemini embeddings)."""
     fixed_size = "fixed_size"
     semantic = "semantic"
 

@@ -48,19 +48,19 @@ def test_enforce_max_size_splits():
     assert len(result) > 1
 
 
-# === Integration tests (require VOYAGE_API_KEY) ===
+# === Integration tests (require GOOGLE_API_KEY) ===
 
 @pytest.mark.skipif(
-    not os.environ.get("VOYAGE_API_KEY"),
-    reason="VOYAGE_API_KEY not configured",
+    not os.environ.get("GOOGLE_API_KEY"),
+    reason="GOOGLE_API_KEY not configured",
 )
 class TestSemanticChunkingIntegration:
 
     def _get_embeddings(self):
-        from langchain_voyageai import VoyageAIEmbeddings
-        return VoyageAIEmbeddings(
-            model=os.environ.get("EMBEDDING_MODEL", "voyage-3"),
-            voyage_api_key=os.environ["VOYAGE_API_KEY"],
+        from langchain_google_genai import GoogleGenerativeAIEmbeddings
+        return GoogleGenerativeAIEmbeddings(
+            model=os.environ.get("EMBEDDING_MODEL", "models/gemini-embedding-001"),
+            google_api_key=os.environ["GOOGLE_API_KEY"],
         )
 
     def test_semantic_chunking_basic(self):

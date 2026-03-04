@@ -6,7 +6,7 @@ Runs two sample documents through the real IngestionPipeline:
   2. Sacred Archive sample (compassion teachings)
 
 This bypasses the HTTP API — calls the pipeline directly.
-Requires: VOYAGE_API_KEY in .env, PostgreSQL running with seeded clones.
+Requires: GOOGLE_API_KEY in .env, PostgreSQL running with seeded clones.
 
 Run: python scripts/ingest_samples.py
 """

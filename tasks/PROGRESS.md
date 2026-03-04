@@ -182,9 +182,9 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
   - `paragpt_clone_id` and `sacred_clone_id` fixtures returning real UUIDs from DB
   - Loads .env at session startup, registers pytest-asyncio
 - ✅ `pytest.ini` — Pytest configuration file (asyncio_mode=auto)
-- ✅ `tests/test_voyage_integration.py` — Voyage AI tests (4 tests, now SKIPPED — provider changed to Google)
-- ✅ `requirements.txt` — Added pytest==9.0.2, pytest-asyncio==0.25.2
-- ✅ Full test suite: **45 passed, 6 skipped** (33 API + 8 chunker + 4 E2E real + 4 Voyage skipped + 2 chunker integration skipped)
+- ~~`tests/test_voyage_integration.py`~~ — DELETED Session 15 (provider changed to Google Gemini)
+- ✅ `requirements.txt` — Added pytest==9.0.2, pytest-asyncio==0.25.2; removed langchain-voyageai + voyageai (Session 15)
+- ✅ Full test suite: **45 passed, 6 skipped** (33 API + 8 chunker + 4 E2E real + 2 chunker integration skipped)
 
 ### ✅ COMPLETE
 
@@ -296,7 +296,7 @@ tests/                      ← Test suite (45 passed, 6 skipped)
   test_api.py               ← FastAPI endpoint tests (33 tests, mocked)
   test_chunker.py           ← Semantic chunking tests (10 tests: 8 unit + 2 integration)
   test_e2e.py               ← End-to-end REAL integration tests (4 tests, no mocks) — Updated Session 14
-  test_voyage_integration.py ← Voyage AI tests (4 tests, SKIPPED — provider changed)
+  (test_voyage_integration.py DELETED Session 15 — provider changed to Google Gemini)
   show_pipeline.py          ← Educational pipeline visualizer (--real flag Session 14)
   conftest.py               ← Pytest configuration + real DB seeding fixtures (Updated Session 14)
 
