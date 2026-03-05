@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from fastapi import Depends, HTTPException
@@ -6,6 +7,9 @@ from fastapi import Depends, HTTPException
 from core.db.schema import Clone
 from core.models.clone_profile import CloneProfile
 
+# Load .env BEFORE reading DATABASE_URL — this module is imported before
+# FastAPI's lifespan runs, so env vars aren't available yet without this
+load_dotenv()
 
 # Database setup
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql+psycopg://localhost/dce_dev")

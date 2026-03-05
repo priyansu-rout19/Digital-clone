@@ -25,6 +25,8 @@ class ChatResponse(BaseModel):
     confidence: float
     cited_sources: list[dict]
     silence_triggered: bool
+    audio_base64: Optional[str] = None
+    audio_format: Optional[str] = None
 
 
 def build_initial_state(query: str, clone_id: str, user_id: str, access_tier: str = "public") -> dict:
@@ -104,6 +106,8 @@ async def chat_sync(
         confidence=final_state.get("final_confidence", 0.0),
         cited_sources=final_state.get("cited_sources", []),
         silence_triggered=final_state.get("silence_triggered", False),
+        audio_base64=final_state.get("audio_base64") or None,
+        audio_format=final_state.get("audio_format") or None,
     )
 
 
@@ -203,6 +207,8 @@ async def chat_ws(
                     "confidence": final_state.get("final_confidence", 0.0),
                     "cited_sources": final_state.get("cited_sources", []),
                     "silence_triggered": final_state.get("silence_triggered", False),
+                    "audio_base64": final_state.get("audio_base64") or None,
+                    "audio_format": final_state.get("audio_format") or None,
                 }
             )
         finally:

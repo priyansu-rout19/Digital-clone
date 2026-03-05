@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+@theme {
+  /* ParaGPT colors */
+  --color-para-navy: #0a1628;
+  --color-para-teal: #00d4aa;
+  --color-para-teal-dark: #00b894;
+  --color-para-card: rgba(16, 32, 56, 0.6);
+  --color-para-card-hover: rgba(16, 32, 56, 0.8);
+
+  /* Sacred Archive colors */
+  --color-sacred-brown: #2c2c2c;
+  --color-sacred-gold: #c4963c;
+  --color-sacred-gold-dark: #a67c2e;
+  --color-sacred-ivory: #faf8f0;
+  --color-sacred-card: rgba(44, 44, 44, 0.8);
+
+  /* Shared */
+  --color-glass-border: rgba(255, 255, 255, 0.1);
+}
+
+/* Base styles */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Glass morphism utility */
+.glass {
+  background: rgba(16, 32, 56, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-sacred {
+  background: rgba(44, 44, 44, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(196, 150, 60, 0.2);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Markdown rendering inside chat bubbles */
+.markdown-body p {
+  margin-bottom: 0.75rem;
+}
+
+.markdown-body p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body strong {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.markdown-body em {
+  color: #cbd5e1;
+  font-style: italic;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3 {
+  color: #ffffff;
+  font-weight: 700;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.95em;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  padding-left: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.markdown-body li {
+  margin-bottom: 0.25rem;
+}
+
+.markdown-body hr {
+  border-color: rgba(255, 255, 255, 0.1);
+  margin: 0.75rem 0;
+}
+
+.markdown-body code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 0.85em;
+}
+
+.markdown-body blockquote {
+  border-left: 2px solid rgba(0, 212, 170, 0.4);
+  padding-left: 0.75rem;
+  color: #94a3b8;
+  font-style: italic;
+}

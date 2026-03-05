@@ -1,7 +1,7 @@
 # Digital Clone Engine — Session Progress & Implementation Status
 
-**Last Updated:** March 5, 2026 (Session 17 — Backend Audit & Hardening)
-**Current Focus:** 3-agent backend audit completed. 12 fixes applied (3 bugs, 5 security, 4 code quality). Session 16 replaced 6 stubs with real implementations. Session 15 cleaned up Voyage AI remnants. 69 tests passing, 6 skipped. Backend 100% hardened. Manager directive: create mockup designs in Variant before React coding.
+**Last Updated:** March 5, 2026 (Session 20 — Frontend Polish & E2E Testing)
+**Current Focus:** React frontend built (Session 19) and polished (Session 20). Full-stack operational: FastAPI backend + React SPA. 56 modules, zero TS errors. 33 API tests passing. Frontend features: error boundaries, WebSocket resilience, mobile responsive, loading states.
 
 ---
 
@@ -441,28 +441,36 @@ These were researched and decided. Do NOT re-debate:
 
 ---
 
-## Next Tasks: Frontend Designs (Variant) → React
+## Next Tasks: React Frontend Implementation
 
 **✅ DONE:** Sessions 12-17 — Full backend complete + hardened.
+**✅ DONE:** Session 18 — MVP UI/UX designs created in Variant.
 
-**Manager Directive (Session 17):** Create mock screens and designs in Variant (AI design tool) BEFORE coding React frontend. Focus on UI/UX mockups first.
+**Design Phase: ✅ COMPLETE**
+- [x] ParaGPT Chat Page landing mockup in Variant
+- [x] Sacred Archive Seeker Chat landing mockup in Variant
+- [ ] Sacred Archive Review Dashboard mockup (deferred — will design when needed)
+- [x] Design reference saved: `docs/UI-UX/DESIGN-REFERENCE.md`
+- [x] Variant prompts saved: `.claude/plans/magical-meandering-nygaard.md`
 
-**Design Phase (Current):**
-- [ ] ParaGPT Chat Page mockup in Variant
-- [ ] Sacred Archive Review Dashboard mockup in Variant
-- [ ] Get manager approval on designs
-- [ ] Then implement in React
-
-**After Design Approval — React Frontend:**
+**Next: React Frontend (MVP)**
 - Chat Page (ParaGPT):
-  - Real-time message streaming via WebSocket
-  - Citation display with source links
-  - Voice playback (if voice_mode enabled)
+  - Landing: profile card, topic tags, starter questions, input bar
+  - Conversation: collapsed header, message bubbles, citations, audio player
+  - Real-time streaming via WebSocket
+  - Voice playback (edge-tts MP3)
+  - Cross-session memory ("Welcome back")
 
-- Review Dashboard (Sacred Archive):
-  - Reviewer interface for pending queue
-  - Side-by-side: generated response vs. original corpus
-  - Approve/reject buttons
+- Seeker Chat (Sacred Archive):
+  - Landing: title, tier selector (Devotee/Friend/Follower), suggested questions
+  - Conversation: direct quotes with provenance, original recording links
+  - Sacred silence state
+  - No cross-session memory
+
+- Review Dashboard (Sacred Archive — after chat pages):
+  - 3-column layout (queue | detail | actions)
+  - Keyboard shortcuts (A/R/E)
+  - Stats bar
 
 **Then: Docker Compose + PCCI Deployment**
 
@@ -471,7 +479,8 @@ These were researched and decided. Do NOT re-debate:
 - ✅ Database (setup + seeding + sample data): COMPLETE
 - ✅ All stubs resolved except 3 hardware-blocked (PCCI)
 - ✅ 69 tests passing, 6 skipped
-- ⏳ Frontend: Designs first (Variant), then React coding
+- ✅ UI/UX Designs: MVP mockups done (ParaGPT + Sacred Archive)
+- ⏳ Frontend: React implementation next
 
 ---
 
@@ -506,28 +515,28 @@ See `tasks/lessons.md` for all 22.
 
 ---
 
-## For Next Session (Session 18+)
+## For Next Session (Session 19+)
 
-**What's Ready: FULL BACKEND COMPLETE + HARDENED ✅**
-- All components (01-05) COMPLETE — no remaining functional stubs
-- FastAPI Layer COMPLETE + HARDENED (Session 17) — 7 files, 6 endpoint groups, clone-scoped mutations
-- Google Gemini Embeddings COMPLETE (Session 14) — 1024-dim Matryoshka truncation
-- Real Integration Tests COMPLETE (Session 14) — 4 E2E tests, no mocks
-- Stub Replacements COMPLETE (Session 16) — 6 stubs → real code
-- Backend Audit COMPLETE (Session 17) — 12 fixes (3 bugs, 5 security, 4 code quality)
-- Full test suite: **69 passed, 6 skipped** (33 API + 10 chunker + 26 session16 + 4 E2E real)
+**What's Ready:**
+- ✅ FULL BACKEND COMPLETE + HARDENED (Sessions 1-17)
+- ✅ MVP UI/UX DESIGNS COMPLETE (Session 18) — saved in `docs/UI-UX/`
+- ✅ 69 tests passing, 6 skipped
 - Only 3 hardware-blocked stubs remain (LLM swap, embeddings swap, tree search — all PCCI)
 
 **What's Next:**
 
-**Phase 1: Design (Current)**
-- [ ] Create ParaGPT Chat Page mockup in Variant (AI design tool)
-- [ ] Create Sacred Archive Review Dashboard mockup in Variant
-- [ ] Get manager approval on designs
+**Phase 1: Design ✅ COMPLETE**
+- [x] ParaGPT Chat Page mockup (landing state)
+- [x] Sacred Archive Seeker Chat mockup (landing + tier selector)
+- [x] Design reference: `docs/UI-UX/DESIGN-REFERENCE.md`
 
-**Phase 2: React Frontend**
-- [ ] Implement React Chat Page from approved designs
-- [ ] Implement Review Dashboard from approved designs
+**Phase 2: React Frontend (NEXT)**
+- [ ] Project setup: Vite + React + TypeScript + Tailwind CSS
+- [ ] ParaGPT Chat Page (landing → conversation states)
+- [ ] Sacred Archive Seeker Chat (landing → conversation states)
+- [ ] WebSocket streaming integration
+- [ ] Voice playback (audio player for edge-tts MP3)
+- [ ] Sacred Archive Review Dashboard
 - [ ] Docker Compose full-stack setup
 - [ ] Smoke test: Chat page → API → LangGraph → response
 
@@ -536,13 +545,13 @@ See `tasks/lessons.md` for all 22.
 - [ ] Docker Compose or Kubernetes on PCCI
 - [ ] CORS lockdown, auth hardening
 
-**To Continue Next Session (Session 18):**
+**To Continue Next Session (Session 19):**
 1. Read `PROGRESS.md` (this file) — recap status
-2. Check `/memory/MEMORY.md` — session context
+2. Check `docs/UI-UX/DESIGN-REFERENCE.md` — design specs for React
 3. Run full test suite: `pytest tests/ -v` (expect 69 passed, 6 skipped)
-4. Test CLI query: `python scripts/ask_clone.py -v "What is connectivity?"`
-5. Start FastAPI server: `python3 -m uvicorn api.main:app --port 8000`
-6. Work on Variant mockup designs (or React if designs are approved)
+4. Start FastAPI server: `python3 -m uvicorn api.main:app --port 8000`
+5. Begin React project setup (Vite + TypeScript + Tailwind)
+6. Implement ParaGPT landing page first, then conversation view
 
 **Key Files Modified (Recent Sessions):**
 
@@ -586,4 +595,95 @@ See `tasks/lessons.md` for all 22.
 
 ---
 
-**Status (Session 17):** FULL SYSTEM OPERATIONAL + HARDENED. Backend 100% complete + database live + 12 audit fixes applied. 69 tests passing, 6 skipped (33 API + 10 chunker + 26 session16 + 4 E2E real). Only 3 hardware-blocked stubs remain (LLM swap, embeddings swap, tree search — all PCCI). Manager directive: create Variant mockup designs before React coding. Frontend design phase next.
+**Session 18 (UI/UX Design Phase):**
+- `docs/UI-UX/DESIGN-REFERENCE.md` (NEW) — Design system, color palettes, component specs
+- `.claude/plans/magical-meandering-nygaard.md` — All Variant prompts (1, 1B, 1C, 2, 3)
+- MVP mockups: ParaGPT landing + Sacred Archive landing created in Variant
+
+**Status (Session 18):** FULL SYSTEM OPERATIONAL + HARDENED + DESIGNED. Backend 100% complete. MVP UI/UX designs done (ParaGPT + Sacred Archive landing pages). Design reference saved in `docs/UI-UX/`. 69 tests passing, 6 skipped. Ready for React frontend implementation.
+
+---
+
+**Session 19 (React Frontend Implementation):**
+
+Built complete React frontend (Vite + TypeScript + Tailwind CSS v4). 21 source files, zero TS errors, production build passes.
+
+**Files Created (21):**
+- `ui/src/api/` — `types.ts` (21 interfaces), `client.ts` (4 REST functions), `websocket.ts` (WS manager)
+- `ui/src/hooks/` — `useChat.ts` (WebSocket + node progress), `useCloneProfile.ts`, `useAudio.ts` (base64→playback)
+- `ui/src/components/` — `ChatInput.tsx`, `MessageBubble.tsx`, `NodeProgress.tsx`, `AudioPlayer.tsx`, `CitationCard.tsx`
+- `ui/src/pages/paragpt/` — `Landing.tsx` (glassmorphism profile card), `Chat.tsx` (messages + citations + audio)
+- `ui/src/pages/sacred-archive/` — `Landing.tsx` (tier selector), `Chat.tsx` (serif quotes + provenance)
+- `ui/src/pages/review/` — `Dashboard.tsx` (3-column approve/reject)
+- `ui/src/themes/` — `paragpt.ts`, `sacred-archive.ts` (design tokens)
+- `ui/src/App.tsx` — React Router with profile-driven theme switching
+- `ui/src/index.css` — Tailwind v4 @theme with custom colors + glass utility classes
+- `ui/vite.config.ts` — Proxy `/chat`, `/clone`, `/review`, `/ingest` → backend
+
+**Backend Patch:**
+- `api/routes/chat.py` — Added `audio_base64`, `audio_format` to ChatResponse + WebSocket response
+
+**Architecture:**
+- Routing: `/:slug` auto-detects ParaGPT vs Sacred Archive via `generation_mode`
+- Design system: glassmorphism (ParaGPT: navy+teal), serif+gold (Sacred Archive: brown+gold)
+- WebSocket streaming: 15 node labels mapped to user-friendly progress messages
+
+**Verification:** TypeScript zero errors, production build (55 modules, 2.14s), 33 API tests pass.
+
+---
+
+**Session 20 (Frontend Polish & E2E Testing):**
+
+Polished React frontend with error handling, WebSocket resilience, mobile responsive layouts, and documentation updates.
+
+**Polish Fixes (10 files modified):**
+1. `ErrorBoundary.tsx` (NEW) — React class component catches render errors with "Try Again" button
+2. `App.tsx` — Wrapped routes in ErrorBoundary, pass `chatError` to chat pages
+3. `useChat.ts` — WebSocket resilience: close old WS before new, 30s timeout, cleanup on unmount
+4. `useAudio.ts` — Cleanup on unmount (revoke URLs, stop audio), try/catch on atob/play
+5. `client.ts` — AbortController with 15s timeout on all fetch calls
+6. `paragpt/Chat.tsx` — Error banner display, `relative` positioning
+7. `sacred-archive/Chat.tsx` — Error banner display, `relative` positioning
+8. `sacred-archive/Landing.tsx` — Fixed dead "Continue to Archive" button, safe-area padding
+9. `Dashboard.tsx` — Mobile responsive: `flex-col md:flex-row`, stacked columns on mobile
+10. `MessageBubble.tsx` — Responsive `max-w-[90%] sm:max-w-[80%] md:max-w-[75%]`
+11. `ChatInput.tsx` — Loading spinner replaces send icon when disabled
+12. `paragpt/Landing.tsx` — Safe-area padding for notched phones
+
+**Testing:**
+- TypeScript: zero errors
+- Production build: 56 modules, passes
+- Backend tests: 33/33 pass
+- WebSocket integration test: `tests/test_ws_integration.py` (NEW) — 3 tests (progress+response, invalid slug, empty query)
+
+**Status (Session 20):** FULL STACK OPERATIONAL + POLISHED. Frontend 22 source files, zero TS errors. Error boundaries, WS resilience, mobile responsive, loading states. 33 API tests + 3 WS integration tests.
+
+---
+
+**Session 20B (E2E Testing & Chat UX Overhaul):**
+
+Live E2E browser testing revealed several bugs and UX issues. Compared against Delphi.ai reference for quality benchmarking.
+
+**Bug Fixes:**
+1. `api/deps.py` — Added `load_dotenv()` before module-level `DATABASE_URL` read (was crashing with "role priyansurout does not exist")
+2. `paragpt/Landing.tsx` + `paragpt/Chat.tsx` — Avatar photo: `profile.avatar_url` from DB was `/static/avatars/parag-khanna.jpg` (non-existent). Hardcoded to `/avatars/parag-khanna.png`
+3. `useChat.ts` — WS timeout reset: progress events now reset the 60s timer (was only clearing on final response, causing false timeouts on slow pipelines)
+4. `MessageBubble.tsx` — Typewriter animation: removed `animatingRef` guard that broke under React StrictMode double-mount (text was empty)
+5. `clone_profile.py` — Updated ParaGPT preset `avatar_url` from `/static/avatars/parag-khanna.jpg` to `/avatars/parag-khanna.png`
+
+**UX Overhaul (Delphi.ai comparison):**
+6. `MessageBubble.tsx` — Installed `react-markdown` for proper markdown rendering (bold, italic, paragraphs, lists, blockquotes). Added `leading-relaxed` for readability.
+7. `index.css` — Added `.markdown-body` CSS: paragraph spacing, white bold, teal blockquote border, translucent code background
+8. `generation_nodes.py` — Rewrote system prompt: "2-3 short paragraphs max", "conversational, not a textbook", "no markdown headers/horizontal rules"
+9. `llm.py` — Added `max_tokens` parameter to `get_llm()`. Response generator now uses `max_tokens=500` (~375 words)
+
+**New Files:**
+- `ui/public/avatars/parag-khanna.png` — Clone avatar image (200x200 PNG)
+- `docs/FRONTEND.md` — Complete frontend documentation (architecture, file inventory, design system, patterns, session history)
+
+**Verification:**
+- TypeScript: zero errors
+- LLM module: imports clean with new `max_tokens` parameter
+- Frontend: 23 source files (21 original + ErrorBoundary + avatar)
+
+**Status (Session 20B):** Chat responses now conversational (2-3 paragraphs, capped at 500 tokens). Markdown renders properly. Avatar photo visible. WS timeout no longer fires during normal pipeline execution. Full frontend documented in `docs/FRONTEND.md`.

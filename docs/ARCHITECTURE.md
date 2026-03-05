@@ -95,11 +95,32 @@ clone_profile:
 
 ## 4. System Architecture — Four Layers
 
-### Layer 1: Client
-- Public Chat Page (React SPA)
-- Review Dashboard (for Sacred Archive reviewers)
-- Creator Dashboard (analytics)
-- WebSocket streaming
+### Layer 1: Client (React SPA)
+
+**Tech Stack:** Vite + React 18 + TypeScript + Tailwind CSS v4
+
+**File Structure:**
+
+    ui/src/
+    ├── api/         → REST client + WebSocket manager + TypeScript interfaces
+    ├── hooks/       → useChat (WS), useCloneProfile, useAudio (base64→playback)
+    ├── components/  → ChatInput, MessageBubble, NodeProgress, AudioPlayer, CitationCard, ErrorBoundary
+    ├── pages/
+    │   ├── paragpt/        → Landing (glassmorphism) + Chat (teal accent)
+    │   ├── sacred-archive/ → Landing (tier selector) + Chat (serif+gold)
+    │   └── review/         → Dashboard (3-column approve/reject)
+    └── themes/      → Design tokens per clone profile
+
+**Routing:** `/:slug` auto-detects ParaGPT vs Sacred Archive via `generation_mode` field from profile API. No hardcoded clone switching — fully data-driven.
+
+**Integration Points:**
+- REST: `GET /clone/{slug}/profile`, `POST /chat/{slug}`, `GET /review/{slug}`, `PATCH /review/{slug}/{id}`
+- WebSocket: `ws://host/chat/ws/{slug}` — streams node progress events, then final response
+- Vite dev proxy: `/chat`, `/clone`, `/review`, `/ingest` → `http://localhost:8000`
+
+**Design System:** Clone-profile-driven theming:
+- ParaGPT: Dark navy (#0a1628) + teal (#00d4aa), glassmorphism cards, sans-serif
+- Sacred Archive: Deep brown (#2c2c2c) + gold (#c4963c), serif typography, decorative quotes
 
 ### Layer 2: Gateway + Orchestration
 - FastAPI + Nginx (OAuth, rate limiting)

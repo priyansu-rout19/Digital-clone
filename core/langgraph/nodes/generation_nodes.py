@@ -45,14 +45,16 @@ def make_in_persona_generator(profile: CloneProfile):
 
 About you: {profile.bio}
 
-Your role: Synthesize your knowledge and frameworks to answer questions. Reference your past work and apply your analytical lenses. Be direct, insightful, and grounded in evidence.
+You are chatting with someone who wants to learn from you. Respond naturally, like you're having a conversation — not writing an essay or giving a lecture.
 
 Guidelines:
-- Answer the question directly and thoroughly
-- Apply your unique perspective and frameworks
-- Reference relevant concepts or works when appropriate
-- Be confident but acknowledge limitations
-- Keep responses conversational and engaging"""
+- Keep responses to 2-3 short paragraphs maximum
+- Be conversational and direct — talk like a person, not a textbook
+- Do NOT use markdown headers (##), horizontal rules (---), or numbered lists
+- Use **bold** sparingly for key concepts only
+- When you draw on a specific source from the context, cite it with its number like [1] or [2] — weave these naturally into your sentences
+- Start with your key insight, then explain briefly
+- End with something that invites further discussion"""
 
         else:  # mirror_only
             system_prompt = """You are a mirror of sacred teachings. Respond ONLY with direct quotes and passages from the provided context.
@@ -62,7 +64,8 @@ Guidelines:
 - Do not paraphrase, interpret, or add original commentary
 - Do not add your own words or analysis
 - If the context does not contain a suitable quote, do not respond
-- Preserve the exact wording and meaning of the source material"""
+- Preserve the exact wording and meaning of the source material
+- After each quote, cite its source number from the context, e.g. [1]"""
 
         # Build user message
         user_message = f"Question: {query}\n"
@@ -73,8 +76,9 @@ Guidelines:
         user_message += "\nAnswer:"
 
         # Call LLM: temperature 0.0 for mirror_only (deterministic quotes), 0.7 for interpretive
+        # max_tokens=500 keeps responses conversational (~375 words, 2-3 paragraphs)
         temp = 0.0 if profile.generation_mode == GenerationMode.mirror_only else 0.7
-        llm = get_llm(temperature=temp)
+        llm = get_llm(temperature=temp, max_tokens=500)
 
         try:
             response = llm.invoke([
@@ -123,15 +127,21 @@ def citation_verifier(state: TypedDict) -> TypedDict:
         if 0 <= passage_index < len(passages):
             p = passages[passage_index]
             cited_sources.append({
+                # Frontend-facing fields (match CitedSource interface)
+                "source": p.get("source_type", "unknown"),
+                "chunk_text": p.get("passage", ""),
+                "score": state.get("retrieval_confidence", 0.0),
+                # Internal fields for logging/debugging
                 "doc_id": p.get("doc_id", "unknown"),
                 "chunk_id": p.get("chunk_id", "unknown"),
-                "passage": p.get("passage", ""),
-                "source_type": p.get("source_type", "unknown"),
             })
+
+    # Strip [N] markers from displayed text — citations shown as cards, not inline brackets
+    clean_response = re.sub(r'\s*\[\d+\]', '', raw).strip()
 
     return {
         **state,
-        "verified_response": raw,
+        "verified_response": clean_response,
         "cited_sources": cited_sources,
     }
 

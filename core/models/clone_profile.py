@@ -163,7 +163,7 @@ def paragpt_profile() -> CloneProfile:
         display_name="Parag Khanna",
         bio="Author, geopolitical strategist known for synthesizing complex global trends into accessible frameworks. "
             "Data-driven analysis connecting history, economics, and geography.",
-        avatar_url="/static/avatars/parag-khanna.jpg",
+        avatar_url="/avatars/parag-khanna.png",
         generation_mode=GenerationMode.interpretive,
         confidence_threshold=0.80,
         silence_behavior=SilenceBehavior.soft_hedge,

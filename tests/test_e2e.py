@@ -225,5 +225,12 @@ def test_citation_verifier_direct():
         f"[1] should resolve, [5] should be caught as hallucination. "
         f"Got {len(result['cited_sources'])} cited sources."
     )
+    # Frontend-facing field names (remapped from source_type/passage)
+    assert result["cited_sources"][0]["source"] == "book"
+    assert "Connectivity" in result["cited_sources"][0]["chunk_text"]
+    # Internal fields still preserved
     assert result["cited_sources"][0]["doc_id"] == "doc-001"
-    assert result["verified_response"] == state["raw_response"]
+    # [N] markers stripped from verified_response
+    assert "[1]" not in result["verified_response"]
+    assert "[5]" not in result["verified_response"]
+    assert "Connectivity shapes global order" in result["verified_response"]
