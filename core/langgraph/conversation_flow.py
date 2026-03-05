@@ -29,11 +29,11 @@ from core.langgraph.nodes.retrieval_nodes import (
     query_reformulator,
     tier2_tree_search,
 )
-from core.langgraph.nodes.context_nodes import context_assembler, memory_retrieval, memory_writer
+from core.langgraph.nodes.context_nodes import context_assembler, memory_retrieval, memory_writer, conversation_history_node
 from core.langgraph.nodes.generation_nodes import make_in_persona_generator, citation_verifier, confidence_scorer
 from core.langgraph.nodes.routing_nodes import (
     make_soft_hedge_router,
-    strict_silence_router,
+    make_strict_silence_router,
     review_queue_writer,
     stream_to_user,
     make_voice_pipeline,
@@ -65,9 +65,10 @@ class ConversationState(TypedDict):
     retrieval_confidence: float  # 0.0-1.0
     retry_count: int
 
-    # Context & Memory (set by context_assembler, memory_retrieval)
+    # Context & Memory (set by context_assembler, memory_retrieval, conversation_history)
     assembled_context: str
     user_memory: str  # cross-session memory from Mem0 (if enabled)
+    conversation_history: str  # formatted last N messages for multi-turn context
 
     # Generation & Verification (set by in_persona_generator, citation_verifier, confidence_scorer)
     raw_response: str
@@ -113,6 +114,7 @@ def build_graph(profile: CloneProfile):
     graph.add_node("tier1_retrieval", tier1_retrieval)
     graph.add_node("crag_evaluator", crag_evaluator)
     graph.add_node("context_assembler", context_assembler)
+    graph.add_node("conversation_history", conversation_history_node)
     graph.add_node("in_persona_generator", make_in_persona_generator(profile))  # Factory: captures profile
     graph.add_node("citation_verifier", citation_verifier)
     graph.add_node("confidence_scorer", confidence_scorer)
@@ -125,7 +127,7 @@ def build_graph(profile: CloneProfile):
     graph.add_node("memory_writer", memory_writer)  # New: writes turn to Mem0 after streaming
     graph.add_node("review_queue_writer", review_queue_writer)
     graph.add_node("soft_hedge_router", make_soft_hedge_router(profile))  # Factory: captures profile
-    graph.add_node("strict_silence_router", strict_silence_router)
+    graph.add_node("strict_silence_router", make_strict_silence_router(profile))  # Factory: captures profile
     graph.add_node("voice_pipeline", make_voice_pipeline(profile))
 
     # Output (1)
@@ -202,15 +204,18 @@ def build_graph(profile: CloneProfile):
     # tier2_tree_search → crag_evaluator (augmented passages evaluated for confidence)
     graph.add_edge("tier2_tree_search", "crag_evaluator")
 
-    # context_assembler: memory retrieval or direct to generation
-    def after_context(state: ConversationState) -> str:
+    # context_assembler → conversation_history (always — both clients need multi-turn)
+    graph.add_edge("context_assembler", "conversation_history")
+
+    # conversation_history: memory retrieval (if enabled) or direct to generation
+    def after_history(state: ConversationState) -> str:
         if profile.user_memory_enabled:
             return "memory_retrieval"
         return "in_persona_generator"
 
     graph.add_conditional_edges(
-        "context_assembler",
-        after_context,
+        "conversation_history",
+        after_history,
         {
             "memory_retrieval": "memory_retrieval",
             "in_persona_generator": "in_persona_generator",

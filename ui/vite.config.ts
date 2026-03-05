@@ -14,6 +14,8 @@ export default defineConfig({
       },
       '/review': 'http://localhost:8000',
       '/ingest': 'http://localhost:8000',
+      '/analytics': 'http://localhost:8000',
+      '/users': 'http://localhost:8000',
       '/health': 'http://localhost:8000',
     },
   },

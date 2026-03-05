@@ -2,59 +2,58 @@
 
 ## Teaching Mode
 
-- The user is **learning by building** — explain everything in simple, technically correct terms
-- Never use jargon without a short explanation of what it means
-- When implementing something, briefly explain **why** this approach works, not just what it does
-- If a concept is new (e.g., "RAG pipeline", "vector embeddings"), give a 1-2 line plain-English explanation inline
-- Don't dumb things down — keep it accurate, just make it accessible
+- User is **learning by building** — explain why each choice works, not just what it does
+- Define jargon inline (1-2 line plain-English explanation)
 - When there's a tradeoff, explain both sides so the user understands the decision
+- Keep it technically correct but accessible — don't dumb down
 
 ## Workflow Orchestration
 
 ### 1. Plan Mode Default
 - Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
-- If something goes sideways, STOP and re-plan immediately — don't keep pushing
-- Use plan mode for verification steps, not just building
 - Write detailed specs upfront to reduce ambiguity
+- Use plan mode for verification steps, not just building
+- If something goes sideways: STOP, re-plan, and capture the lesson in `tasks/lessons.md`
 
 ### 2. Subagent Strategy
 - Use subagents liberally to keep main context window clean
 - Offload research, exploration, and parallel analysis to subagents
-- For complex problems, throw more compute at it via subagents
 - One task per subagent for focused execution
 
-### 3. Self-Improvement Loop
-- After ANY correction from the user: update `tasks/lessons.md` with the pattern
-- Write rules for yourself that prevent the same mistake
-- Ruthlessly iterate on these lessons until mistake rate drops
-- Review lessons at session start for relevant project
+### 3. LangGraph Profile-Aware Nodes
+- Use `build_graph(profile)` factory — profile captured in closures at build time
+- If a node needs config, use a factory function: `make_node_name(profile)` returning `(state) -> state`
+- Keep profile out of ConversationState (state is request-specific, profile is config)
+- Conditional edges map return values to node names via dictionaries
 
 ### 4. Verification Before Done
-- Never mark a task complete without proving it works
-- Diff behavior between main and your changes when relevant
-- Ask yourself: "Would a staff engineer approve this?"
-- Run tests, check logs, demonstrate correctness
+- Never mark complete without proving it works — run tests, check logs, demonstrate correctness
 
 ### 5. Demand Elegance (Balanced)
 - For non-trivial changes: pause and ask "is there a more elegant way?"
 - If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
-- Skip this for simple, obvious fixes — don't over-engineer
-- Challenge your own work before presenting it
+- Skip this for simple, obvious fixes
 
 ### 6. Autonomous Bug Fixing
-- When given a bug report: just fix it. Don't ask for hand-holding
-- Point at logs, errors, failing tests — then resolve them
+- When given a bug report: just fix it — point at logs, errors, failing tests, then resolve
 - Zero context switching required from the user
-- Go fix failing CI tests without being told how
+
+### 7. Dependency & Environment Verification
+- After `pip install`: run `pip show <key-packages>` to verify no silent downgrades
+- SQLAlchemy URLs use `postgresql+psycopg://`; raw psycopg needs `postgresql://` — use `core/db/__init__.py:psycopg_url()`
+- Always `python3 -m <tool>` (not bare alembic/pytest) — system wrappers may strip site-packages
+- Patch mocks at source module, not import site (for lazy imports)
+
+### 8. Security by Default
+- NEVER interpolate values into SQL — use `= ANY(%s)` with list parameter
+- Always sanitize uploaded filenames with `Path(filename).name`
+- Every mutation endpoint (POST/PUT/PATCH/DELETE) must include tenant scoping via `clone_id`
+- When overwriting a response (hedge/silence), overwrite ALL response-carrying state fields
 
 ## Task Management
 
-1. **Plan First:** Write plan to `tasks/todo.md` with checkable items
-2. **Verify Plan:** Check in before starting implementation
-3. **Track Progress:** Mark items complete as you go
-4. **Explain Changes:** High-level summary at each step
-5. **Document Results:** Add review section to `tasks/todo.md`
-6. **Capture Lessons:** Update `tasks/lessons.md` after corrections
+- Plan to `tasks/todo.md`, track progress, capture lessons in `tasks/lessons.md` after corrections
+- High-level summary at each step; document results
 
 ## Core Principles
 

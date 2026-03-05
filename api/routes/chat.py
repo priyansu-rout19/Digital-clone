@@ -1,21 +1,33 @@
 import json
 import copy
+import logging
+import time
+import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+import psycopg
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
 from api.deps import get_clone, get_db
+from core.db import psycopg_url as _psycopg_url
 from core.models.clone_profile import CloneProfile
 from core.langgraph.conversation_flow import build_graph
+
+limiter = Limiter(key_func=get_remote_address)
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter()
 
 
 class ChatRequest(BaseModel):
-    query: str
+    query: str = Field(..., min_length=1, max_length=2000)
     user_id: Optional[str] = "anonymous"
     access_tier: Optional[str] = "public"
 
@@ -45,6 +57,7 @@ def build_initial_state(query: str, clone_id: str, user_id: str, access_tier: st
         "retry_count": 0,
         "assembled_context": "",
         "user_memory": "",
+        "conversation_history": "",
         "raw_response": "",
         "verified_response": "",
         "final_confidence": 0.0,
@@ -56,10 +69,54 @@ def build_initial_state(query: str, clone_id: str, user_id: str, access_tier: st
     }
 
 
+def _write_analytics(clone_id: str, user_id: str, query_text: str,
+                     final_state: dict, latency_ms: int) -> None:
+    """Write a row to query_analytics table. Fails silently — never crashes the response."""
+    db_url = _psycopg_url()
+    if not db_url:
+        return
+
+    # "anonymous" is not a valid UUID — set to None
+    user_id_val = None
+    if user_id and user_id != "anonymous":
+        try:
+            uuid.UUID(user_id)
+            user_id_val = user_id
+        except ValueError:
+            user_id_val = None
+
+    try:
+        with psycopg.connect(db_url) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO query_analytics
+                        (clone_id, user_id, query_text, intent_class,
+                         confidence_score, latency_ms, tier_used, silence_triggered)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        clone_id,
+                        user_id_val,
+                        query_text[:500],  # truncate long queries for analytics
+                        final_state.get("intent_class", ""),
+                        final_state.get("final_confidence", 0.0),
+                        latency_ms,
+                        final_state.get("access_tier", "public"),
+                        final_state.get("silence_triggered", False),
+                    ),
+                )
+            conn.commit()
+    except Exception as e:
+        logger.error(f"Analytics write failed: {e}")
+
+
 @router.post("/{clone_slug}")
+@limiter.limit("60/minute")
 async def chat_sync(
+    request: Request,
     clone_slug: str,
-    request: ChatRequest,
+    chat_request: ChatRequest,
     clone_info: tuple[str, CloneProfile] = Depends(get_clone),
     db: Session = Depends(get_db),
 ) -> ChatResponse:
@@ -73,25 +130,27 @@ async def chat_sync(
     # Validate access_tier (format check against AccessTier enum)
     from core.models.clone_profile import AccessTier
     valid_tiers = {t.value for t in AccessTier}
-    if request.access_tier not in valid_tiers:
+    if chat_request.access_tier not in valid_tiers:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid access_tier '{request.access_tier}'. Valid tiers: {sorted(valid_tiers)}",
+            detail=f"Invalid access_tier '{chat_request.access_tier}'. Valid tiers: {sorted(valid_tiers)}",
         )
 
     # Build initial state with access_tier
-    initial_state = build_initial_state(request.query, clone_id, request.user_id, request.access_tier)
+    initial_state = build_initial_state(chat_request.query, clone_id, chat_request.user_id, chat_request.access_tier)
 
-    # Build and invoke graph
+    # Build and invoke graph (with latency tracking)
     graph = build_graph(profile)
+    t0 = time.time()
     final_state = graph.invoke(copy.deepcopy(initial_state))
+    latency_ms = int((time.time() - t0) * 1000)
 
     # Save the exchange to messages table (fire-and-forget within request)
     from core.db.schema import Message
     msg = Message(
         clone_id=clone_id,
-        user_id=request.user_id or "anonymous",
-        query_text=request.query,
+        user_id=chat_request.user_id or "anonymous",
+        query_text=chat_request.query,
         response_text=final_state.get("verified_response") or final_state.get("raw_response", ""),
         confidence=final_state.get("final_confidence", 0.0),
         silence_triggered=final_state.get("silence_triggered", False),
@@ -99,6 +158,9 @@ async def chat_sync(
     )
     db.add(msg)
     db.commit()
+
+    # Write analytics (non-blocking, fails silently)
+    _write_analytics(clone_id, chat_request.user_id, chat_request.query, final_state, latency_ms)
 
     # Extract response fields (user_memory excluded — internal pipeline use only)
     return ChatResponse(
@@ -139,6 +201,11 @@ async def chat_ws(
             await websocket.close()
             return
 
+        if len(query) > 2000:
+            await websocket.send_json({"type": "error", "message": "query must be 2000 characters or less"})
+            await websocket.close()
+            return
+
         # Validate access_tier (format check)
         from core.models.clone_profile import AccessTier
         valid_tiers = {t.value for t in AccessTier}
@@ -171,8 +238,9 @@ async def chat_ws(
             # Build initial state with access_tier
             initial_state = build_initial_state(query, clone_id, user_id, access_tier)
 
-            # Build graph and stream
+            # Build graph and stream (with latency tracking)
             graph = build_graph(profile)
+            t0 = time.time()
 
             # Stream each node completion and capture final state
             final_state = copy.deepcopy(initial_state)
@@ -184,6 +252,8 @@ async def chat_ws(
                     # Update final_state with the latest node output
                     final_state.update(chunk[node_name])
                     await websocket.send_json({"type": "progress", "node": node_name})
+
+            latency_ms = int((time.time() - t0) * 1000)
 
             # Save the exchange to messages table before sending final response
             from core.db.schema import Message
@@ -198,6 +268,9 @@ async def chat_ws(
             )
             db.add(msg)
             db.commit()
+
+            # Write analytics (non-blocking, fails silently)
+            _write_analytics(clone_id, user_id, query, final_state, latency_ms)
 
             # Send final response after all nodes complete and message saved
             await websocket.send_json(

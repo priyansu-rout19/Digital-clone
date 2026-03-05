@@ -137,3 +137,65 @@ def memory_writer(state: TypedDict) -> TypedDict:
         logger.warning(f"Failed to save memory to Mem0: {str(e)}")
 
     return state
+
+
+def conversation_history_node(state: TypedDict) -> TypedDict:
+    """
+    Retrieve recent conversation history from the messages table.
+
+    Queries the last 5 message exchanges for this clone_id + user_id,
+    ordered most-recent-first then reversed for chronological display.
+    Enables multi-turn conversations: the LLM can see prior context
+    and respond to follow-up questions like "tell me more about that."
+
+    Input: clone_id, user_id
+    Output: conversation_history (formatted string)
+    """
+    import psycopg
+    from core.db import psycopg_url as _psycopg_url
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    clone_id = state.get("clone_id", "")
+    user_id = state.get("user_id", "anonymous")
+
+    if not clone_id or not user_id or user_id == "anonymous":
+        return {**state, "conversation_history": ""}
+
+    db_url = _psycopg_url()
+    if not db_url:
+        return {**state, "conversation_history": ""}
+
+    try:
+        with psycopg.connect(db_url) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT query_text, response_text
+                    FROM messages
+                    WHERE clone_id = %s AND user_id = %s
+                    ORDER BY created_at DESC
+                    LIMIT 5
+                    """,
+                    (clone_id, user_id),
+                )
+                rows = cur.fetchall()
+
+        if not rows:
+            return {**state, "conversation_history": ""}
+
+        # Format oldest-first for natural reading order
+        lines = []
+        for query_text, response_text in reversed(rows):
+            lines.append(f"User: {query_text}")
+            # Truncate long responses to keep context manageable (~375 tokens max)
+            truncated = response_text[:300] + "..." if len(response_text) > 300 else response_text
+            lines.append(f"Assistant: {truncated}")
+
+        history = "Previous conversation:\n" + "\n".join(lines)
+        return {**state, "conversation_history": history}
+
+    except Exception as e:
+        logger.warning(f"conversation_history_node failed: {e}")
+        return {**state, "conversation_history": ""}

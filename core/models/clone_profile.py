@@ -198,8 +198,9 @@ def sacred_archive_profile() -> CloneProfile:
         generation_mode=GenerationMode.mirror_only,
         confidence_threshold=0.95,
         silence_behavior=SilenceBehavior.strict_silence,
-        silence_message="With reverence and humility, I must remain silent on this matter. "
-                        "Please contact a guide or senior student for deeper exploration.",
+        silence_message="This question falls outside the verified teachings in our archive. "
+                        "We honor the tradition by remaining silent rather than speculating. "
+                        "Please consult a senior guide, or explore related topics within the archive.",
         review_required=True,
         user_memory_enabled=False,
         voice_mode=VoiceMode.original_only,

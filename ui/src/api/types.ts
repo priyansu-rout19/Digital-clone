@@ -39,6 +39,11 @@ export interface CitedSource {
   source: string;
   chunk_text: string;
   score: number;
+  date?: string | null;
+  location?: string | null;
+  event?: string | null;
+  verifier?: string | null;
+  source_title?: string | null;
   [key: string]: unknown;
 }
 
@@ -93,6 +98,16 @@ export interface ReviewUpdateResponse {
   status: string;
   reviewer_notes: string | null;
   reviewed_at: string | null;
+}
+
+// Analytics
+export interface AnalyticsSummary {
+  total_queries: number;
+  avg_confidence: number | null;
+  avg_latency_ms: number | null;
+  silence_rate: number;
+  queries_per_day: { date: string; count: number }[];
+  top_intents: { intent: string; count: number }[];
 }
 
 // UI-side chat message model

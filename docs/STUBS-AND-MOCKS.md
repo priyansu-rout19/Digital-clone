@@ -1,6 +1,6 @@
 # Stubs & Mocks Inventory — Digital Clone Engine
 
-**Last Updated:** March 5, 2026 (Session 17 — Backend Audit & Hardening) | **Status:** 69 tests passing (33 API + 10 chunker + 26 session 16 + 4 E2E real), zero xfails. Only 3 hardware-blocked stubs remain. Session 17 hardened all real implementations (security fixes, bug fixes, code quality).
+**Last Updated:** March 5, 2026 (Session 22 — Requirements Audit & Gap Fixes) | **Status:** 37 tests passing (33 API + 4 E2E real), zero xfails. Only 3 hardware-blocked stubs remain. Sessions 21-22 fixed citation pipeline, strict silence router, added monitoring dashboard, GDPR delete, rate limiting, CORS hardening.
 
 ---
 
@@ -210,6 +210,22 @@ adjusted = raw_confidence * passage_count_factor
 
 ---
 
+## Category 2c: Session 21-22 Fixes & New Features
+
+**Session 21:** Citation pipeline fix — LLM system prompt now instructs `[N]` citation markers; `citation_verifier` remaps fields to match frontend (`source`, `chunk_text`, `score`); strips `[N]` markers from displayed text.
+
+**Session 22:** Requirements audit + gap fixes (8 changes):
+- `strict_silence_router` → factory function `make_strict_silence_router(profile)`. Now overwrites `raw_response` AND `verified_response` with `silence_message` (was only setting flag)
+- `_write_analytics()` in chat.py — both sync/WebSocket handlers INSERT to `query_analytics` table with latency tracking
+- `api/routes/analytics.py` (NEW) — `GET /analytics/{slug}` returns aggregate stats
+- `api/routes/users.py` (NEW) — `DELETE /users/{user_id}/data` for GDPR compliance
+- CORS hardened — `allow_origins` from env var (was `["*"]`)
+- Rate limiting — `slowapi` on chat (60/min) and ingest (10/min) endpoints
+- Input validation — `max_length=2000` on query field
+- Frontend analytics dashboard — `ui/src/pages/analytics/Dashboard.tsx`
+
+---
+
 ## Category 2b: Session 17 Hardening (12 fixes to real implementations)
 
 Session 17 ran a 3-agent backend audit and fixed 12 issues across the codebase. These aren't stub replacements — they're improvements to already-real code:
@@ -281,8 +297,9 @@ Real recursive CTE SQL. Works with sample data. Returns real results for Sacred 
 - Stub replacement session (Session 16): 6 stubs → real code
 
 **Next:**
-- Frontend mockup designs in Variant (manager directive)
-- React Chat Page + Review Dashboard (after design approval)
+- Reasoning trace panel (manager requested — collapsible pipeline visibility per response)
+- Demo videos (screen recordings of user journeys)
+- Success metrics tracking (citation accuracy, persona fidelity, latency)
 - Docker Compose for dev environment
 
 **When PCCI ready:**

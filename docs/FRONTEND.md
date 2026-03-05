@@ -13,26 +13,26 @@ ui/src/
   api/          → Backend communication (REST + WebSocket)
   hooks/        → Reusable React hooks (chat, audio, profile)
   components/   → Shared UI components (6 files)
-  pages/        → Route-specific pages (ParaGPT, Sacred Archive, Review)
+  pages/        → Route-specific pages (ParaGPT, Sacred Archive, Review, Analytics)
   themes/       → Design token exports (not currently used at runtime)
   index.css     → Global styles + glass morphism + markdown rendering
   App.tsx       → Router + clone profile loader + page dispatch
   main.tsx      → React root with StrictMode
 ```
 
-**Routing:** `/:slug` auto-detects ParaGPT vs Sacred Archive via `profile.generation_mode`
-**Proxy:** Vite dev server proxies `/chat`, `/clone`, `/review`, `/ingest` to `http://localhost:8000`
+**Routing:** `/:slug` auto-detects ParaGPT vs Sacred Archive via `profile.generation_mode`. Analytics at `/:slug/analytics`.
+**Proxy:** Vite dev server proxies `/chat`, `/clone`, `/review`, `/ingest`, `/analytics`, `/users` to `http://localhost:8000`
 
 ---
 
-## File Inventory (23 source files)
+## File Inventory (25 source files)
 
 ### API Layer (`ui/src/api/`)
 
 | File | Purpose |
 |------|---------|
 | `types.ts` | 21 TypeScript interfaces mirroring backend models (ChatMessage, CloneProfile, WSMessage, etc.) |
-| `client.ts` | 4 REST functions with 15s AbortController timeout + API key header |
+| `client.ts` | 5 REST functions (cloneProfile, chat, review, reviewAction, analytics) with 15s AbortController timeout + API key header |
 | `websocket.ts` | WebSocket manager class (unused — `useChat` hook handles WS directly) |
 
 ### Hooks (`ui/src/hooks/`)
@@ -63,6 +63,7 @@ ui/src/
 | `sacred-archive/Landing.tsx` | Tier selector (Devotee/Friend/Follower), "Continue to Archive" button |
 | `sacred-archive/Chat.tsx` | Chat view — serif quotes with gold accents, provenance citations |
 | `review/Dashboard.tsx` | 3-column review queue (pending/approved/rejected). Mobile: stacked columns. |
+| `analytics/Dashboard.tsx` | Monitoring dashboard: stat cards (total queries, avg confidence, avg latency, silence rate), queries per day bar chart, top intent classes. Route: `/:slug/analytics`. |
 
 ### Other Files
 
@@ -160,6 +161,7 @@ cd ui && npm run build        # Output: ui/dist/ (56+ modules)
 | **19** | Initial scaffold — 21 source files, Vite+React+TS+Tailwind, all pages, hooks, components |
 | **20** | Polish — ErrorBoundary, WS resilience (30s timeout), mobile responsive, loading states, safe-area padding |
 | **20B** | Avatar photo fix (hardcoded path), WS timeout fix (reset on progress, bumped to 60s), typewriter animation (StrictMode fix), react-markdown rendering, markdown CSS, LLM prompt rewrite (conversational tone, max_tokens=500) |
+| **22** | Analytics dashboard page (stat cards, bar charts, intent breakdown). `AnalyticsSummary` type + `getAnalytics()` API function. Route `/:slug/analytics`. Vite proxy for `/analytics` and `/users`. |
 
 ---
 
@@ -170,3 +172,5 @@ cd ui && npm run build        # Output: ui/dist/ (56+ modules)
 - Sacred Archive Chat.tsx doesn't use react-markdown (plain text + quotes is intentional for mirror_only mode)
 - No suggested follow-up questions (would need backend `suggested_questions` field)
 - No inline superscript citations (citations are separate cards below message)
+- Reasoning trace panel not yet built (manager requested — collapsible pipeline visibility per response)
+- Analytics dashboard has no real-time refresh — manual page reload needed

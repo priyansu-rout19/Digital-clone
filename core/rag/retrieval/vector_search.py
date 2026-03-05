@@ -60,12 +60,15 @@ def search(
 
                         cur.execute(
                             """
-                            SELECT chunk_id, doc_id, passage, source_type, access_tier, date,
-                                   1 - (embedding <=> %s::vector) AS similarity
-                            FROM document_chunks
-                            WHERE clone_id = %s
-                              AND access_tier = ANY(%s)
-                            ORDER BY embedding <=> %s::vector
+                            SELECT dc.chunk_id, dc.doc_id, dc.passage, dc.source_type,
+                                   dc.access_tier, dc.date,
+                                   1 - (dc.embedding <=> %s::vector) AS similarity,
+                                   d.provenance, d.filename
+                            FROM document_chunks dc
+                            LEFT JOIN documents d ON dc.doc_id = d.id
+                            WHERE dc.clone_id = %s
+                              AND dc.access_tier = ANY(%s)
+                            ORDER BY dc.embedding <=> %s::vector
                             LIMIT %s
                             """,
                             (vector_str, clone_id, access_tiers, vector_str, top_k),
@@ -94,6 +97,10 @@ def search(
         retrieved_passages = []
         for chunk_id, data in sorted_results:
             row = data["chunk"]
+            # Extract provenance from documents table JOIN (JSONB → dict or None)
+            provenance_raw = row[7] if len(row) > 7 else None
+            provenance = provenance_raw if isinstance(provenance_raw, dict) else {}
+            filename_raw = row[8] if len(row) > 8 else None
             retrieved_passages.append(
                 {
                     "chunk_id": str(row[0]),
@@ -101,7 +108,11 @@ def search(
                     "passage": row[2],
                     "source_type": row[3],
                     "access_tier": row[4],
-                    "date": row[5],
+                    "date": row[5] or provenance.get("date"),
+                    "location": provenance.get("location"),
+                    "event": provenance.get("event"),
+                    "verifier": provenance.get("verifier"),
+                    "source_title": provenance.get("title") or filename_raw,
                 }
             )
 

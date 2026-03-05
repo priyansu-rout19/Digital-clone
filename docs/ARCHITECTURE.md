@@ -1,6 +1,6 @@
 # ARCHITECTURE: Digital Clone Engine — Unified Technical System Design
 
-**Version:** 4.3 | **Date:** March 4, 2026 | **Prepared by:** Prem AI — Solution Architecture
+**Version:** 4.4 | **Date:** March 5, 2026 | **Prepared by:** Prem AI — Solution Architecture
 
 **Note:** This is the **specification/design document** (target production). For **current implementation status**, see [PROGRESS.md](../tasks/PROGRESS.md). Development currently uses drop-in proxy models (Google Gemini for embeddings, Groq for LLM) pending PCCI infrastructure — zero code changes needed when production models available.
 
@@ -97,7 +97,7 @@ clone_profile:
 
 ### Layer 1: Client (React SPA)
 
-**Tech Stack:** Vite + React 18 + TypeScript + Tailwind CSS v4
+**Tech Stack:** Vite 6 + React 19 + TypeScript + Tailwind CSS v4
 
 **File Structure:**
 
@@ -108,26 +108,30 @@ clone_profile:
     ├── pages/
     │   ├── paragpt/        → Landing (glassmorphism) + Chat (teal accent)
     │   ├── sacred-archive/ → Landing (tier selector) + Chat (serif+gold)
-    │   └── review/         → Dashboard (3-column approve/reject)
+    │   ├── review/         → Dashboard (3-column approve/reject)
+    │   └── analytics/     → Monitoring dashboard (stats, charts)
     └── themes/      → Design tokens per clone profile
 
 **Routing:** `/:slug` auto-detects ParaGPT vs Sacred Archive via `generation_mode` field from profile API. No hardcoded clone switching — fully data-driven.
 
 **Integration Points:**
-- REST: `GET /clone/{slug}/profile`, `POST /chat/{slug}`, `GET /review/{slug}`, `PATCH /review/{slug}/{id}`
+- REST: `GET /clone/{slug}/profile`, `POST /chat/{slug}`, `GET /review/{slug}`, `PATCH /review/{slug}/{id}`, `GET /analytics/{slug}`, `DELETE /users/{user_id}/data`
 - WebSocket: `ws://host/chat/ws/{slug}` — streams node progress events, then final response
-- Vite dev proxy: `/chat`, `/clone`, `/review`, `/ingest` → `http://localhost:8000`
+- Vite dev proxy: `/chat`, `/clone`, `/review`, `/ingest`, `/analytics`, `/users` → `http://localhost:8000`
 
 **Design System:** Clone-profile-driven theming:
 - ParaGPT: Dark navy (#0a1628) + teal (#00d4aa), glassmorphism cards, sans-serif
 - Sacred Archive: Deep brown (#2c2c2c) + gold (#c4963c), serif typography, decorative quotes
 
 ### Layer 2: Gateway + Orchestration
-- FastAPI + Nginx (OAuth, rate limiting)
+- FastAPI + slowapi rate limiting (60/min chat, 10/min ingest)
+- CORS hardened via `CORS_ORIGINS` env var
 - **LangGraph Orchestrator** — 19-node stateless pipeline
-- Persona Manager
-- Ingestion Pipeline (Celery)
-- Review Queue + notification service
+- Analytics pipeline — `query_analytics` table populated after each query (latency, confidence, tier, silence)
+- GDPR delete — `DELETE /users/{user_id}/data` (messages, analytics, Mem0 memories)
+- Monitoring dashboard — `GET /analytics/{slug}` aggregate stats endpoint
+- Ingestion Pipeline (BackgroundTasks)
+- Review Queue
 
 The orchestrator is the **core** — it reads the clone profile and adjusts behavior at each pipeline step.
 
@@ -225,10 +229,10 @@ The LLM generates a response using:
 | **Migrations** | `core/db/migrations/` | ✅ COMPLETE | 4 migrations, applied + seeded |
 | **RAG Ingestion** | `core/rag/ingestion/` | ✅ COMPLETE | Parser + chunker (semantic, Session 13) + embedder + indexer |
 | **RAG Retrieval** | `core/rag/retrieval/` | ✅ COMPLETE | Tier 1 vector, Tier 2 tree, CRAG, RRF |
-| **FastAPI Layer** | `api/` | ✅ COMPLETE | 5 endpoint groups, WebSocket streaming |
+| **FastAPI Layer** | `api/` | ✅ COMPLETE | 7 endpoint groups (chat, config, review, ingest, analytics, users, health), WebSocket streaming, rate limiting, CORS hardening |
 | **E2E Tests** | `tests/test_e2e.py` | ✅ COMPLETE | 4/4 passing, all profiles/flows |
 | **Database Seeding** | `scripts/` | ✅ COMPLETE | 2 clones, 1 user, provenance, 8 semantic chunks |
-| **Frontend** | `web/` | ⏳ NEXT | React chat page + review dashboard (Week 3) |
+| **Frontend** | `ui/` | ✅ COMPLETE | 25 source files, Vite+React+TS+Tailwind, chat, review, analytics pages |
 
 ---
 

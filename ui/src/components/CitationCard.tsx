@@ -13,7 +13,11 @@ export default function CitationCard({ source, variant = 'paragpt' }: CitationCa
   return (
     <div className={`border-l-2 ${accent} pl-3 py-1 mb-2 cursor-pointer`} onClick={() => setExpanded(!expanded)}>
       <div className="flex items-center justify-between">
-        <span className="text-xs text-gray-400 font-medium">{source.source || 'Source'}</span>
+        <span className="text-xs text-gray-400 font-medium">
+          {source.source_title
+            ? `${source.source_title} (${source.source})${source.date ? ` — ${source.date}` : ''}`
+            : source.source || 'Source'}
+        </span>
         <svg
           className={`w-3 h-3 text-gray-500 transition-transform ${expanded ? 'rotate-180' : ''}`}
           xmlns="http://www.w3.org/2000/svg"
@@ -27,7 +31,19 @@ export default function CitationCard({ source, variant = 'paragpt' }: CitationCa
           />
         </svg>
       </div>
-      {expanded && <p className="text-xs text-gray-500 mt-1">{source.chunk_text}</p>}
+      {expanded && (
+        <div className="mt-1 space-y-1">
+          <p className="text-xs text-gray-500">{source.chunk_text}</p>
+          {(source.date || source.location || source.event || source.verifier) && (
+            <div className="text-xs text-gray-400 mt-1 space-y-0.5">
+              {source.date && <p>Date: {source.date}</p>}
+              {source.location && <p>Location: {source.location}</p>}
+              {source.event && <p>Event: {source.event}</p>}
+              {source.verifier && <p>Verified by: {source.verifier}</p>}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

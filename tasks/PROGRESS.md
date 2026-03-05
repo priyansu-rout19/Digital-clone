@@ -1,7 +1,7 @@
 # Digital Clone Engine — Session Progress & Implementation Status
 
-**Last Updated:** March 5, 2026 (Session 20 — Frontend Polish & E2E Testing)
-**Current Focus:** React frontend built (Session 19) and polished (Session 20). Full-stack operational: FastAPI backend + React SPA. 56 modules, zero TS errors. 33 API tests passing. Frontend features: error boundaries, WebSocket resilience, mobile responsive, loading states.
+**Last Updated:** March 5, 2026 (Session 25 — Citation Title Pipeline + Sample Corpus)
+**Current Focus:** Citation pipeline complete with `source_title` (shows "The Future Is Asian (book) — 2019" per SOW). Sample ParaGPT corpus seeded (6 docs, 22 chunks). SOW compliance at 89%. Next: Phase 2 P1 review dashboard fixes (edit action, keyboard shortcuts, cited sources).
 
 ---
 
@@ -44,7 +44,7 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 **Component 04: LangGraph Orchestration Flow**
 - File: `core/langgraph/conversation_flow.py`
 - StateGraph with 19 nodes (17 functional + __start__ + __end__)
-- ConversationState TypedDict with 19 keys (clone_id, user_id, etc.)
+- ConversationState TypedDict with 22 keys (clone_id, user_id, conversation_history, etc.)
 - `build_graph(profile)` factory that builds client-specific routing
 - Conditional edges using closures (profile captured at build time)
 - **Session 7 Fix:** T2 (tree_search) now runs immediately after T1 (before CRAG), not after. Added `after_tier1()` routing. CRAG evaluates combined T1+T2 result. Retry loop includes both tiers.
@@ -319,6 +319,7 @@ core/                       ← Runtime implementation
 
 scripts/                    ← Database setup + CLI utilities
   seed_db.py                ← Idempotent clone + user + provenance seeder (Session 12)
+  seed_paragpt_corpus.py    ← Sample ParaGPT corpus (6 docs, 22 chunks) (Session 25 NEW)
   ingest_samples.py         ← Sample document ingestion runner (Session 12)
   ask_clone.py              ← CLI query script — full real pipeline (Session 14 NEW)
   sample_docs/
@@ -687,3 +688,220 @@ Live E2E browser testing revealed several bugs and UX issues. Compared against D
 - Frontend: 23 source files (21 original + ErrorBoundary + avatar)
 
 **Status (Session 20B):** Chat responses now conversational (2-3 paragraphs, capped at 500 tokens). Markdown renders properly. Avatar photo visible. WS timeout no longer fires during normal pipeline execution. Full frontend documented in `docs/FRONTEND.md`.
+
+---
+
+**Session 21 (Citation Fix):**
+
+Citations were not appearing in the ParaGPT chat UI despite backend pipeline generating them. Two root causes identified and fixed.
+
+**Bug 1 — LLM never produced citation markers:**
+- `context_assembler` numbers passages as `[1]`, `[2]` but system prompt never told LLM to use them
+- `citation_verifier` regex found nothing → `cited_sources` always empty
+- **Fix:** Added citation instruction to both interpretive and mirror_only system prompts
+
+**Bug 2 — Field name mismatch (backend → frontend):**
+- Backend sent `{passage, source_type}` but frontend expected `{chunk_text, source}`
+- **Fix:** Remapped fields in `citation_verifier` to match `CitedSource` interface
+- Added `re.sub(r'\s*\[\d+\]', '', raw)` to strip markers from displayed text
+
+**Files Modified:**
+- `core/langgraph/nodes/generation_nodes.py` — System prompt + citation_verifier field remap + marker stripping
+- `tests/test_e2e.py` — Updated citation_verifier test assertions
+
+**Verification:** 37/37 tests pass, zero frontend changes needed.
+
+---
+
+**Session 22 (Requirements Audit + Gap Fixes):**
+
+Full 3-agent audit of CLIENT-1 and CLIENT-2 requirements against codebase. Found bugs, missing features, and security gaps. Fixed all actionable items.
+
+**Phase 1 — Bug Fixes:**
+1. `routing_nodes.py` — `strict_silence_router` converted to factory function (`make_strict_silence_router(profile)`). Now overwrites `raw_response` AND `verified_response` with `silence_message` (was only setting `silence_triggered=True`, letting real LLM output through)
+2. `conversation_flow.py` — Updated import and node registration to use factory function
+3. `chat.py` — Added `min_length=1, max_length=2000` to `ChatRequest.query` (REST). Added `len(query) > 2000` check in WebSocket handler
+
+**Phase 2 — Monitoring Dashboard (new CLIENT-1 deliverable):**
+4. `chat.py` — Added `_write_analytics()` helper using psycopg. Both sync and WebSocket handlers now INSERT to `query_analytics` table with latency_ms, confidence, intent_class, silence_triggered
+5. `api/routes/analytics.py` (NEW) — `GET /analytics/{slug}` returns aggregate stats: total queries, avg confidence, avg latency, silence rate, queries per day, top intents
+6. `ui/src/pages/analytics/Dashboard.tsx` (NEW) — Stats cards, bar charts, intent breakdown. Route: `/:slug/analytics`
+7. `ui/src/api/types.ts` — Added `AnalyticsSummary` interface
+8. `ui/src/api/client.ts` — Added `getAnalytics()` function
+9. `ui/src/App.tsx` — Added `AnalyticsPage` component + route
+
+**Phase 3 — GDPR & Security:**
+10. `api/routes/users.py` (NEW) — `DELETE /users/{user_id}/data` deletes messages, analytics, Mem0 memories
+11. `api/main.py` — CORS hardened: `allow_origins=["*"]` → env-based `CORS_ORIGINS` (defaults to localhost). Rate limiting: slowapi attached to app with `RateLimitExceeded` handler
+12. `chat.py` — Rate limit `@limiter.limit("60/minute")` on sync endpoint. Renamed `request` → `chat_request` to accommodate slowapi's `Request` parameter
+13. `api/routes/ingest.py` — Rate limit `@limiter.limit("10/minute")` on file upload
+14. `requirements.txt` — Added `slowapi==0.1.9`
+15. `ui/vite.config.ts` — Added `/analytics` and `/users` proxy entries
+
+**Documentation:**
+16. `docs/MANAGER-DIRECTIVES.md` (NEW) — Manager feedback, feature requests, requirement audit results
+
+**Verification:** 37/37 tests pass, zero TS errors, frontend production build succeeds.
+
+**Status (Session 22):** All CLIENT-1 deliverables now implemented (including monitoring dashboard). Strict silence bug fixed for Sacred Archive. GDPR delete endpoint live. API rate-limited and CORS-hardened. 3 PCCI-blocked stubs remain. Manager requests reasoning trace feature next.
+
+---
+
+**Session 23 (SOW Audit — Line-by-Line Verification):**
+
+Full 3-agent audit of both client SOW PDFs against codebase. Every deliverable, user story, and success criteria checked with file:line evidence.
+
+**Audit Results:**
+- ParaGPT: 6/9 deliverables fully done, 3 partial, 0 missing (89%)
+- Sacred Archive: 4/9 fully done, 4 partial, 1 missing (72%)
+- Combined: 80% SOW compliance
+- **12 gaps identified**, 10 fixable now, 2 PCCI-blocked
+
+**Gaps Found (P0 — Release Blockers):**
+1. **Multi-turn conversation broken** — prior messages saved to Message table but never retrieved for LLM context. `context_assembler` only uses retrieved_passages, no conversation history
+2. **Provenance fields missing from citations** — DocumentProvenance has date/location/event/verifier but citation_verifier only extracts source_type. Sacred Archive SOW requires all 5 fields
+3. **Sacred Archive silence message text wrong** — doesn't match SOW wording
+
+**Gaps Found (P1 — SOW Requirements):**
+4. Review EDIT action missing (only approve/reject)
+5. Review keyboard shortcuts missing (mouse-only, can't do 50+/day)
+6. Review dashboard doesn't show cited sources
+7. Dynamic topic suggestions missing from silence messages
+
+**Gaps Found (P2 — Quality & Security):**
+8. AuditLog table never written to
+9. Rejection → seeker notification flow missing
+10. GDPR delete endpoint has no auth
+
+**PCCI-Blocked:**
+11. Voice clone (generic edge-tts, not trained model)
+12. Air-gap enforcement (deployment_mode not checked before API calls)
+
+**Documentation Created:**
+- `docs/SOW-AUDIT.md` (NEW) — Full audit report with evidence, fix plan, file-by-file implementation guide
+
+**Status (Session 23):** SOW compliance at 80%. 12 gaps documented with prioritized fix plan. Ready to implement P0 fixes (multi-turn + provenance + silence message).
+
+---
+
+**Session 24 (P0 Release Blocker Fixes):**
+
+Fixed all 3 P0 release blockers identified in Session 23 SOW audit. CLAUDE.md restructured for efficiency.
+
+**P0 Fixes (3/3 Complete):**
+1. **Multi-turn conversation** — New `conversation_history_node` in `context_nodes.py`. Queries last 5 messages from `Message` table by (clone_id, user_id), formats as `User: ... / Assistant: ...`, injects before context in LLM prompt. New ConversationState key: `conversation_history`. Graph path: `context_assembler → conversation_history → (memory_retrieval | in_persona_generator)`.
+2. **Provenance fields in citations** — `vector_search.py` LEFT JOIN to `documents` table pulls provenance JSONB (date, location, event, verifier). `citation_verifier` passes all fields through to `cited_sources`. Frontend `CitationCard.tsx` conditionally renders provenance metadata.
+3. **Sacred Archive silence message** — Updated `silence_message` in `clone_profile.py` to use institutional voice per SOW: "We honor the tradition of sacred silence..."
+
+**CLAUDE.md restructured:** 72→60 lines. Added 3 sections (LangGraph patterns, dependency verification, security-by-default). Self-Improvement Loop merged into Plan Mode. Task Management collapsed.
+
+**Files Modified (Session 24):**
+- `core/langgraph/nodes/context_nodes.py` — New `conversation_history_node()` function
+- `core/langgraph/conversation_flow.py` — Added `conversation_history` key + node wiring
+- `core/langgraph/nodes/generation_nodes.py` — Inject conversation history into LLM prompt, pass provenance fields through citation_verifier
+- `core/rag/retrieval/vector_search.py` — LEFT JOIN to documents, extract provenance JSONB fields
+- `core/models/clone_profile.py` — Updated Sacred Archive silence_message
+- `ui/src/components/CitationCard.tsx` — Render provenance fields (date, location, event, verifier)
+- `ui/src/api/types.ts` — Added date/location/event/verifier to CitedSource interface
+- `api/routes/chat.py` — Pass user_id to graph for conversation history
+- `CLAUDE.md` — Restructured (3 new sections, collapsed task management)
+
+**Verification:** 73 tests pass (all passing, 3 skipped), zero TS errors.
+
+---
+
+**Session 25 (Citation Title Pipeline + Sample Corpus):**
+
+SOW requires: "Every answer includes the source **(book, essay, interview, date)**". Citations were showing just "essay" (the `source_type`). Fixed by adding `source_title` through the entire pipeline. Created sample ParaGPT corpus for realistic demo.
+
+**Part 1 — `source_title` Pipeline (5 files):**
+- `core/db/schema.py` — Added `title` field to `DocumentProvenance` Pydantic schema (JSONB, no migration needed)
+- `core/rag/retrieval/vector_search.py` — Extract `source_title` from `provenance.get("title")` with `d.filename` fallback
+- `core/langgraph/nodes/generation_nodes.py` — Pass `source_title` through `citation_verifier` to `cited_sources`
+- `ui/src/api/types.ts` — Added `source_title?: string | null` to `CitedSource` interface
+- `ui/src/components/CitationCard.tsx` — Header shows `"The Future Is Asian (book) — 2019"` when title available, falls back to just source_type
+
+**Part 2 — Sample ParaGPT Corpus:**
+- `scripts/seed_paragpt_corpus.py` (NEW) — Seeds 6 documents with 22 chunks:
+  - "The Future Is Asian" (book, 2019)
+  - "Connectography" (book, 2016)
+  - "MOVE" (book, 2021)
+  - "How to Run the World" (book, 2011)
+  - "CNN Interview on ASEAN" (interview, 2023-06-15)
+  - "The Age of Connectivity" (essay, 2020-03-10)
+- Uses random normalized 1024-dim vectors for demo embeddings
+- Idempotent: checks by (clone_id, filename) before inserting
+
+**Part 3 — Old Data Cleanup:**
+- Updated `paragpt_sample.md` document provenance JSONB in DB: added `title: "Geopolitics in the Age of AI"`, `date: "2024-01-15"`
+
+**Verification:** 75 tests pass, zero TS errors, frontend production build passes.
+
+**Status (Session 25):** SOW compliance at 89% (up from 85%). Citations now match SOW requirement with source title + type + date. Sample corpus provides realistic demo data. All P0 gaps resolved. Next: Phase 2 P1 review dashboard fixes.
+
+---
+
+## Development Plan (Session 26+)
+
+### Phase 1: P0 SOW Fixes — Release Blockers
+**Goal:** Fix 3 critical gaps that break core SOW promises
+
+| Task | Files | Effort |
+|------|-------|--------|
+| Multi-turn conversation — retrieve last N messages, inject into LLM context | `context_nodes.py`, `conversation_flow.py`, `generation_nodes.py`, `chat.py` | Medium |
+| Provenance fields in citations — date, location, event, verifier | `vector_search.py`, `generation_nodes.py`, `CitationCard.tsx`, `types.ts` | Small |
+| Sacred Archive silence message — match SOW text exactly | `clone_profile.py` | Tiny |
+
+### Phase 2: P1 SOW Fixes — Review Dashboard
+**Goal:** Sacred Archive review workflow matches SOW requirements
+
+| Task | Files | Effort |
+|------|-------|--------|
+| Review EDIT action — PUT endpoint + edit textarea | `review.py`, `Dashboard.tsx`, `types.ts`, `client.ts` | Small |
+| Keyboard shortcuts — a/r/e for approve/reject/edit | `Dashboard.tsx` | Small |
+| Cited sources in review dashboard | `Dashboard.tsx`, `review.py` | Small |
+| Dynamic topic suggestions in silence messages | `routing_nodes.py` | Medium |
+
+### Phase 3: P2 Quality & Security
+**Goal:** Audit trail + security hardening
+
+| Task | Files | Effort |
+|------|-------|--------|
+| AuditLog writes on review/ingest/delete actions | `review.py`, `ingest.py`, `users.py` | Small |
+| Rejection → seeker notification | `review.py` flow | Medium |
+| Auth on GDPR delete endpoint | `users.py` | Tiny |
+
+### Phase 4: Manager Requests
+**Goal:** Trust & visibility features
+
+| Task | Files | Effort |
+|------|-------|--------|
+| Reasoning trace panel (collapsible pipeline visibility) | `chat.py`, new `TracePanel.tsx` component | Large |
+| Demo videos (3-5 user journey recordings) | Screen recording tool | Non-code |
+| Success metrics evaluation framework | New `scripts/eval_metrics.py` | Medium |
+
+### When PCCI Ready
+- LLM: Groq → SGLang (env var swap)
+- Embeddings: Gemini → TEI (LangChain drop-in)
+- Tree search: MinIO + PageIndex
+- Voice: edge-tts → OpenAudio TTS (trained voice model)
+- Air-gap enforcement: check deployment_mode before API calls
+
+---
+
+## For Next Session (Session 26)
+
+**What's Ready:**
+- ✅ ALL COMPONENTS COMPLETE (01-06) + monitoring dashboard
+- ✅ 75 tests passing, zero TS errors, production build passes
+- ✅ All P0 release blockers FIXED (multi-turn, provenance, silence, citation titles)
+- ✅ SOW compliance at 89% (ParaGPT 96%, Sacred Archive 83%)
+- ✅ Sample corpus seeded (6 docs, 22 chunks with realistic metadata)
+- ✅ SOW-AUDIT.md, MANAGER-DIRECTIVES.md updated
+
+**Start With:**
+1. Read `docs/SOW-AUDIT.md` — updated compliance status
+2. Implement Phase 2 P1 fixes (review EDIT action, keyboard shortcuts, cited sources in review dashboard, dynamic topic suggestions)
+3. Consider Phase 4 manager request: reasoning trace panel (HIGH priority)
+4. Run test suite after each fix
+5. Update docs after changes

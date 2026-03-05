@@ -52,25 +52,37 @@ def make_soft_hedge_router(profile):
     return soft_hedge_router
 
 
-def strict_silence_router(state: TypedDict) -> TypedDict:
+def make_strict_silence_router(profile):
     """
-    Mark response as requiring silence or review (Sacred Archive pattern).
+    Factory function that creates a strict_silence_router node with profile captured.
 
-    Sets silence_triggered flag. Routing decision (review queue vs silence
-    fallback) is handled by conditional edge after this node.
+    Sacred Archive pattern: when confidence is below threshold, overwrite the
+    response with the silence_message and set silence_triggered=True. This
+    ensures low-confidence responses never reach the user — the system goes
+    completely silent rather than hedging.
 
-    Input: (state from confidence_scorer)
-    Output: silence_triggered
+    Args:
+        profile: CloneProfile instance (for Sacred Archive with strict_silence behavior)
+
+    Returns:
+        A node function (state: TypedDict) -> TypedDict
     """
 
-    # Routing logic is in the conditional edge after this node:
-    # - If review_required, goes to review_queue_writer
-    # - Else, goes to stream_to_user (with silence fallback message)
+    def strict_silence_router(state: TypedDict) -> TypedDict:
+        """
+        Overwrite response with silence message when confidence is too low.
 
-    return {
-        **state,
-        "silence_triggered": True,
-    }
+        Input: (state from confidence_scorer)
+        Output: raw_response, verified_response (overwritten), silence_triggered
+        """
+        return {
+            **state,
+            "raw_response": profile.silence_message,
+            "verified_response": profile.silence_message,
+            "silence_triggered": True,
+        }
+
+    return strict_silence_router
 
 
 def review_queue_writer(state: TypedDict) -> TypedDict:

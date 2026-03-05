@@ -38,6 +38,7 @@ def make_in_persona_generator(profile: CloneProfile):
         query = state.get("query_text", "")
         context = state.get("assembled_context", "")
         memory = state.get("user_memory", "")
+        history = state.get("conversation_history", "")
 
         # Build system prompt based on generation mode
         if profile.generation_mode == GenerationMode.interpretive:
@@ -69,6 +70,8 @@ Guidelines:
 
         # Build user message
         user_message = f"Question: {query}\n"
+        if history:
+            user_message += f"\n{history}\n"
         if context:
             user_message += f"\nContext:\n{context}\n"
         if memory:
@@ -131,6 +134,12 @@ def citation_verifier(state: TypedDict) -> TypedDict:
                 "source": p.get("source_type", "unknown"),
                 "chunk_text": p.get("passage", ""),
                 "score": state.get("retrieval_confidence", 0.0),
+                # Provenance fields (Sacred Archive requires these)
+                "date": p.get("date"),
+                "location": p.get("location"),
+                "event": p.get("event"),
+                "verifier": p.get("verifier"),
+                "source_title": p.get("source_title"),
                 # Internal fields for logging/debugging
                 "doc_id": p.get("doc_id", "unknown"),
                 "chunk_id": p.get("chunk_id", "unknown"),

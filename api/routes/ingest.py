@@ -4,7 +4,7 @@ import uuid
 from typing import Optional
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, UploadFile, File, Form, BackgroundTasks, HTTPException
+from fastapi import APIRouter, Depends, Request, UploadFile, File, Form, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import insert, and_
@@ -16,6 +16,10 @@ from core.db.schema import Document
 from core.rag.ingestion.pipeline import IngestionPipeline
 
 
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
 router = APIRouter()
 
 
@@ -63,7 +67,9 @@ def run_ingest_task(
 
 
 @router.post("/{clone_slug}")
+@limiter.limit("10/minute")
 async def ingest_file(
+    request: Request,
     clone_slug: str,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),

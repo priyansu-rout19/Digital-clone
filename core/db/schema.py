@@ -47,6 +47,7 @@ class DocumentProvenance(BaseModel):
     Captures origin metadata for every ingested document.
     """
 
+    title: Optional[str] = Field(None, description="Display title of the source document")
     date: Optional[str] = Field(None, description="Teaching/publication date (ISO 8601)")
     location: Optional[str] = Field(None, description="Physical location where teaching occurred")
     event: Optional[str] = Field(None, description="Event name (retreat, satsang, class)")

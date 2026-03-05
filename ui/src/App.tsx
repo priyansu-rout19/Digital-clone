@@ -9,6 +9,7 @@ import ParaGPTChat from './pages/paragpt/Chat';
 import SacredArchiveLanding from './pages/sacred-archive/Landing';
 import SacredArchiveChat from './pages/sacred-archive/Chat';
 import ReviewDashboard from './pages/review/Dashboard';
+import AnalyticsDashboard from './pages/analytics/Dashboard';
 
 function ClonePage() {
   const { slug } = useParams<{ slug: string }>();
@@ -104,6 +105,11 @@ function ReviewPage() {
   );
 }
 
+function AnalyticsPage() {
+  const { slug } = useParams<{ slug: string }>();
+  return <AnalyticsDashboard slug={slug || ''} />;
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -112,6 +118,7 @@ function App() {
           <Route path="/" element={<Navigate to="/paragpt-client" replace />} />
           <Route path="/:slug" element={<ClonePage />} />
           <Route path="/:slug/review" element={<ReviewPage />} />
+          <Route path="/:slug/analytics" element={<AnalyticsPage />} />
         </Routes>
       </ErrorBoundary>
     </BrowserRouter>
