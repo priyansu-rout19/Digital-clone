@@ -2,11 +2,11 @@
 
 @theme {
   /* ParaGPT colors */
-  --color-para-navy: #0a1628;
-  --color-para-teal: #00d4aa;
-  --color-para-teal-dark: #00b894;
-  --color-para-card: rgba(16, 32, 56, 0.6);
-  --color-para-card-hover: rgba(16, 32, 56, 0.8);
+  --color-para-navy: #0d0d0d;
+  --color-para-teal: #d08050;
+  --color-para-teal-dark: #b06838;
+  --color-para-card: rgba(28, 28, 28, 0.6);
+  --color-para-card-hover: rgba(38, 38, 38, 0.8);
 
   /* Sacred Archive colors */
   --color-sacred-brown: #2c2c2c;
@@ -34,17 +34,19 @@ body {
 
 /* Glass morphism utility */
 .glass {
-  background: rgba(16, 32, 56, 0.6);
+  background: rgba(30, 30, 30, 0.75);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 .glass-sacred {
-  background: rgba(44, 44, 44, 0.8);
+  background: rgba(50, 48, 44, 0.75);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(196, 150, 60, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
 /* Scrollbar styling */
@@ -65,7 +67,20 @@ body {
   background: rgba(255, 255, 255, 0.3);
 }
 
+/* Hidden scrollbar utility — hides scrollbar while keeping scroll functionality */
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Markdown rendering inside chat bubbles */
+.markdown-body {
+  overflow-wrap: break-word;
+}
+
 .markdown-body p {
   margin-bottom: 0.75rem;
 }
@@ -117,7 +132,7 @@ body {
 }
 
 .markdown-body blockquote {
-  border-left: 2px solid rgba(0, 212, 170, 0.4);
+  border-left: 2px solid rgba(208, 128, 80, 0.4);
   padding-left: 0.75rem;
   color: #94a3b8;
   font-style: italic;

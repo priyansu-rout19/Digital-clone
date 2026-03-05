@@ -3,7 +3,7 @@ import type { ChatMessage, CloneProfile } from '../../api/types';
 import MessageBubble from '../../components/MessageBubble';
 import ChatInput from '../../components/ChatInput';
 import NodeProgress from '../../components/NodeProgress';
-import CitationCard from '../../components/CitationCard';
+import CollapsibleCitations from '../../components/CollapsibleCitations';
 
 interface ChatProps {
   messages: ChatMessage[];
@@ -47,18 +47,14 @@ export default function Chat({ messages, isLoading, currentNode, onSendMessage, 
       )}
 
       {/* Message list */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 max-w-2xl mx-auto w-full">
+      <div className="flex-1 overflow-y-auto hide-scrollbar px-4 py-4 max-w-3xl mx-auto w-full">
         {messages.map((msg, i) => (
           <div key={i}>
             <MessageBubble message={msg} variant="sacred-archive" isLatest={i === messages.length - 1} />
 
             {/* Provenance / citations */}
             {msg.role === 'assistant' && msg.cited_sources && msg.cited_sources.length > 0 && (
-              <div className="ml-2 mb-4">
-                {msg.cited_sources.map((source, j) => (
-                  <CitationCard key={j} source={source} variant="sacred-archive" />
-                ))}
-              </div>
+              <CollapsibleCitations sources={msg.cited_sources} variant="sacred-archive" />
             )}
           </div>
         ))}
@@ -68,7 +64,7 @@ export default function Chat({ messages, isLoading, currentNode, onSendMessage, 
       </div>
 
       {/* Input bar */}
-      <div className="p-4 max-w-2xl mx-auto w-full">
+      <div className="p-4 max-w-3xl mx-auto w-full">
         <div className="glass-sacred rounded-[16px]">
           <ChatInput
             onSend={onSendMessage}

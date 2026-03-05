@@ -44,7 +44,9 @@ export default function MessageBubble({ message, variant = 'paragpt', isLatest =
       <div className="flex justify-end mb-4">
         <div
           className={`max-w-[90%] sm:max-w-[80%] md:max-w-[75%] px-4 py-3 rounded-2xl text-white text-sm ${
-            isParagpt ? 'bg-gradient-to-r from-para-teal to-para-teal-dark' : 'bg-gray-700'
+            isParagpt
+              ? 'bg-gradient-to-r from-para-teal to-para-teal-dark shadow-[0_2px_12px_rgba(208,128,80,0.3)]'
+              : 'bg-gray-700 shadow-[0_2px_12px_rgba(196,150,60,0.25)]'
           }`}
         >
           {message.content}
@@ -58,8 +60,8 @@ export default function MessageBubble({ message, variant = 'paragpt', isLatest =
   return (
     <div className="flex justify-start mb-4">
       <div
-        className={`max-w-[90%] sm:max-w-[80%] md:max-w-[75%] rounded-2xl text-sm leading-relaxed ${
-          isParagpt ? 'glass px-4 py-3 text-gray-200' : 'glass-sacred px-5 py-4'
+        className={`w-full rounded-2xl text-sm leading-relaxed ${
+          isParagpt ? 'glass px-4 py-3 text-gray-100' : 'glass-sacred px-5 py-4'
         }`}
       >
         {isSilence && !isParagpt ? (
@@ -69,7 +71,7 @@ export default function MessageBubble({ message, variant = 'paragpt', isLatest =
             <span className="text-sacred-gold text-2xl leading-none">&rdquo;</span>
           </div>
         ) : isParagpt ? (
-          <div className="text-gray-200 markdown-body">
+          <div className="text-gray-100 markdown-body">
             <Markdown>{shownText}</Markdown>
           </div>
         ) : (
@@ -92,11 +94,6 @@ export default function MessageBubble({ message, variant = 'paragpt', isLatest =
           </div>
         )}
 
-        {message.cited_sources && message.cited_sources.length > 0 && (
-          <div className="mt-2 text-xs text-gray-500">
-            {message.cited_sources.length} source{message.cited_sources.length > 1 ? 's' : ''} cited
-          </div>
-        )}
       </div>
     </div>
   );

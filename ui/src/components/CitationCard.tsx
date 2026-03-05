@@ -4,11 +4,27 @@ import type { CitedSource } from '../api/types';
 interface CitationCardProps {
   source: CitedSource;
   variant?: 'paragpt' | 'sacred-archive';
+  passageOnly?: boolean;
 }
 
-export default function CitationCard({ source, variant = 'paragpt' }: CitationCardProps) {
+export default function CitationCard({ source, variant = 'paragpt', passageOnly = false }: CitationCardProps) {
   const [expanded, setExpanded] = useState(false);
   const accent = variant === 'paragpt' ? 'border-para-teal' : 'border-sacred-gold';
+
+  if (passageOnly) {
+    return (
+      <div className="py-1">
+        <p className="text-xs text-gray-500">{source.chunk_text}</p>
+        {(source.location || source.event || source.verifier) && (
+          <div className="text-xs text-gray-400 mt-1 space-y-0.5">
+            {source.location && <p>Location: {source.location}</p>}
+            {source.event && <p>Event: {source.event}</p>}
+            {source.verifier && <p>Verified by: {source.verifier}</p>}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className={`border-l-2 ${accent} pl-3 py-1 mb-2 cursor-pointer`} onClick={() => setExpanded(!expanded)}>

@@ -1,7 +1,7 @@
 # Digital Clone Engine — Session Progress & Implementation Status
 
-**Last Updated:** March 6, 2026 (Session 26 — Dynamic Response Length + Mem0 Fix)
-**Current Focus:** Dynamic response length (LLM-decides `response_tokens`) + Mem0 embedding dimension fix (3072→1024 truncation). SOW compliance at 89%. Next: Phase 2 P1 review dashboard fixes (edit action, keyboard shortcuts, cited sources).
+**Last Updated:** March 6, 2026 (Session 27 — Frontend UI/UX Overhaul)
+**Current Focus:** Complete chat UI redesign — dark theme, copper accent, citation grouping, collapsible sources, thinking bubble, header-less layout. SOW compliance at 89%. Next: Phase 2 P1 review dashboard fixes (edit action, keyboard shortcuts, cited sources).
 
 ---
 
@@ -867,9 +867,36 @@ Two fixes: (1) responses always came out as 2-3 paragraphs regardless of questio
 
 **Status (Session 26):** Dynamic response length working (no more rigid 3-paragraph answers). Mem0 cross-session memory fixed and verified (was silently broken since Session 4). ConversationState now 23 keys. All previous test results maintained.
 
+**Session 27 (Frontend UI/UX Overhaul):**
+
+Complete visual redesign of the ParaGPT chat interface across 6 improvement phases:
+
+1. **Citation grouping** — Multiple passages from the same document now grouped into one expandable card instead of duplicate cards. New components: `CitationGroupCard.tsx`, `CitationList.tsx`. Added `doc_id` and `chunk_id` to `CitedSource` interface in `types.ts`.
+
+2. **Collapsible citations** — Citations hidden by default behind a clickable "N sources cited" pill with book icon + chevron. New component: `CollapsibleCitations.tsx`. Replaces inline citation rendering in both Chat pages.
+
+3. **Hidden scrollbar** — Removed visible scrollbar from chat message area. Added `.hide-scrollbar` CSS utility to `index.css`. Applied to both Chat pages.
+
+4. **Wider chat layout** — Message container widened from `max-w-2xl` (672px) to `max-w-3xl` (768px). Assistant messages now full-width (`w-full`), user messages stay constrained at `max-w-[75%]`.
+
+5. **Dark theme redesign** — Complete color overhaul:
+   - Background: `#0a1628` (dark navy) → `#0d0d0d` (near-black charcoal)
+   - Accent: `#00d4aa` (teal) → `#d08050` (warm copper-terracotta)
+   - Glass: `rgba(22, 42, 72, 0.55)` → `rgba(30, 30, 30, 0.75)` (neutral dark gray)
+   - User bubbles: copper gradient with warm glow shadow
+   - All CSS variable tokens updated → cascades to all 12 files automatically
+
+6. **Layout polish** — Removed persistent top bar header. Added conversation-start intro (centered avatar + name) that scrolls with messages. Thinking bubble (animated dots in glass bubble) replaces NodeProgress for immediate visual feedback on send. Input bar bottom padding increased to 24px. Subtle border separators for visual hierarchy.
+
+**Files created:** `CitationGroupCard.tsx`, `CitationList.tsx`, `CollapsibleCitations.tsx` (3 new components)
+**Files modified:** `index.css`, `paragpt.ts` (theme), `MessageBubble.tsx`, `CitationCard.tsx`, `types.ts`, `paragpt/Chat.tsx`, `sacred-archive/Chat.tsx`
+**Build:** Zero TS errors, production build passes.
+
+**Status (Session 27):** Frontend fully redesigned with modern dark theme, premium copper accent, professional citation UX, and conversation-centric layout. 28 source files (was 25). Sacred Archive theme untouched. All previous test results maintained.
+
 ---
 
-## Development Plan (Session 27+)
+## Development Plan (Session 28+)
 
 ### Phase 1: P0 SOW Fixes — Release Blockers
 **Goal:** Fix 3 critical gaps that break core SOW promises
@@ -917,17 +944,16 @@ Two fixes: (1) responses always came out as 2-3 paragraphs regardless of questio
 
 ---
 
-## For Next Session (Session 27)
+## For Next Session (Session 28)
 
 **What's Ready:**
 - ✅ ALL COMPONENTS COMPLETE (01-06) + monitoring dashboard
 - ✅ 75 tests passing, zero TS errors, production build passes
 - ✅ All P0 release blockers FIXED (multi-turn, provenance, silence, citation titles)
 - ✅ SOW compliance at 89% (ParaGPT 96%, Sacred Archive 83%)
-- ✅ Sample corpus seeded (6 docs, 22 chunks with realistic metadata)
-- ✅ Dynamic response length (LLM-driven, not hardcoded)
-- ✅ Mem0 cross-session memory WORKING (dimension bug fixed)
-- ✅ SOW-AUDIT.md, MANAGER-DIRECTIVES.md updated
+- ✅ Frontend fully redesigned — dark theme, copper accent, collapsible citations, thinking bubble, header-less layout
+- ✅ 28 frontend source files (3 new citation components)
+- ✅ Dynamic response length + Mem0 cross-session memory working
 
 **Start With:**
 1. Read `docs/SOW-AUDIT.md` — updated compliance status

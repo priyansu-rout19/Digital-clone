@@ -44,6 +44,8 @@ export interface CitedSource {
   event?: string | null;
   verifier?: string | null;
   source_title?: string | null;
+  doc_id?: string;
+  chunk_id?: string;
   [key: string]: unknown;
 }
 
