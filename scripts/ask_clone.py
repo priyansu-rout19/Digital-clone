@@ -140,6 +140,7 @@ def main():
             print("\n--- Pipeline Details ---")
             print(f"  Intent:        {result.get('intent_class', 'unknown')}")
             print(f"  Token budget:  {result.get('token_budget', '?')}")
+            print(f"  Resp tokens:   {result.get('response_tokens', '?')}")
             print(f"  Confidence:    {result.get('final_confidence', 0.0):.2f}")
             print(f"  Retrieval:     {result.get('retrieval_confidence', 0.0):.2f}")
             print(f"  Passages:      {len(result.get('retrieved_passages', []))}")

@@ -47,7 +47,7 @@ from core.langgraph.nodes.routing_nodes import (
 class ConversationState(TypedDict):
     """
     Typed state dict for all conversation context passed between nodes.
-    18 keys: query, retrieval, context, generation, routing.
+    23 keys: query, retrieval, context, generation, routing.
     """
 
     # Query & Analysis (set by query_analysis)
@@ -56,6 +56,7 @@ class ConversationState(TypedDict):
     intent_class: str  # factual | synthesis | opinion | temporal | exploratory
     access_tier: str  # public | devotee | friend | follower
     token_budget: int
+    response_tokens: int  # max output tokens for response generation (LLM-estimated)
 
     # Retrieval (scope queries to one clone; set by tier1/tier2, crag_evaluator, query_reformulator)
     clone_id: str  # UUID of the clone making the query

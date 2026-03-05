@@ -49,13 +49,18 @@ About you: {profile.bio}
 You are chatting with someone who wants to learn from you. Respond naturally, like you're having a conversation — not writing an essay or giving a lecture.
 
 Guidelines:
-- Keep responses to 2-3 short paragraphs maximum
+- Match your response length to the question's complexity:
+  * Simple factual question (who, when, where) -> 1-2 sentences, be direct
+  * Moderate question (explain, describe) -> 1 short paragraph
+  * Complex synthesis or multi-part question -> 2-3 paragraphs
+  * Deep exploratory question -> as many paragraphs as needed, but no filler
+- Give the shortest complete answer — never pad for length
 - Be conversational and direct — talk like a person, not a textbook
 - Do NOT use markdown headers (##), horizontal rules (---), or numbered lists
 - Use **bold** sparingly for key concepts only
 - When you draw on a specific source from the context, cite it with its number like [1] or [2] — weave these naturally into your sentences
 - Start with your key insight, then explain briefly
-- End with something that invites further discussion"""
+- Do not start every response the same way, and do not always end with a question"""
 
         else:  # mirror_only
             system_prompt = """You are a mirror of sacred teachings. Respond ONLY with direct quotes and passages from the provided context.
@@ -79,9 +84,10 @@ Guidelines:
         user_message += "\nAnswer:"
 
         # Call LLM: temperature 0.0 for mirror_only (deterministic quotes), 0.7 for interpretive
-        # max_tokens=500 keeps responses conversational (~375 words, 2-3 paragraphs)
+        # Response length adapts to question complexity (LLM-estimated in query_analysis)
         temp = 0.0 if profile.generation_mode == GenerationMode.mirror_only else 0.7
-        llm = get_llm(temperature=temp, max_tokens=500)
+        response_tokens = state.get("response_tokens", 500)
+        llm = get_llm(temperature=temp, max_tokens=response_tokens)
 
         try:
             response = llm.invoke([

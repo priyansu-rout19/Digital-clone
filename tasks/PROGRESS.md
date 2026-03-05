@@ -1,7 +1,7 @@
 # Digital Clone Engine — Session Progress & Implementation Status
 
-**Last Updated:** March 5, 2026 (Session 25 — Citation Title Pipeline + Sample Corpus)
-**Current Focus:** Citation pipeline complete with `source_title` (shows "The Future Is Asian (book) — 2019" per SOW). Sample ParaGPT corpus seeded (6 docs, 22 chunks). SOW compliance at 89%. Next: Phase 2 P1 review dashboard fixes (edit action, keyboard shortcuts, cited sources).
+**Last Updated:** March 6, 2026 (Session 26 — Dynamic Response Length + Mem0 Fix)
+**Current Focus:** Dynamic response length (LLM-decides `response_tokens`) + Mem0 embedding dimension fix (3072→1024 truncation). SOW compliance at 89%. Next: Phase 2 P1 review dashboard fixes (edit action, keyboard shortcuts, cited sources).
 
 ---
 
@@ -44,7 +44,7 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 **Component 04: LangGraph Orchestration Flow**
 - File: `core/langgraph/conversation_flow.py`
 - StateGraph with 19 nodes (17 functional + __start__ + __end__)
-- ConversationState TypedDict with 22 keys (clone_id, user_id, conversation_history, etc.)
+- ConversationState TypedDict with 23 keys (clone_id, user_id, response_tokens, conversation_history, etc.)
 - `build_graph(profile)` factory that builds client-specific routing
 - Conditional edges using closures (profile captured at build time)
 - **Session 7 Fix:** T2 (tree_search) now runs immediately after T1 (before CRAG), not after. Added `after_tier1()` routing. CRAG evaluates combined T1+T2 result. Retry loop includes both tiers.
@@ -184,7 +184,7 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 - ✅ `pytest.ini` — Pytest configuration file (asyncio_mode=auto)
 - ~~`tests/test_voyage_integration.py`~~ — DELETED Session 15 (provider changed to Google Gemini)
 - ✅ `requirements.txt` — Added pytest==9.0.2, pytest-asyncio==0.25.2; removed langchain-voyageai + voyageai (Session 15)
-- ✅ Full test suite: **69 passed, 6 skipped** (33 API + 10 chunker + 26 session16 + 4 E2E real)
+- ✅ Full test suite: **75 passed** (33 API + 10 chunker + 26 session16 + 4 E2E + 2 WS)
 
 ### ✅ COMPLETE
 
@@ -841,7 +841,35 @@ SOW requires: "Every answer includes the source **(book, essay, interview, date)
 
 ---
 
-## Development Plan (Session 26+)
+**Session 26 (Dynamic Response Length + Mem0 Fix):**
+
+Two fixes: (1) responses always came out as 2-3 paragraphs regardless of question complexity, (2) Mem0 cross-session memory silently failed due to embedding dimension mismatch.
+
+**Fix 1 — Dynamic Response Length (3 files):**
+- **Root cause:** System prompt said "Keep responses to 2-3 short paragraphs maximum" + hardcoded `max_tokens=500` on all LLM calls
+- `core/langgraph/nodes/query_analysis_node.py` — LLM now decides `response_tokens` (100-1000) in the same call that decides `intent_class` and `token_budget`. Added `DEFAULT_RESPONSE_TOKENS = 500`, clamped [100, 1000]
+- `core/langgraph/nodes/generation_nodes.py` — Replaced rigid "2-3 paragraphs" prompt with adaptive length instructions. Uses `state.get("response_tokens", 500)` instead of hardcoded `max_tokens=500`
+- `core/langgraph/conversation_flow.py` — Added `response_tokens: int` to ConversationState (now 23 keys)
+
+**Fix 2 — Mem0 Embedding Dimension Mismatch (1 file):**
+- **Root cause:** `GoogleGenerativeAIEmbeddings` outputs 3072-dim vectors. Mem0's pgvector expects 1024. The ingestion pipeline truncates via `[:1024]` but `mem0_client.py` didn't — the function was named `_truncated_google_embeddings()` but never actually truncated
+- `core/mem0_client.py` — Added `TruncatedGoogleEmbeddings` wrapper class that overrides `embed_query()` and `embed_documents()` to truncate to 1024 dims. Updated factory to return the wrapper
+
+**Other:**
+- `scripts/ask_clone.py` — Added `response_tokens` to verbose output
+
+**Verification:**
+- 75 tests pass (1 pre-existing WS timeout)
+- Dimension check: `embed_query()` → 1024 dims (was 3072)
+- Mem0 write/search/delete: all working end-to-end
+- 5 pipeline queries tested: simple→150 tokens, moderate→200, opinion→300, synthesis→500 (all LLM-decided)
+- Memory personalization confirmed: clone remembered "Rahul, data scientist, Bangalore" across queries
+
+**Status (Session 26):** Dynamic response length working (no more rigid 3-paragraph answers). Mem0 cross-session memory fixed and verified (was silently broken since Session 4). ConversationState now 23 keys. All previous test results maintained.
+
+---
+
+## Development Plan (Session 27+)
 
 ### Phase 1: P0 SOW Fixes — Release Blockers
 **Goal:** Fix 3 critical gaps that break core SOW promises
@@ -889,7 +917,7 @@ SOW requires: "Every answer includes the source **(book, essay, interview, date)
 
 ---
 
-## For Next Session (Session 26)
+## For Next Session (Session 27)
 
 **What's Ready:**
 - ✅ ALL COMPONENTS COMPLETE (01-06) + monitoring dashboard
@@ -897,6 +925,8 @@ SOW requires: "Every answer includes the source **(book, essay, interview, date)
 - ✅ All P0 release blockers FIXED (multi-turn, provenance, silence, citation titles)
 - ✅ SOW compliance at 89% (ParaGPT 96%, Sacred Archive 83%)
 - ✅ Sample corpus seeded (6 docs, 22 chunks with realistic metadata)
+- ✅ Dynamic response length (LLM-driven, not hardcoded)
+- ✅ Mem0 cross-session memory WORKING (dimension bug fixed)
 - ✅ SOW-AUDIT.md, MANAGER-DIRECTIVES.md updated
 
 **Start With:**

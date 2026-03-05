@@ -19,14 +19,34 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 load_dotenv()
 
+# Truncation target — must match ingestion pipeline (core/rag/ingestion/embedder.py)
+TARGET_DIMS = 1024
 
-def _truncated_google_embeddings() -> GoogleGenerativeAIEmbeddings:
-    """Create a Google embeddings instance. Truncation is handled by Mem0's vector store config."""
+
+class TruncatedGoogleEmbeddings(GoogleGenerativeAIEmbeddings):
+    """Truncates Gemini 3072-dim embeddings to 1024-dim (Matryoshka property).
+
+    Mem0's LangchainEmbedding wrapper calls embed_query() without passing
+    output_dimensionality, so we override both methods to truncate client-side.
+    This matches the ingestion pipeline's [:1024] slicing in embedder.py.
+    """
+
+    def embed_query(self, text, **kwargs):
+        embedding = super().embed_query(text, **kwargs)
+        return embedding[:TARGET_DIMS]
+
+    def embed_documents(self, texts, **kwargs):
+        embeddings = super().embed_documents(texts, **kwargs)
+        return [e[:TARGET_DIMS] for e in embeddings]
+
+
+def _truncated_google_embeddings() -> TruncatedGoogleEmbeddings:
+    """Create a Google embeddings instance that truncates to 1024 dims."""
     google_key = os.environ.get("GOOGLE_API_KEY")
     if not google_key:
         raise KeyError("GOOGLE_API_KEY environment variable not set.")
 
-    return GoogleGenerativeAIEmbeddings(
+    return TruncatedGoogleEmbeddings(
         model=os.environ.get("EMBEDDING_MODEL", "models/gemini-embedding-001"),
         google_api_key=google_key,
     )

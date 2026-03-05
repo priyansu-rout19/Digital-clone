@@ -460,6 +460,24 @@ PSYCOPG_URL = DATABASE_URL.replace("+psycopg", "")
 
 ---
 
+### Lesson 27: Embedding Dimension Mismatch — Wrapper Libraries Don't Auto-Truncate
+
+**Date:** Session 26 | **Category:** RAG / Mem0
+
+**What happened:** Mem0 cross-session memory silently failed since Session 4. `GoogleGenerativeAIEmbeddings` outputs 3072-dim vectors. Mem0's pgvector config sets `embedding_model_dims: 1024`. When Mem0 calls `embed_query()` → gets 3072 dims → INSERT into pgvector fails with dimension mismatch. The `memory_writer` node catches this in a bare `except Exception` and logs a warning, so it failed silently for 22 sessions.
+
+**Root cause:** The ingestion pipeline (`embedder.py`) manually truncates via `[v[:1024] for v in embeddings]`, but `mem0_client.py` assumed Mem0's `embedding_dims: 1024` config would handle truncation. It doesn't — that config only tells pgvector what dimension to expect in the schema, not to truncate incoming vectors. Mem0's `LangchainEmbedding` wrapper calls `embed_query(text)` without passing `output_dimensionality`.
+
+**Fix:** Created `TruncatedGoogleEmbeddings` subclass that overrides `embed_query()` and `embed_documents()` to truncate `[:1024]`. Passed this to Mem0 instead of raw `GoogleGenerativeAIEmbeddings`.
+
+**Rule for future:**
+- Never assume a library config field will auto-truncate or auto-transform data — read the library source
+- When wrapping embeddings for a third-party library, verify what methods it calls and what dimensions it receives
+- If a feature "works but produces no visible output", test it in isolation (not just via the full pipeline)
+- Side-effect nodes with bare `except Exception` can hide critical bugs for months — consider logging at WARNING level minimum
+
+---
+
 ## Session Patterns to Remember
 
 1. **User is learning by building** — every spec/decision should explain the why, not just the what
@@ -488,3 +506,4 @@ PSYCOPG_URL = DATABASE_URL.replace("+psycopg", "")
 24. **SQL parameterization is non-negotiable** — even when inputs come from trusted DB. Use `= ANY(%s)` not `IN ({interpolated})`. Defense-in-depth prevents future vulnerabilities.
 25. **Sanitize uploaded filenames** — always `Path(filename).name` to strip directory traversal. Never trust `file.filename` from multipart uploads.
 26. **Multi-tenant mutation endpoints need clone-scoping** — every PATCH/PUT/DELETE must verify `clone_id` matches the authenticated tenant. Easy to scope reads but forget writes.
+27. **Embedding dimension mismatch hides in silent failures** — wrapper libraries (Mem0) don't auto-truncate embeddings. Config fields like `embedding_dims` only declare schema, not transform data. Always verify what the library actually does with your embeddings.
