@@ -65,6 +65,7 @@ class ConversationState(TypedDict):
     provenance_graph_results: list[dict]  # [{teaching_id, related_teaching_id, path}]
     retrieval_confidence: float  # 0.0-1.0
     retry_count: int
+    search_meta: dict  # {"vector_count": N, "bm25_count": M} — which search methods produced results
 
     # Context & Memory (set by context_assembler, memory_retrieval, conversation_history)
     assembled_context: str

@@ -97,7 +97,7 @@ def search(
     query_text: str = "",
 ) -> tuple[list[dict], float]:
     if not sub_queries:
-        return ([], 0.0)
+        return ([], 0.0, {"vector_count": 0, "bm25_count": 0})
 
     if not clone_id or not access_tiers or not db_url:
         raise ValueError(
@@ -110,6 +110,8 @@ def search(
     try:
         per_query_results = []
         query_vectors = []
+        vector_count = 0
+        bm25_count = 0
 
         # Stage 1: Vector search (may fail if embedding API is down/quota-exhausted)
         try:
@@ -149,6 +151,8 @@ def search(
                         f"(text={sub_queries[i][:50]}...): {str(e)}"
                     )
 
+            vector_count = sum(len(r) for r in per_query_results)
+
         except Exception as e:
             logger.warning(f"Vector search failed (falling back to BM25 only): {e}")
 
@@ -159,12 +163,15 @@ def search(
         if bm25_query:
             bm25_results = _bm25_search(bm25_query, clone_id, access_tiers, db_url)
             if bm25_results:
+                bm25_count = len(bm25_results)
                 per_query_results.append(bm25_results)
 
         rrf_scores = _compute_rrf_scores(per_query_results)
 
+        search_meta = {"vector_count": vector_count, "bm25_count": bm25_count}
+
         if not rrf_scores:
-            return ([], 0.0)
+            return ([], 0.0, search_meta)
 
         # Over-retrieve candidates for reranking (3x top_k, then rerank to top_k)
         candidate_limit = top_k * 3
@@ -227,7 +234,7 @@ def search(
                 retrieval_confidence = sum(top_scores) / len(top_scores) if top_scores else 0.0
                 retrieval_confidence = max(0.0, min(1.0, round(retrieval_confidence, 3)))
 
-                return (reranked_passages, retrieval_confidence)
+                return (reranked_passages, retrieval_confidence, search_meta)
 
             except Exception as e:
                 logger.warning(f"Reranking failed, falling back to RRF order: {e}")
@@ -260,7 +267,7 @@ def search(
             # BM25-only results (embedding API was down) — use a modest base confidence
             retrieval_confidence = 0.3
 
-        return (retrieved_passages, retrieval_confidence)
+        return (retrieved_passages, retrieval_confidence, search_meta)
 
     except ValueError:
         raise

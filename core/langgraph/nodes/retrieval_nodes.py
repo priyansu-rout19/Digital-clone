@@ -32,7 +32,7 @@ def tier1_retrieval(state: TypedDict) -> TypedDict:
     from core.rag.retrieval import vector_search
 
     try:
-        passages, confidence = vector_search.search(
+        passages, confidence, search_meta = vector_search.search(
             sub_queries=state.get("sub_queries") or [state.get("query_text", "")],
             clone_id=state.get("clone_id", ""),
             access_tiers=[state.get("access_tier", "public")],
@@ -44,6 +44,7 @@ def tier1_retrieval(state: TypedDict) -> TypedDict:
             **state,
             "retrieved_passages": passages,
             "retrieval_confidence": confidence,
+            "search_meta": search_meta,
         }
 
     except Exception as e:
@@ -53,6 +54,7 @@ def tier1_retrieval(state: TypedDict) -> TypedDict:
             **state,
             "retrieved_passages": [],
             "retrieval_confidence": 0.0,
+            "search_meta": {"vector_count": 0, "bm25_count": 0},
         }
 
 

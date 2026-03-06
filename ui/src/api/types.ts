@@ -65,6 +65,8 @@ export interface TraceRecord {
   sub_query_count?: number;
   response_tokens?: number;
   passage_count?: number;
+  vector_count?: number;
+  bm25_count?: number;
   confidence?: number;
   reranked?: boolean;
   top_rerank_score?: number;

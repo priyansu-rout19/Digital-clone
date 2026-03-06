@@ -134,6 +134,10 @@ def _extract_trace_data(node_name: str, node_output: dict) -> dict:
         passages = node_output.get("retrieved_passages", [])
         trace["passage_count"] = len(passages)
         trace["confidence"] = round(node_output.get("retrieval_confidence", 0.0), 3)
+        # Show which search methods produced results (vector, BM25, or both)
+        meta = node_output.get("search_meta", {})
+        trace["vector_count"] = meta.get("vector_count", 0)
+        trace["bm25_count"] = meta.get("bm25_count", 0)
         # Show if reranking was used (rerank_score present on passages)
         if passages and passages[0].get("rerank_score") is not None:
             trace["reranked"] = True

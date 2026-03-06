@@ -8,6 +8,13 @@ function formatDetail(r: TraceRecord): string {
   if (r.sub_query_count != null) parts.push(`${r.sub_query_count} sub-queries`);
   if (r.response_tokens != null) parts.push(`target: ${r.response_tokens} tokens`);
   if (r.passage_count != null) parts.push(`${r.passage_count} passages`);
+  if (r.vector_count != null || r.bm25_count != null) {
+    const v = r.vector_count ?? 0;
+    const b = r.bm25_count ?? 0;
+    if (v > 0 && b > 0) parts.push('vector + BM25');
+    else if (b > 0)      parts.push('BM25 only');
+    else if (v > 0)      parts.push('vector only');
+  }
   if (r.reranked) parts.push('reranked');
   if (r.confidence != null) parts.push(`confidence: ${Math.round(r.confidence * 100)}%`);
   if (r.retry_count != null) parts.push(`retry #${r.retry_count}`);
