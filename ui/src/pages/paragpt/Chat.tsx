@@ -13,13 +13,14 @@ interface ChatProps {
   isLoading: boolean;
   currentNode: string | null;
   onSendMessage: (query: string) => void;
+  onNewConversation?: () => void;
   profile: CloneProfile | null;
   error?: string | null;
 }
 
-export default function Chat({ messages, isLoading, currentNode, onSendMessage, profile, error }: ChatProps) {
+export default function Chat({ messages, isLoading, currentNode, onSendMessage, onNewConversation, profile, error }: ChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { isPlaying, progress, play, toggle } = useAudio();
+  const { isPlaying, progress, play, toggle, seek } = useAudio();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -45,6 +46,22 @@ export default function Chat({ messages, isLoading, currentNode, onSendMessage, 
           <div key={i}>
             <MessageBubble message={msg} variant="paragpt" isLatest={i === messages.length - 1} />
 
+            {/* Suggested topics — clickable pills */}
+            {msg.role === 'assistant' && msg.suggested_topics && msg.suggested_topics.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3 ml-1">
+                <span className="text-xs text-gray-500">You might explore:</span>
+                {msg.suggested_topics.map((topic, j) => (
+                  <button
+                    key={j}
+                    onClick={() => onSendMessage(topic)}
+                    className="text-xs px-3 py-1 rounded-full bg-[#d08050]/15 text-[#d08050] hover:bg-[#d08050]/25 transition-colors cursor-pointer"
+                  >
+                    {topic}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Citations */}
             {msg.role === 'assistant' && msg.cited_sources && msg.cited_sources.length > 0 && (
               <CollapsibleCitations sources={msg.cited_sources} variant="paragpt" />
@@ -68,6 +85,7 @@ export default function Chat({ messages, isLoading, currentNode, onSendMessage, 
                       toggle();
                     }
                   }}
+                  onSeek={seek}
                   variant="paragpt"
                 />
               </div>
@@ -95,7 +113,22 @@ export default function Chat({ messages, isLoading, currentNode, onSendMessage, 
 
       {/* Input bar */}
       <div className="px-4 pt-3 pb-6 max-w-3xl mx-auto w-full border-t border-white/[0.06]">
-        <ChatInput onSend={onSendMessage} disabled={isLoading} placeholder="Ask anything..." />
+        <div className="flex items-center gap-2">
+          {onNewConversation && (
+            <button
+              onClick={onNewConversation}
+              className="w-10 h-10 rounded-full flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
+              title="New conversation"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                <path d="M10 3a.75.75 0 0 1 .75.75v5.5h5.5a.75.75 0 0 1 0 1.5h-5.5v5.5a.75.75 0 0 1-1.5 0v-5.5h-5.5a.75.75 0 0 1 0-1.5h5.5v-5.5A.75.75 0 0 1 10 3Z" />
+              </svg>
+            </button>
+          )}
+          <div className="flex-1">
+            <ChatInput onSend={onSendMessage} disabled={isLoading} placeholder="Ask anything..." />
+          </div>
+        </div>
       </div>
     </div>
   );

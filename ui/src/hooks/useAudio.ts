@@ -99,5 +99,12 @@ export function useAudio() {
     }
   }, []);
 
-  return { isPlaying, progress, play, toggle, stop };
+  const seek = useCallback((percentage: number) => {
+    if (!audioRef.current || !audioRef.current.duration) return;
+    const clamped = Math.max(0, Math.min(100, percentage));
+    audioRef.current.currentTime = (clamped / 100) * audioRef.current.duration;
+    setProgress(clamped);
+  }, []);
+
+  return { isPlaying, progress, play, toggle, stop, seek };
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Markdown from 'react-markdown';
 import type { ChatMessage } from '../api/types';
 
@@ -11,6 +11,14 @@ interface MessageBubbleProps {
 export default function MessageBubble({ message, variant = 'paragpt', isLatest = false }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const isParagpt = variant === 'paragpt';
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(message.content).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [message.content]);
 
   // Typewriter effect for the latest assistant message
   const [displayedText, setDisplayedText] = useState('');
@@ -58,12 +66,31 @@ export default function MessageBubble({ message, variant = 'paragpt', isLatest =
   const isSilence = message.silence_triggered;
 
   return (
-    <div className="flex justify-start mb-4">
+    <div className="group flex justify-start mb-4">
       <div
-        className={`w-full rounded-2xl text-sm leading-relaxed ${
+        className={`relative w-full rounded-2xl text-sm leading-relaxed ${
           isParagpt ? 'glass px-4 py-3 text-gray-100' : 'glass-sacred px-5 py-4'
         }`}
       >
+        {/* Copy button — visible on hover */}
+        <button
+          onClick={handleCopy}
+          className={`absolute top-2 right-2 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity ${
+            isParagpt ? 'hover:bg-white/10 text-gray-400 hover:text-white' : 'hover:bg-sacred-gold/10 text-gray-500 hover:text-sacred-gold'
+          }`}
+          title="Copy response"
+        >
+          {copied ? (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-green-400">
+              <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+              <path d="M7 3.5A1.5 1.5 0 0 1 8.5 2h3.879a1.5 1.5 0 0 1 1.06.44l3.122 3.12A1.5 1.5 0 0 1 17 6.622V12.5a1.5 1.5 0 0 1-1.5 1.5h-1v-3.379a3 3 0 0 0-.879-2.121L10.5 5.379A3 3 0 0 0 8.379 4.5H7v-1Z" />
+              <path d="M4.5 6A1.5 1.5 0 0 0 3 7.5v9A1.5 1.5 0 0 0 4.5 18h7a1.5 1.5 0 0 0 1.5-1.5v-5.879a1.5 1.5 0 0 0-.44-1.06L9.44 6.439A1.5 1.5 0 0 0 8.378 6H4.5Z" />
+            </svg>
+          )}
+        </button>
         {isSilence && !isParagpt ? (
           <div className="text-sacred-ivory italic font-serif">
             <span className="text-sacred-gold text-2xl leading-none">&ldquo;</span>

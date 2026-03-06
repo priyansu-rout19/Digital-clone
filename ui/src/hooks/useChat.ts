@@ -1,23 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { ChatMessage, WSMessage, WSResponseMessage, TraceRecord } from '../api/types';
-
-const NODE_LABELS: Record<string, string> = {
-  query_analyzer: 'Analyzing your question...',
-  sub_query_generator: 'Breaking down the query...',
-  tier1_retrieval: 'Searching knowledge base...',
-  tier2_retrieval: 'Searching document tree...',
-  passage_merger: 'Merging results...',
-  crag_evaluator: 'Evaluating relevance...',
-  query_reformulator: 'Refining search...',
-  context_assembler: 'Assembling context...',
-  memory_injector: 'Loading your preferences...',
-  response_generator: 'Generating response...',
-  verifier: 'Verifying accuracy...',
-  silence_checker: 'Checking confidence...',
-  review_router: 'Routing response...',
-  voice_synth: 'Generating voice...',
-  provenance_lookup: 'Looking up sources...',
-};
+import { NODE_LABELS } from '../api/types';
 
 const WS_TIMEOUT_MS = 60_000;
 
@@ -113,6 +96,7 @@ export function useChat(slug: string) {
               confidence: resp.confidence,
               cited_sources: resp.cited_sources,
               silence_triggered: resp.silence_triggered,
+              suggested_topics: resp.suggested_topics,
               audio_base64: resp.audio_base64 ?? undefined,
               audio_format: resp.audio_format ?? undefined,
               trace: accumulatedTrace,

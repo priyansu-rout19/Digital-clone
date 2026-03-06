@@ -1050,13 +1050,54 @@ The reasoning trace showed: CRAG retried 3x with identical 77% confidence → fi
 
 ---
 
-## For Next Session (Session 30)
+## Session 31: Frontend Polish (9 Fixes)
+
+**Date:** March 6, 2026
+**Goal:** Close all frontend gaps found during ParaGPT audit — 6 polish items + 3 nice-to-haves. No backend changes.
+
+### Changes
+
+| # | Fix | Description |
+|---|-----|-------------|
+| 1 | **Suggested topic pills** | Render `suggested_topics` from WS response as clickable copper/gold pills below assistant messages. Clicking sends topic as new query. Both clients. |
+| 2 | **Sacred Archive thinking bubble** | Replaced `NodeProgress` import with inline animated dots (same pattern as ParaGPT but `sacred-gold` accent). Both clients now show instant feedback on send. |
+| 3 | **Consolidated node labels** | Moved node label constants into `types.ts` as single source of truth: `NODE_LABELS` (28 progress-style entries) + `NODE_DISPLAY_NAMES` (22 noun-style entries). Removed duplicate locals from `useChat.ts` and `ReasoningTrace.tsx`. |
+| 4 | **New conversation button** | `+` icon button left of input bar in both Chat pages. Calls `clearMessages()` + resets to landing page. Wired through `onNewConversation` prop from `App.tsx`. |
+| 5 | **Character counter** | Shows `{length}/2000` below textarea when >1900 chars. Red text when over 2000. Send button disabled at limit. Matches backend's 2000-char validation. |
+| 6 | **404 page** | Invalid slug now shows styled "404 / Clone not found" page with slug name in error text and "Go to ParaGPT" link button. |
+| 7 | **Copy-to-clipboard** | Copy icon appears on hover (top-right of assistant bubble). Uses `navigator.clipboard.writeText()`. Shows green checkmark for 1.5s after copying. |
+| 8 | **Multi-line textarea** | `<input>` → `<textarea rows={1}>` with auto-resize (max 120px / ~4 rows). Enter sends, Shift+Enter adds newline. |
+| 9 | **Audio seek** | Progress bar is clickable — click to jump to position. `useAudio.ts` exposes `seek(percentage)`. Larger click target (h-3 container, h-1 fill bar). |
+
+### Files Modified (Session 31)
+
+| File | Change |
+|------|--------|
+| `ui/src/api/types.ts` | Added `suggested_topics` to WSResponseMessage + ChatMessage. Added `NODE_LABELS` + `NODE_DISPLAY_NAMES` exports. |
+| `ui/src/hooks/useChat.ts` | Import shared `NODE_LABELS`, capture `suggested_topics` from WS response |
+| `ui/src/hooks/useAudio.ts` | Added `seek(percentage)` function |
+| `ui/src/components/MessageBubble.tsx` | Copy-to-clipboard button (hover, green checkmark feedback) |
+| `ui/src/components/ChatInput.tsx` | Textarea + auto-resize + character counter |
+| `ui/src/components/AudioPlayer.tsx` | `onSeek` prop, clickable progress bar |
+| `ui/src/components/ReasoningTrace.tsx` | Import shared `NODE_DISPLAY_NAMES` |
+| `ui/src/pages/paragpt/Chat.tsx` | Suggested topics, new conversation button, `onSeek` wiring |
+| `ui/src/pages/sacred-archive/Chat.tsx` | Thinking bubble, suggested topics, new conversation button |
+| `ui/src/App.tsx` | `handleNewConversation`, styled 404 page |
+
+### Verification
+- ✅ Zero TypeScript errors (`npx tsc --noEmit`)
+- ✅ Production build passes (`npm run build` — 222 modules, 2.96s)
+- ✅ 70 tests passing (no backend changes)
+
+---
+
+## For Next Session (Session 32)
 
 **What's Ready:**
-- ✅ RAG pipeline fundamentally improved (reranking + BM25 + multi-factor confidence)
+- ✅ RAG pipeline with reranking + BM25 + multi-factor confidence
 - ✅ ALL P0 + P1 SOW gaps FIXED
-- ✅ Reasoning trace panel LIVE with reranker metrics
-- ✅ 70 tests passing, zero TS errors
+- ✅ Frontend fully polished (9 fixes, Session 31)
+- ✅ 70 tests passing, zero TS errors, production build clean
 - ✅ SOW compliance at ~93%
 
 **Remaining Work:**
@@ -1064,5 +1105,4 @@ The reasoning trace showed: CRAG retried 3x with identical 77% confidence → fi
 2. **Demo videos:** 5 user journey recordings (manager request, non-code)
 3. **PCCI-blocked stubs:** LLM swap, embeddings swap, tree search, voice clone, air-gap enforcement
 4. **Future RAG improvements:** Contextual Retrieval (Anthropic), RAGAS evaluation framework
-5. Update `docs/SOW-AUDIT.md` and `docs/MANAGER-DIRECTIVES.md` with Sessions 28-29 fixes
-6. **Polish:** NodeProgress still used in Sacred Archive (could switch to thinking bubble)
+5. **Cleanup:** `NodeProgress.tsx` is now unused (both clients use thinking bubble) — consider removing

@@ -14,9 +14,14 @@ import AnalyticsDashboard from './pages/analytics/Dashboard';
 function ClonePage() {
   const { slug } = useParams<{ slug: string }>();
   const { profile, loading, error } = useCloneProfile(slug || '');
-  const { messages, isLoading, currentNode, error: chatError, sendMessage } = useChat(slug || '');
+  const { messages, isLoading, currentNode, error: chatError, sendMessage, clearMessages } = useChat(slug || '');
   const [chatActive, setChatActive] = useState(false);
   const [accessTier, setAccessTier] = useState('public');
+
+  const handleNewConversation = () => {
+    clearMessages();
+    setChatActive(false);
+  };
 
   if (loading) {
     return (
@@ -33,9 +38,16 @@ function ClonePage() {
   if (error || !profile) {
     return (
       <div className="h-full flex items-center justify-center bg-para-navy text-white">
-        <div className="text-center">
-          <p className="text-red-400 mb-2">Failed to load clone profile</p>
-          <p className="text-gray-500 text-sm">{error || 'Clone not found'}</p>
+        <div className="text-center max-w-md px-6">
+          <div className="text-6xl mb-4 opacity-30">404</div>
+          <h1 className="text-xl font-semibold mb-2">Clone not found</h1>
+          <p className="text-gray-500 text-sm mb-6">{error || `No clone profile exists for "/${slug}". Check the URL and try again.`}</p>
+          <a
+            href="/paragpt-client"
+            className="inline-block px-5 py-2.5 rounded-full bg-para-teal text-white text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            Go to ParaGPT
+          </a>
         </div>
       </div>
     );
@@ -73,6 +85,7 @@ function ClonePage() {
           isLoading={isLoading}
           currentNode={currentNode}
           onSendMessage={handleSend}
+          onNewConversation={handleNewConversation}
           accessTier={accessTier}
           profile={profile}
           error={chatError}
@@ -91,7 +104,7 @@ function ClonePage() {
 
   return (
     <div className="h-full bg-para-navy">
-      <ParaGPTChat messages={messages} isLoading={isLoading} currentNode={currentNode} onSendMessage={handleSend} profile={profile} error={chatError} />
+      <ParaGPTChat messages={messages} isLoading={isLoading} currentNode={currentNode} onSendMessage={handleSend} onNewConversation={handleNewConversation} profile={profile} error={chatError} />
     </div>
   );
 }

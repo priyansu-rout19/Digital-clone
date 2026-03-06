@@ -1,7 +1,10 @@
+import type { MouseEvent } from 'react';
+
 interface AudioPlayerProps {
   isPlaying: boolean;
   progress: number;
   onToggle: () => void;
+  onSeek?: (percentage: number) => void;
   variant?: 'paragpt' | 'sacred-archive';
 }
 
@@ -9,6 +12,7 @@ export default function AudioPlayer({
   isPlaying,
   progress,
   onToggle,
+  onSeek,
   variant = 'paragpt',
 }: AudioPlayerProps) {
   const accent = variant === 'paragpt' ? 'para-teal' : 'sacred-gold';
@@ -41,9 +45,17 @@ export default function AudioPlayer({
           </svg>
         )}
       </button>
-      <div className="w-24 h-1 bg-white/10 rounded-full overflow-hidden">
+      <div
+        className="w-24 h-3 bg-white/10 rounded-full overflow-hidden cursor-pointer flex items-center"
+        onClick={(e: MouseEvent<HTMLDivElement>) => {
+          if (!onSeek) return;
+          const rect = e.currentTarget.getBoundingClientRect();
+          const pct = ((e.clientX - rect.left) / rect.width) * 100;
+          onSeek(pct);
+        }}
+      >
         <div
-          className={`h-full bg-${accent} rounded-full transition-all duration-200`}
+          className={`h-1 bg-${accent} rounded-full transition-all duration-200`}
           style={{ width: `${progress}%` }}
         />
       </div>

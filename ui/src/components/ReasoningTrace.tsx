@@ -1,26 +1,6 @@
 import { useState } from 'react';
 import type { TraceRecord } from '../api/types';
-
-const NODE_DISPLAY: Record<string, string> = {
-  query_analysis: 'Query Analysis',
-  tier1_retrieval: 'Vector Search',
-  tier2_tree_search: 'Tree Search',
-  crag_evaluator: 'Relevance Check',
-  query_reformulator: 'Query Reformulation',
-  provenance_graph_query: 'Provenance Lookup',
-  context_assembler: 'Context Assembly',
-  conversation_history: 'Conversation History',
-  memory_retrieval: 'Memory Retrieval',
-  in_persona_generator: 'Response Generation',
-  citation_verifier: 'Citation Verification',
-  confidence_scorer: 'Confidence Scoring',
-  soft_hedge_router: 'Low Confidence Hedge',
-  strict_silence_router: 'Silence Triggered',
-  review_queue_writer: 'Queued for Review',
-  stream_to_user: 'Preparing Output',
-  voice_pipeline: 'Voice Synthesis',
-  memory_writer: 'Memory Update',
-};
+import { NODE_DISPLAY_NAMES } from '../api/types';
 
 function formatDetail(r: TraceRecord): string {
   const parts: string[] = [];
@@ -99,7 +79,7 @@ export default function ReasoningTrace({ trace, variant = 'paragpt' }: Reasoning
       {expanded && (
         <div className="mt-2 ml-4 border-l border-gray-700 pl-3 space-y-1.5">
           {trace.map((record, i) => {
-            const label = NODE_DISPLAY[record.node] || record.node;
+            const label = NODE_DISPLAY_NAMES[record.node] || record.node;
             const detail = formatDetail(record);
             const isLast = i === trace.length - 1;
 
