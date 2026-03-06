@@ -42,7 +42,7 @@ def query_analysis(state: TypedDict) -> TypedDict:
             "response_tokens": DEFAULT_RESPONSE_TOKENS,
         }
 
-    llm = get_llm(temperature=0.0)
+    llm = get_llm(temperature=0.0, model=state.get("model_override") or None)
 
     system_prompt = """You are a query classifier. Analyze the user question and respond with JSON.
 

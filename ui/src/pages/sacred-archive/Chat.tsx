@@ -4,6 +4,7 @@ import MessageBubble from '../../components/MessageBubble';
 import ChatInput from '../../components/ChatInput';
 import CollapsibleCitations from '../../components/CollapsibleCitations';
 import ReasoningTrace from '../../components/ReasoningTrace';
+import ModelSelector from '../../components/ModelSelector';
 
 interface ChatProps {
   messages: ChatMessage[];
@@ -14,9 +15,11 @@ interface ChatProps {
   accessTier: string;
   profile: CloneProfile | null;
   error?: string | null;
+  selectedModel: string;
+  onModelChange: (modelId: string) => void;
 }
 
-export default function Chat({ messages, isLoading, currentNode, onSendMessage, onNewConversation, accessTier, profile: _profile, error }: ChatProps) {
+export default function Chat({ messages, isLoading, currentNode, onSendMessage, onNewConversation, accessTier, profile: _profile, error, selectedModel, onModelChange }: ChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -123,6 +126,7 @@ export default function Chat({ messages, isLoading, currentNode, onSendMessage, 
                 accentColor="sacred-gold"
               />
             </div>
+            <ModelSelector selectedModel={selectedModel} onModelChange={onModelChange} variant="sacred-archive" />
           </div>
         </div>
       </div>

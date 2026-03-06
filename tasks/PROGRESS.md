@@ -1,7 +1,7 @@
 # Digital Clone Engine — Session Progress & Implementation Status
 
-**Last Updated:** March 6, 2026 (Session 30 — Documentation Overhaul + Demo Readiness)
-**Current Focus:** All documentation updated to Session 30. Real Gemini embeddings in seed corpus (37 passages, 8 docs). Landing page questions aligned with demo corpus. 77 tests pass, zero TS errors, 93% SOW compliance.
+**Last Updated:** March 6, 2026 (Session 33 — Model Selector + Per-Request Model Override)
+**Current Focus:** Frontend model selector (ChatGPT/Claude-style), backend per-request model override via ConversationState, GET /models endpoint, CLI --model flag. 77 tests pass, zero TS errors, 93% SOW compliance.
 
 ---
 
@@ -44,7 +44,7 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 **Component 04: LangGraph Orchestration Flow**
 - File: `core/langgraph/conversation_flow.py`
 - StateGraph with 19 nodes (17 functional + __start__ + __end__)
-- ConversationState TypedDict with 23 keys (clone_id, user_id, response_tokens, conversation_history, etc.)
+- ConversationState TypedDict with 25 keys (clone_id, user_id, response_tokens, model_override, conversation_history, etc.)
 - `build_graph(profile)` factory that builds client-specific routing
 - Conditional edges using closures (profile captured at build time)
 - **Session 7 Fix:** T2 (tree_search) now runs immediately after T1 (before CRAG), not after. Added `after_tier1()` routing. CRAG evaluates combined T1+T2 result. Retry loop includes both tiers.
@@ -57,8 +57,9 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 
 **LLM Integration**
 - File: `core/llm.py`
-- ChatOpenAI client factory pointing at Groq API
-- Model: `qwen/qwen3-32b` (aligns with production Qwen3.5-35B)
+- ChatOpenAI client factory pointing at Groq API (configurable via `LLM_BASE_URL`)
+- Default model: `qwen/qwen3-32b` (configurable via `LLM_MODEL` env var)
+- Per-request override via `model` parameter (Session 33)
 - API key: stored in `.env` (gitignored)
 - Temperature control (0.0 for classification, 0.7 for generation)
 
@@ -259,14 +260,14 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 
 ### ✅ COMPLETE
 
-**React Frontend** (Sessions 19-28)
-- ✅ 29 source files — Vite 6 + React 19 + TypeScript + Tailwind CSS v4
-- ✅ ParaGPT: Landing (glassmorphism, corpus-aligned questions) + Chat (copper theme, header-less, thinking bubble, reasoning trace)
-- ✅ Sacred Archive: Landing (tier selector) + Chat (serif + gold, provenance citations)
+**React Frontend** (Sessions 19-28, 31, 33)
+- ✅ 31 source files — Vite 6 + React 19 + TypeScript + Tailwind CSS v4
+- ✅ ParaGPT: Landing (glassmorphism, corpus-aligned questions, model selector) + Chat (copper theme, header-less, thinking bubble, reasoning trace, model selector)
+- ✅ Sacred Archive: Landing (tier selector, model selector) + Chat (serif + gold, provenance citations, model selector)
 - ✅ Review Dashboard: 3-column layout, edit mode, keyboard shortcuts (a/r/e), CollapsibleCitations
 - ✅ Analytics Dashboard: stat cards, bar charts, intent breakdown
-- ✅ 10 shared components: MessageBubble, ChatInput, CitationCard, CitationGroupCard, CitationList, CollapsibleCitations, NodeProgress, AudioPlayer, ReasoningTrace, ErrorBoundary
-- ✅ WebSocket streaming with node progress events + reasoning trace accumulation
+- ✅ 11 shared components: MessageBubble, ChatInput, CitationCard, CitationGroupCard, CitationList, CollapsibleCitations, NodeProgress, AudioPlayer, ReasoningTrace, ErrorBoundary, ModelSelector
+- ✅ WebSocket streaming with node progress events + reasoning trace accumulation + per-request model override
 - ✅ Zero TypeScript errors, production build passes
 
 **RAG Pipeline Overhaul** (Session 29)
@@ -363,18 +364,18 @@ tests/                      ← Test suite (77 passed)
   show_pipeline.py          ← Educational pipeline visualizer (--real flag) — Updated Session 17
   conftest.py               ← Pytest configuration + real DB seeding fixtures
 
-ui/                         ← React Frontend (29 source files) — Sessions 19-28
+ui/                         ← React Frontend (31 source files) — Sessions 19-28, 31, 33
   src/
-    api/                    ← types.ts (22 interfaces + TraceRecord), client.ts, websocket.ts
-    hooks/                  ← useChat.ts (WS + trace), useCloneProfile.ts, useAudio.ts
-    components/             ← 10 shared components (MessageBubble, CitationCard, ReasoningTrace, etc.)
+    api/                    ← types.ts (24 interfaces), client.ts (6 REST functions), websocket.ts
+    hooks/                  ← useChat.ts (WS + trace + model), useCloneProfile.ts, useAudio.ts
+    components/             ← 11 shared components (MessageBubble, CitationCard, ReasoningTrace, ModelSelector, etc.)
     pages/
-      paragpt/              ← Landing.tsx (glassmorphism, corpus-aligned questions), Chat.tsx (copper theme)
-      sacred-archive/       ← Landing.tsx (tier selector), Chat.tsx (serif + gold)
+      paragpt/              ← Landing.tsx (glassmorphism, model selector), Chat.tsx (copper theme, model selector)
+      sacred-archive/       ← Landing.tsx (tier selector, model selector), Chat.tsx (serif + gold, model selector)
       review/               ← Dashboard.tsx (3-column, keyboard shortcuts, edit mode)
       analytics/            ← Dashboard.tsx (stats cards, bar charts)
     themes/                 ← paragpt.ts, sacred-archive.ts (design tokens)
-    App.tsx                 ← Router + profile loader
+    App.tsx                 ← Router + profile loader + model state
     main.tsx                ← React root
     index.css               ← Global styles + glass morphism + markdown
 
@@ -486,15 +487,15 @@ These were researched and decided. Do NOT re-debate:
 
 ---
 
-## Component Status Summary (Session 30)
+## Component Status Summary (Session 33)
 
 | Component | Status | Sessions | Notes |
 |---|---|---|---|
-| Backend (core engine + API) | ✅ COMPLETE + HARDENED | 1-17 | 19 LangGraph nodes, 7 API endpoint groups |
+| Backend (core engine + API) | ✅ COMPLETE + HARDENED | 1-17, 33 | 19 LangGraph nodes, 8 API endpoint groups (added /models) |
 | Database (schema + seeding) | ✅ COMPLETE | 12, 25, 30 | 15 tables, 6 migrations, 37 seeded passages |
 | RAG Pipeline | ✅ COMPLETE | 13-14, 29 | FlashRank reranking, BM25 hybrid, multi-factor scorer |
-| Frontend (React SPA) | ✅ COMPLETE | 19-28 | 29 source files, zero TS errors, production build |
-| Documentation | ✅ COMPLETE | 30 | 6 docs refreshed to Session 30 |
+| Frontend (React SPA) | ✅ COMPLETE | 19-28, 31, 33 | 31 source files, zero TS errors, production build |
+| Documentation | ✅ COMPLETE | 30, 33 | Docs refreshed to Session 33 |
 | Test Suite | ✅ COMPLETE | 10-16 | 77 tests passing |
 | Stubs | 3 remaining | — | All PCCI hardware-blocked |
 
@@ -553,7 +554,7 @@ See `tasks/lessons.md` for all 30.
 - [ ] Real voice cloning (OpenAudio S1-mini)
 - [ ] Air-gapped deployment for Sacred Archive
 
-**To Continue Next Session (Session 31):**
+**To Continue Next Session (Session 34):**
 1. Read `PROGRESS.md` (this file) — recap status
 2. Run full test suite: `python3 -m pytest tests/ -v` (expect 77 passed)
 3. Check `docs/SOW-AUDIT.md` for remaining gaps
@@ -561,27 +562,23 @@ See `tasks/lessons.md` for all 30.
 
 **Key Files Modified (Recent Sessions):**
 
-**Session 30 (Demo Readiness + Documentation):**
-- `scripts/seed_paragpt_corpus.py` — Real Gemini embeddings (replaced random), 37 passages, 8 docs
-- `ui/src/pages/paragpt/Landing.tsx` — Corpus-aligned starter questions + irrelevant hedge demo
-- `core/models/clone_profile.py` — ParaGPT `confidence_threshold` 0.80 → 0.65 (for demo corpus)
-- All 6 documentation files updated (SOW-AUDIT, MANAGER-DIRECTIVES, ARCHITECTURE, FRONTEND, DEVELOPMENT-PLAN, lessons.md)
+**Session 33 (Model Selector — Frontend + Backend + CLI):**
+- `core/llm.py` — `model` param for per-request override
+- `api/routes/models.py` (NEW) — `GET /models/` with 5-min cache
+- `api/routes/chat.py` — `model_override` in state, WS accepts/returns model
+- 4 node files — model override passthrough to `get_llm()`
+- `ui/src/components/ModelSelector.tsx` (NEW) — pill + fixed-position dropdown
+- `ui/src/api/types.ts` — ModelInfo, ModelsResponse interfaces
+- `ui/src/api/client.ts` — `getModels()` function
+- `ui/src/hooks/useChat.ts` — model param in sendMessage
+- `ui/src/App.tsx` — selectedModel state, passed to all pages
+- 4 page files — ModelSelector integrated in input bars
+- `scripts/ask_clone.py` — `--model` flag
 
-**Session 29 (RAG Pipeline Overhaul — 4 fixes):**
-- `core/langgraph/nodes/generation_nodes.py` — Multi-factor confidence scorer (4 deterministic factors)
-- `core/rag/retrieval/vector_search.py` — FlashRank reranking + BM25 hybrid search
-- `core/langgraph/nodes/retrieval_nodes.py` — Reranker-based CRAG evaluator + keyword reformulator
-- `core/rag/ingestion/indexer.py` — `search_vector` tsvector column population
-- `core/db/migrations/versions/0006_bm25_search.py` — tsvector + GIN index migration
-- `requirements.txt` — Added flashrank==0.2.10
+**Session 31 (Frontend Polish — 9 Fixes):**
+- Suggested topic pills, thinking bubble, consolidated node labels, new conversation button, character counter, 404 page, copy-to-clipboard, textarea multi-line, audio seek
 
-**Session 28 (P1 SOW Gaps + Reasoning Trace):**
-- `api/routes/chat.py` — `_extract_trace_data()`, `_extract_topic_suggestions()`, trace in WS progress
-- `api/routes/review.py` — PATCH edit action, cited_sources in GET response
-- `ui/src/components/ReasoningTrace.tsx` (NEW) — Pipeline trace timeline
-- `ui/src/pages/review/Dashboard.tsx` — Edit mode, keyboard shortcuts, CollapsibleCitations
-
-**Sessions 19-27:** Frontend build (29 source files), UI/UX overhaul (copper theme, glassmorphism, header-less chat), citation grouping, collapsible citations, dynamic response length, Mem0 dimension fix.
+**Sessions 28-30:** P1 SOW fixes, reasoning trace, RAG overhaul (reranking + BM25 + multi-factor scorer), demo readiness
 
 **If Context Gets Full Again:**
 - Update PROGRESS.md with new progress
@@ -1091,14 +1088,100 @@ The reasoning trace showed: CRAG retried 3x with identical 77% confidence → fi
 
 ---
 
-## For Next Session (Session 32)
+## Session 32: OSS Model Experimentation Setup
+
+**Date:** March 6, 2026
+**Goal:** Make LLM model configurable via environment variables for experimentation on PCCI hardware.
+
+### Changes
+
+| # | Change | Description |
+|---|--------|-------------|
+| 1 | **Env-var configurable LLM** | `core/llm.py` reads `LLM_MODEL`, `LLM_BASE_URL`, `LLM_API_KEY` from env. Falls back to Groq qwen3-32b. `reasoning_effort=none` only for Qwen models. |
+| 2 | **Experiment script** | `scripts/test_model.py` — tests any model against 5 use-case prompts (factual, synthesis, hedging, citations, concise). Usage: `LLM_MODEL=llama-3.3-70b-versatile python3 scripts/test_model.py` |
+| 3 | **PCCI candidate models** | Qwen3.5-35B-A3B, GLM-4.7-Flash (30B/3B), GLM-4.7 (355B/32B), GLM-5 (744B/40B). All OSS, OpenAI-compatible via SGLang. |
+
+---
+
+## Session 33: Model Selector (Frontend + Backend + CLI)
+
+**Date:** March 6, 2026
+**Goal:** ChatGPT/Claude-style model picker in UI — users can see which LLM is active and switch models per-request.
+
+### Architecture Decision
+Added `model_override` as the **25th ConversationState key**. Each LLM-calling node passes it to `get_llm(model=...)`. Follows the same pattern as `response_tokens` (Session 26) — explicit, debuggable, backward-compatible.
+
+### Backend Changes (8 files)
+
+| File | Change |
+|------|--------|
+| `core/llm.py` | Added `model` parameter to `get_llm()`. `effective_model = model or LLM_MODEL`. `reasoning_effort=none` only for Qwen models. |
+| `api/routes/chat.py` | Accept `model` in WS + REST payloads. `model_override` key in `build_initial_state()`. WS response includes active model. |
+| `api/routes/models.py` **(NEW)** | `GET /models/` — fetches available models from LLM provider's `/models` endpoint. 5-min cache. Filters non-text models. Fallback returns default. |
+| `api/main.py` | Registered models router at `/models` prefix. |
+| `core/langgraph/nodes/query_analysis_node.py` | `get_llm(..., model=state.get("model_override") or None)` |
+| `core/langgraph/nodes/generation_nodes.py` | Same model override passthrough |
+| `core/langgraph/nodes/retrieval_nodes.py` | Same model override passthrough |
+| `core/langgraph/nodes/routing_nodes.py` | Same model override passthrough |
+
+### Frontend Changes (8 files)
+
+| File | Change |
+|------|--------|
+| `ui/src/components/ModelSelector.tsx` **(NEW)** | Compact pill showing current model (e.g., "qwen3-32b ▾"). Dropdown opens upward with `position: fixed` + `getBoundingClientRect()`. Theme-aware (copper/gold). Fetches models via `getModels()`. Default model shown immediately (no loading state). |
+| `ui/src/api/types.ts` | Added `ModelInfo`, `ModelsResponse` interfaces. Added `model?` to `WSResponseMessage` + `ChatMessage`. |
+| `ui/src/api/client.ts` | Added `getModels()` REST function (6 total now). |
+| `ui/src/hooks/useChat.ts` | `sendMessage()` accepts `model` as 4th param. WS payload includes `model`. Captures `resp.model` into ChatMessage. |
+| `ui/src/App.tsx` | `selectedModel` + `setSelectedModel` state. Passed to all 4 page components. |
+| `ui/src/pages/paragpt/Landing.tsx` | Added `selectedModel`/`onModelChange` props. ModelSelector in input bar (right side). |
+| `ui/src/pages/paragpt/Chat.tsx` | ModelSelector in input bar (right of ChatInput, left of send). |
+| `ui/src/pages/sacred-archive/Landing.tsx` | Same as ParaGPT Landing. |
+| `ui/src/pages/sacred-archive/Chat.tsx` | Same as ParaGPT Chat. |
+
+### CLI Changes (1 file)
+
+| File | Change |
+|------|--------|
+| `scripts/ask_clone.py` | `--model` argument. Sets `model_override` in initial state. Verbose output shows active model. |
+
+### Other
+
+| File | Change |
+|------|--------|
+| `ui/vite.config.ts` | Added `/models` proxy to backend. |
+| `core/langgraph/conversation_flow.py` | Added `model_override: str` to ConversationState (25 keys total). |
+
+### Key UI Fix: Fixed Positioning Dropdown
+ModelSelector dropdown uses `position: fixed` with viewport-relative coordinates computed from `getBoundingClientRect()`. This was necessary because:
+- Landing pages use `position: fixed` for the input bar → `absolute` dropdowns get clipped
+- Chat pages have flex height constraints that also clip `absolute` positioned elements
+- Solution: compute viewport coords from button rect, render dropdown with `position: fixed` + `z-index: 9999`
+
+### Verification
+- ✅ 77 tests passed, 0 failed
+- ✅ Zero TypeScript errors
+- ✅ Production build passes (399KB JS, 32KB CSS)
+- ✅ ModelSelector visible on all 4 pages (2 Landings + 2 Chats)
+- ✅ Dropdown opens correctly in both fixed and flex containers
+
+### ConversationState Keys: 25 (was 24)
+New key: `model_override: str`
+
+### Frontend: 31 source files (was 29)
+New files: `ModelSelector.tsx`, `api/routes/models.py` (backend)
+
+---
+
+## For Next Session (Session 34)
 
 **What's Ready:**
 - ✅ RAG pipeline with reranking + BM25 + multi-factor confidence
 - ✅ ALL P0 + P1 SOW gaps FIXED
-- ✅ Frontend fully polished (9 fixes, Session 31)
-- ✅ 70 tests passing, zero TS errors, production build clean
+- ✅ Frontend fully polished (9 fixes, Session 31) + model selector (Session 33)
+- ✅ Per-request model override via ConversationState (25 keys)
+- ✅ 77 tests passing, zero TS errors, production build clean
 - ✅ SOW compliance at ~93%
+- ✅ 31 frontend source files
 
 **Remaining Work:**
 1. **P2 Quality fixes:** AuditLog never written to, rejection→seeker flow missing, GDPR delete no auth

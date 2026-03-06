@@ -17,6 +17,7 @@ from api.deps import get_clone, get_db
 from core.db import psycopg_url as _psycopg_url
 from core.models.clone_profile import CloneProfile
 from core.langgraph.conversation_flow import build_graph
+from core.llm import LLM_MODEL
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -30,6 +31,7 @@ class ChatRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=2000)
     user_id: Optional[str] = "anonymous"
     access_tier: Optional[str] = "public"
+    model: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
@@ -40,9 +42,11 @@ class ChatResponse(BaseModel):
     suggested_topics: list[str] = []
     audio_base64: Optional[str] = None
     audio_format: Optional[str] = None
+    model: Optional[str] = None
 
 
-def build_initial_state(query: str, clone_id: str, user_id: str, access_tier: str = "public") -> dict:
+def build_initial_state(query: str, clone_id: str, user_id: str,
+                        access_tier: str = "public", model: str = "") -> dict:
     """Build the initial ConversationState dict for the graph."""
     return {
         "query_text": query,
@@ -68,6 +72,7 @@ def build_initial_state(query: str, clone_id: str, user_id: str, access_tier: st
         "voice_chunks": [],
         "audio_base64": "",
         "audio_format": "",
+        "model_override": model,
     }
 
 
@@ -186,8 +191,11 @@ async def chat_sync(
             detail=f"Invalid access_tier '{chat_request.access_tier}'. Valid tiers: {sorted(valid_tiers)}",
         )
 
-    # Build initial state with access_tier
-    initial_state = build_initial_state(chat_request.query, clone_id, chat_request.user_id, chat_request.access_tier)
+    # Build initial state with access_tier and model override
+    initial_state = build_initial_state(
+        chat_request.query, clone_id, chat_request.user_id,
+        chat_request.access_tier, chat_request.model or "",
+    )
 
     # Build and invoke graph (with latency tracking)
     graph = build_graph(profile)
@@ -221,6 +229,7 @@ async def chat_sync(
         suggested_topics=final_state.get("suggested_topics", []),
         audio_base64=final_state.get("audio_base64") or None,
         audio_format=final_state.get("audio_format") or None,
+        model=final_state.get("model_override") or LLM_MODEL,
     )
 
 
@@ -246,6 +255,7 @@ async def chat_ws(
         query = data.get("query")
         user_id = data.get("user_id", "anonymous")
         access_tier = data.get("access_tier", "public")
+        model = data.get("model", "")
 
         if not query:
             await websocket.send_json({"type": "error", "message": "query is required"})
@@ -286,8 +296,8 @@ async def chat_ws(
             profile = CP(**clone_row.profile)
             clone_id = str(clone_row.id)
 
-            # Build initial state with access_tier
-            initial_state = build_initial_state(query, clone_id, user_id, access_tier)
+            # Build initial state with access_tier and model override
+            initial_state = build_initial_state(query, clone_id, user_id, access_tier, model)
 
             # Build graph and stream (with latency tracking)
             graph = build_graph(profile)
@@ -336,6 +346,7 @@ async def chat_ws(
                     "suggested_topics": final_state.get("suggested_topics", []),
                     "audio_base64": final_state.get("audio_base64") or None,
                     "audio_format": final_state.get("audio_format") or None,
+                    "model": final_state.get("model_override") or LLM_MODEL,
                 }
             )
         finally:

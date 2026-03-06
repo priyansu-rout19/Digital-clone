@@ -17,6 +17,7 @@ function ClonePage() {
   const { messages, isLoading, currentNode, error: chatError, sendMessage, clearMessages } = useChat(slug || '');
   const [chatActive, setChatActive] = useState(false);
   const [accessTier, setAccessTier] = useState('public');
+  const [selectedModel, setSelectedModel] = useState('');
 
   const handleNewConversation = () => {
     clearMessages();
@@ -57,12 +58,12 @@ function ClonePage() {
 
   const handleSend = (query: string) => {
     if (!chatActive) setChatActive(true);
-    sendMessage(query, 'anonymous', accessTier);
+    sendMessage(query, 'anonymous', accessTier, selectedModel);
   };
 
   const handleQuestionClick = (question: string) => {
     setChatActive(true);
-    sendMessage(question, 'anonymous', accessTier);
+    sendMessage(question, 'anonymous', accessTier, selectedModel);
   };
 
   if (isSacredArchive) {
@@ -74,6 +75,8 @@ function ClonePage() {
             onSelectTier={(tier) => setAccessTier(tier)}
             onSendMessage={handleSend}
             onQuestionClick={handleQuestionClick}
+            selectedModel={selectedModel}
+            onModelChange={setSelectedModel}
           />
         </div>
       );
@@ -89,6 +92,8 @@ function ClonePage() {
           accessTier={accessTier}
           profile={profile}
           error={chatError}
+          selectedModel={selectedModel}
+          onModelChange={setSelectedModel}
         />
       </div>
     );
@@ -97,14 +102,14 @@ function ClonePage() {
   if (!chatActive) {
     return (
       <div className="h-full bg-para-navy">
-        <ParaGPTLanding profile={profile} onSendMessage={handleSend} onQuestionClick={handleQuestionClick} />
+        <ParaGPTLanding profile={profile} onSendMessage={handleSend} onQuestionClick={handleQuestionClick} selectedModel={selectedModel} onModelChange={setSelectedModel} />
       </div>
     );
   }
 
   return (
     <div className="h-full bg-para-navy">
-      <ParaGPTChat messages={messages} isLoading={isLoading} currentNode={currentNode} onSendMessage={handleSend} onNewConversation={handleNewConversation} profile={profile} error={chatError} />
+      <ParaGPTChat messages={messages} isLoading={isLoading} currentNode={currentNode} onSendMessage={handleSend} onNewConversation={handleNewConversation} profile={profile} error={chatError} selectedModel={selectedModel} onModelChange={setSelectedModel} />
     </div>
   );
 }

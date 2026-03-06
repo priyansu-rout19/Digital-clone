@@ -123,7 +123,7 @@ def query_reformulator(state: TypedDict) -> TypedDict:
     else:
         passage_diagnostic = "No passages were retrieved at all."
 
-    llm = get_llm(temperature=0.8)
+    llm = get_llm(temperature=0.8, model=state.get("model_override") or None)
 
     system_prompt = """You are a search query specialist. The current search queries failed to find relevant documents. Your job is to generate DIFFERENT search strategies — not paraphrases.
 

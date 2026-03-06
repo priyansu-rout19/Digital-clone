@@ -87,7 +87,7 @@ Guidelines:
         # Response length adapts to question complexity (LLM-estimated in query_analysis)
         temp = 0.0 if profile.generation_mode == GenerationMode.mirror_only else 0.7
         response_tokens = state.get("response_tokens", 500)
-        llm = get_llm(temperature=temp, max_tokens=response_tokens)
+        llm = get_llm(temperature=temp, max_tokens=response_tokens, model=state.get("model_override") or None)
 
         try:
             response = llm.invoke([

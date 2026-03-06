@@ -6,6 +6,7 @@ import ChatInput from '../../components/ChatInput';
 import AudioPlayer from '../../components/AudioPlayer';
 import CollapsibleCitations from '../../components/CollapsibleCitations';
 import ReasoningTrace from '../../components/ReasoningTrace';
+import ModelSelector from '../../components/ModelSelector';
 import { useAudio } from '../../hooks/useAudio';
 
 interface ChatProps {
@@ -16,9 +17,11 @@ interface ChatProps {
   onNewConversation?: () => void;
   profile: CloneProfile | null;
   error?: string | null;
+  selectedModel: string;
+  onModelChange: (modelId: string) => void;
 }
 
-export default function Chat({ messages, isLoading, currentNode, onSendMessage, onNewConversation, profile, error }: ChatProps) {
+export default function Chat({ messages, isLoading, currentNode, onSendMessage, onNewConversation, profile, error, selectedModel, onModelChange }: ChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { isPlaying, progress, play, toggle, seek } = useAudio();
 
@@ -128,6 +131,7 @@ export default function Chat({ messages, isLoading, currentNode, onSendMessage, 
           <div className="flex-1">
             <ChatInput onSend={onSendMessage} disabled={isLoading} placeholder="Ask anything..." />
           </div>
+          <ModelSelector selectedModel={selectedModel} onModelChange={onModelChange} variant="paragpt" />
         </div>
       </div>
     </div>

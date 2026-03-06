@@ -16,6 +16,7 @@ export default defineConfig({
       '/ingest': 'http://localhost:8000',
       '/analytics': 'http://localhost:8000',
       '/users': 'http://localhost:8000',
+      '/models': 'http://localhost:8000',
       '/health': 'http://localhost:8000',
     },
   },

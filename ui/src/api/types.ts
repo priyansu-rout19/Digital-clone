@@ -96,6 +96,7 @@ export interface WSResponseMessage {
   suggested_topics?: string[];
   audio_base64?: string | null;
   audio_format?: string | null;
+  model?: string;
 }
 
 export interface WSErrorMessage {
@@ -129,6 +130,18 @@ export interface ReviewUpdateResponse {
   reviewed_at: string | null;
 }
 
+// Model selection
+export interface ModelInfo {
+  id: string;
+  name: string;
+  owned_by: string;
+}
+
+export interface ModelsResponse {
+  models: ModelInfo[];
+  default: string;
+}
+
 // Analytics
 export interface AnalyticsSummary {
   total_queries: number;
@@ -150,6 +163,7 @@ export interface ChatMessage {
   audio_base64?: string;
   audio_format?: string;
   trace?: TraceRecord[];
+  model?: string;
 }
 
 // Shared node label mappings (single source of truth)

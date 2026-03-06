@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import type { CloneProfile } from '../../api/types';
+import ModelSelector from '../../components/ModelSelector';
 
 interface LandingProps {
   profile: CloneProfile;
   onSendMessage: (query: string) => void;
   onQuestionClick: (question: string) => void;
+  selectedModel: string;
+  onModelChange: (modelId: string) => void;
 }
 
 const TOPIC_TAGS = ['Geopolitics', 'Connectivity', 'Strategic Thinking', 'Asia', 'Global Trends'];
@@ -15,7 +18,7 @@ const STARTER_QUESTIONS = [
   'What is your best recipe for chocolate cake?',
 ];
 
-export default function Landing({ profile, onSendMessage, onQuestionClick }: LandingProps) {
+export default function Landing({ profile, onSendMessage, onQuestionClick, selectedModel, onModelChange }: LandingProps) {
   const [query, setQuery] = useState('');
 
   const handleSend = () => {
@@ -85,6 +88,8 @@ export default function Landing({ profile, onSendMessage, onQuestionClick }: Lan
             placeholder="Ask anything..."
             className="flex-1 bg-para-navy/80 text-white placeholder-slate-500 rounded-[20px] px-4 py-2.5 text-sm outline-none border border-glass-border focus:border-para-teal/40 transition-colors"
           />
+
+          <ModelSelector selectedModel={selectedModel} onModelChange={onModelChange} variant="paragpt" />
 
           <button
             type="button"

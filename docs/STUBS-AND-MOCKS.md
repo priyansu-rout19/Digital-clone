@@ -33,15 +33,31 @@ These require PCCI infrastructure (GPU, MinIO). Code is ready; waiting for deplo
 
 ### 1. LLM — Groq API (dev) → SGLang/vLLM (prod)
 
-**File:** `core/llm.py` lines 40–48
+**File:** `core/llm.py`
 
-**Now:** Groq API with `qwen/qwen3-32b` (cloud service, closely matches production model).
+**Now:** Groq API with `qwen/qwen3-32b` (cloud, OpenAI-compatible). Fully env-var configurable (Session 32):
+```
+LLM_MODEL=qwen/qwen3-32b              # Model identifier
+LLM_BASE_URL=https://api.groq.com/openai/v1  # API endpoint
+LLM_API_KEY=                            # Falls back to GROQ_API_KEY
+```
 
-**Production:** PCCI vLLM/SGLang with `Qwen3.5-35B-A3B` (local GPU, 20GB VRAM).
+**Candidate OSS models for PCCI (all open source, all OpenAI-compatible via SGLang):**
 
-**How to swap:** Change `base_url`, `api_key`, `model` env vars + `model_kwargs` → `extra_body`. Zero code changes to nodes.
+| Model | Total Params | Active Params | Architecture | License |
+|-------|-------------|--------------|--------------|---------|
+| **Qwen3.5-35B-A3B** | 35B | 3B | MoE | Apache 2.0 |
+| **GLM-4.7-Flash** | 30B | 3B | MoE | Apache 2.0 |
+| **Qwen3.5-122B-A10B** | 122B | 10B | MoE | Apache 2.0 |
+| **GLM-4.7** | 355B | 32B | MoE | Apache 2.0 |
+| **Qwen3.5-397B-A17B** | 397B | 17B | MoE | Apache 2.0 |
+| **GLM-5** | 744B | 40B | MoE | MIT |
 
-**Blocking:** PCCI GPU server with vLLM/SGLang running Qwen3.5-35B-A3B 4-bit AWQ.
+**How to swap:** Set `LLM_MODEL`, `LLM_BASE_URL`, `LLM_API_KEY` in `.env`. Zero code changes to nodes.
+
+**Experiment script:** `scripts/test_model.py` — tests any model against 5 use-case prompts.
+
+**Blocking:** PCCI GPU server with SGLang. GLM/Qwen3.5 not on Groq yet — test on PCCI when ready.
 
 ---
 
@@ -303,7 +319,7 @@ Real recursive CTE SQL. Works with sample data. Returns real results for Sacred 
 - Docker Compose for dev environment
 
 **When PCCI ready:**
-- LLM: Groq → SGLang (env var swap)
+- LLM: Set `LLM_MODEL`, `LLM_BASE_URL`, `LLM_API_KEY` in `.env` → SGLang endpoint. Run `scripts/test_model.py` to validate. Candidates: Qwen3.5-35B-A3B, GLM-4.7-Flash, GLM-4.7, GLM-5
 - Embeddings: Gemini → TEI (LangChain drop-in)
 - Tree search: MinIO + PageIndex
 - Voice: edge-tts → OpenAudio TTS (with trained voice model)

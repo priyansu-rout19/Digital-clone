@@ -38,7 +38,7 @@ export function useChat(slug: string) {
   }, [clearResponseTimeout, closeWs]);
 
   const sendMessage = useCallback(
-    (query: string, userId = 'anonymous', accessTier = 'public') => {
+    (query: string, userId = 'anonymous', accessTier = 'public', model = '') => {
       // Close any existing WS before opening a new one
       clearResponseTimeout();
       closeWs();
@@ -54,7 +54,7 @@ export function useChat(slug: string) {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        ws.send(JSON.stringify({ query, user_id: userId, access_tier: accessTier }));
+        ws.send(JSON.stringify({ query, user_id: userId, access_tier: accessTier, model }));
 
         // Start 30s response timeout after message is sent
         timeoutRef.current = setTimeout(() => {
@@ -100,6 +100,7 @@ export function useChat(slug: string) {
               audio_base64: resp.audio_base64 ?? undefined,
               audio_format: resp.audio_format ?? undefined,
               trace: accumulatedTrace,
+              model: resp.model,
             },
           ]);
           setIsLoading(false);

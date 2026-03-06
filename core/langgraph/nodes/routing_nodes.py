@@ -201,7 +201,7 @@ def stream_to_user(state: TypedDict) -> TypedDict:
 
     # Use LLM for context-aware sentence splitting
     try:
-        llm = get_llm(temperature=0.0)
+        llm = get_llm(temperature=0.0, model=state.get("model_override") or None)
         result = llm.invoke([
             {"role": "system", "content": (
                 "Split the following text into individual sentences. "

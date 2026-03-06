@@ -1,4 +1,4 @@
-import type { AnalyticsSummary, ChatRequest, ChatResponse, CloneProfile, ReviewItem, ReviewUpdate, ReviewUpdateResponse } from './types';
+import type { AnalyticsSummary, ChatRequest, ChatResponse, CloneProfile, ModelsResponse, ReviewItem, ReviewUpdate, ReviewUpdateResponse } from './types';
 
 const API_KEY = import.meta.env.VITE_API_KEY as string | undefined;
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -59,4 +59,8 @@ export function updateReview(slug: string, id: string, update: ReviewUpdate): Pr
 
 export function getAnalytics(slug: string): Promise<AnalyticsSummary> {
   return apiFetch<AnalyticsSummary>(`/analytics/${slug}`);
+}
+
+export function getModels(): Promise<ModelsResponse> {
+  return apiFetch<ModelsResponse>('/models/');
 }

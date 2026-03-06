@@ -137,17 +137,18 @@ The orchestrator is the **core** — it reads the clone profile and adjusts beha
 
 ### Layer 3: Inference (GPU Models on PCCI)
 **Production (target):**
-- **Qwen3.5-35B-A3B** (4-bit AWQ) — Primary LLM, ~20GB VRAM
+- **Primary LLM** — one of: Qwen3.5-35B-A3B, GLM-4.7-Flash, GLM-4.7, GLM-5 (all OSS, OpenAI-compatible via SGLang)
 - **Qwen3-Embedding-0.6B** — Embeddings via TEI, ~2GB
 - **OpenAudio S1-mini** — TTS (ParaGPT only), ~2GB
 - **Whisper Large V3** — Transcription, ~6GB
 - All served via **SGLang** (OpenAI-compatible API, continuous batching, prefix caching)
 
 **Development (current):**
-- **Groq API** — qwen/qwen3-32b (same family as Qwen3.5, compatible interface)
+- **Groq API** — qwen/qwen3-32b via env-var configurable `core/llm.py` (`LLM_MODEL`, `LLM_BASE_URL`, `LLM_API_KEY`)
 - **Google Gemini** — gemini-embedding-001 (3072→1024-dim Matryoshka, HTTP API via LangChain)
 - Both are drop-in replacements with identical output dimensions/signatures
-- **Zero code changes** needed to swap production models (same LangChain interfaces)
+- **Zero code changes** needed to swap production models — just set env vars
+- **Experiment script:** `scripts/test_model.py` tests any model against 5 use-case prompts
 
 ### Layer 4: Data + Memory
 - **Zvec** — Embedded vector DB (in-process)

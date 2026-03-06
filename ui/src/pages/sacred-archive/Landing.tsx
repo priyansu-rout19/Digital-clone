@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import type { CloneProfile } from '../../api/types';
+import ModelSelector from '../../components/ModelSelector';
 
 interface LandingProps {
   profile: CloneProfile | null;
   onSelectTier: (tier: string) => void;
   onSendMessage: (query: string) => void;
   onQuestionClick: (question: string) => void;
+  selectedModel: string;
+  onModelChange: (modelId: string) => void;
 }
 
 const TIERS = [
@@ -20,7 +23,7 @@ const SUGGESTED_QUESTIONS = [
   'What teachings exist about the practice of meditation?',
 ];
 
-export default function Landing({ profile: _profile, onSelectTier, onSendMessage, onQuestionClick }: LandingProps) {
+export default function Landing({ profile: _profile, onSelectTier, onSendMessage, onQuestionClick, selectedModel, onModelChange }: LandingProps) {
   const [selectedTier, setSelectedTier] = useState('devotee');
   const [query, setQuery] = useState('');
 
@@ -125,6 +128,7 @@ export default function Landing({ profile: _profile, onSelectTier, onSendMessage
             className="flex-1 bg-transparent text-sacred-ivory placeholder-sacred-ivory/40 rounded-xl px-4 py-2.5 text-sm outline-none"
             style={{ fontFamily: 'Georgia, serif' }}
           />
+          <ModelSelector selectedModel={selectedModel} onModelChange={onModelChange} variant="sacred-archive" />
           <button
             type="button"
             onClick={handleSend}

@@ -62,6 +62,10 @@ def parse_args():
         "--no-save", action="store_true",
         help="Don't save output files (audio + text)"
     )
+    parser.add_argument(
+        "--model", default="",
+        help="Override LLM model (e.g. llama-3.3-70b-versatile). Default: env var LLM_MODEL"
+    )
     return parser.parse_args()
 
 
@@ -112,10 +116,14 @@ def main():
             "voice_chunks": [],
             "audio_base64": "",
             "audio_format": "",
+            "model_override": args.model,
         }
 
         # --- Run the pipeline ---
-        print(f'\nAsking {profile.display_name}: "{args.query}"\n')
+        from core.llm import LLM_MODEL
+        effective_model = args.model or LLM_MODEL
+        print(f'\nAsking {profile.display_name}: "{args.query}"')
+        print(f'Model: {effective_model}\n')
 
         start = time.time()
         graph = build_graph(profile)
