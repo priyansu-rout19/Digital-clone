@@ -37,6 +37,7 @@ class ChatResponse(BaseModel):
     confidence: float
     cited_sources: list[dict]
     silence_triggered: bool
+    suggested_topics: list[str] = []
     audio_base64: Optional[str] = None
     audio_format: Optional[str] = None
 
@@ -63,6 +64,7 @@ def build_initial_state(query: str, clone_id: str, user_id: str, access_tier: st
         "final_confidence": 0.0,
         "cited_sources": [],
         "silence_triggered": False,
+        "suggested_topics": [],
         "voice_chunks": [],
         "audio_base64": "",
         "audio_format": "",
@@ -109,6 +111,49 @@ def _write_analytics(clone_id: str, user_id: str, query_text: str,
             conn.commit()
     except Exception as e:
         logger.error(f"Analytics write failed: {e}")
+
+
+def _extract_trace_data(node_name: str, node_output: dict) -> dict:
+    """
+    Extract curated metrics from a node's output for the reasoning trace.
+    Returns a small dict with only the relevant data points for each node.
+    Never includes full passages or assembled context (too large for WS).
+    """
+    trace: dict = {"node": node_name}
+
+    if node_name == "query_analysis":
+        trace["intent"] = node_output.get("intent_class", "")
+        trace["sub_query_count"] = len(node_output.get("sub_queries", []))
+        trace["response_tokens"] = node_output.get("response_tokens", 0)
+    elif node_name == "tier1_retrieval":
+        trace["passage_count"] = len(node_output.get("retrieved_passages", []))
+        trace["confidence"] = round(node_output.get("retrieval_confidence", 0.0), 3)
+    elif node_name == "tier2_tree_search":
+        trace["passage_count"] = len(node_output.get("retrieved_passages", []))
+    elif node_name == "crag_evaluator":
+        trace["confidence"] = round(node_output.get("retrieval_confidence", 0.0), 3)
+    elif node_name == "query_reformulator":
+        trace["retry_count"] = node_output.get("retry_count", 0)
+        trace["new_queries"] = len(node_output.get("sub_queries", []))
+    elif node_name == "context_assembler":
+        ctx = node_output.get("assembled_context", "")
+        trace["context_chars"] = len(ctx)
+    elif node_name == "conversation_history":
+        trace["has_history"] = bool(node_output.get("conversation_history", ""))
+    elif node_name == "memory_retrieval":
+        trace["has_memory"] = bool(node_output.get("user_memory", ""))
+    elif node_name == "in_persona_generator":
+        trace["generated"] = True
+    elif node_name == "citation_verifier":
+        trace["citation_count"] = len(node_output.get("cited_sources", []))
+    elif node_name == "confidence_scorer":
+        trace["final_confidence"] = round(node_output.get("final_confidence", 0.0), 3)
+    elif node_name in ("soft_hedge_router", "strict_silence_router"):
+        trace["silence_triggered"] = True
+    elif node_name == "voice_pipeline":
+        trace["has_audio"] = bool(node_output.get("audio_base64", ""))
+
+    return trace
 
 
 @router.post("/{clone_slug}")
@@ -168,6 +213,7 @@ async def chat_sync(
         confidence=final_state.get("final_confidence", 0.0),
         cited_sources=final_state.get("cited_sources", []),
         silence_triggered=final_state.get("silence_triggered", False),
+        suggested_topics=final_state.get("suggested_topics", []),
         audio_base64=final_state.get("audio_base64") or None,
         audio_format=final_state.get("audio_format") or None,
     )
@@ -249,9 +295,11 @@ async def chat_ws(
                 node_names = list(chunk.keys())
                 if node_names:
                     node_name = node_names[0]
+                    node_output = chunk[node_name]
                     # Update final_state with the latest node output
-                    final_state.update(chunk[node_name])
-                    await websocket.send_json({"type": "progress", "node": node_name})
+                    final_state.update(node_output)
+                    trace = _extract_trace_data(node_name, node_output)
+                    await websocket.send_json({"type": "progress", "node": node_name, "trace": trace})
 
             latency_ms = int((time.time() - t0) * 1000)
 
@@ -280,6 +328,7 @@ async def chat_ws(
                     "confidence": final_state.get("final_confidence", 0.0),
                     "cited_sources": final_state.get("cited_sources", []),
                     "silence_triggered": final_state.get("silence_triggered", False),
+                    "suggested_topics": final_state.get("suggested_topics", []),
                     "audio_base64": final_state.get("audio_base64") or None,
                     "audio_format": final_state.get("audio_format") or None,
                 }

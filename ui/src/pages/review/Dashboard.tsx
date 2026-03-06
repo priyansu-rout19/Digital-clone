@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { ReviewItem } from '../../api/types';
 import { getReviews, updateReview } from '../../api/client';
+import CollapsibleCitations from '../../components/CollapsibleCitations';
 
 interface DashboardProps {
   slug: string;
@@ -13,6 +14,8 @@ export default function Dashboard({ slug }: DashboardProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editText, setEditText] = useState('');
 
   const fetchReviews = () => {
     setLoading(true);
@@ -34,12 +37,73 @@ export default function Dashboard({ slug }: DashboardProps) {
       setReviews((prev) => prev.filter((r) => r.id !== selected.id));
       setSelected(null);
       setNotes('');
+      setEditMode(false);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Action failed');
     } finally {
       setActionLoading(false);
     }
   };
+
+  const handleEdit = async () => {
+    if (!selected || !editText.trim()) return;
+    setActionLoading(true);
+    try {
+      const result = await updateReview(slug, selected.id, {
+        action: 'edit',
+        edited_response: editText,
+        notes: notes || undefined,
+      });
+      const updatedText = result.response_text || editText;
+      setReviews((prev) =>
+        prev.map((r) => (r.id === selected.id ? { ...r, response_text: updatedText } : r))
+      );
+      setSelected({ ...selected, response_text: updatedText });
+      setEditMode(false);
+      setNotes('');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Edit failed');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'TEXTAREA' || tag === 'INPUT') return;
+      if (!selected || actionLoading) return;
+
+      switch (e.key) {
+        case 'a':
+          handleAction('approve');
+          break;
+        case 'r':
+          handleAction('reject');
+          break;
+        case 'e':
+          setEditMode(true);
+          setEditText(selected.response_text);
+          break;
+        case 'ArrowDown': {
+          e.preventDefault();
+          const idx = reviews.findIndex((r) => r.id === selected.id);
+          if (idx < reviews.length - 1) { setSelected(reviews[idx + 1]); setEditMode(false); }
+          break;
+        }
+        case 'ArrowUp': {
+          e.preventDefault();
+          const idx = reviews.findIndex((r) => r.id === selected.id);
+          if (idx > 0) { setSelected(reviews[idx - 1]); setEditMode(false); }
+          break;
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selected, reviews, actionLoading, editMode]);
 
   const confidenceColor = (score: number | null) => {
     if (score == null) return 'text-gray-500';
@@ -84,7 +148,7 @@ export default function Dashboard({ slug }: DashboardProps) {
             <button
               key={item.id}
               type="button"
-              onClick={() => setSelected(item)}
+              onClick={() => { setSelected(item); setEditMode(false); }}
               className={`w-full text-left px-4 py-3 border-b border-gray-800 hover:bg-gray-800/50 transition-colors cursor-pointer ${
                 selected?.id === item.id ? 'border-l-2 border-l-sacred-gold bg-gray-800/30' : ''
               }`}
@@ -115,14 +179,34 @@ export default function Dashboard({ slug }: DashboardProps) {
             </div>
             <div className="mb-6">
               <h3 className="text-sacred-gold text-xs font-semibold uppercase tracking-wide mb-2">Generated Response</h3>
-              <p className="text-sacred-ivory/80 text-sm leading-relaxed" style={{ fontFamily: 'Georgia, serif' }}>
-                {selected.response_text}
-              </p>
+              {editMode ? (
+                <textarea
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  className="w-full h-48 bg-gray-800/50 border border-gray-700 rounded-xl p-3 text-sm text-sacred-ivory/80 outline-none resize-y"
+                  style={{ fontFamily: 'Georgia, serif' }}
+                />
+              ) : (
+                <p className="text-sacred-ivory/80 text-sm leading-relaxed" style={{ fontFamily: 'Georgia, serif' }}>
+                  {selected.response_text}
+                </p>
+              )}
             </div>
             {selected.confidence_score != null && (
               <span className={`text-xs px-2 py-0.5 rounded-full bg-sacred-gold/20 ${confidenceColor(selected.confidence_score)}`}>
                 {Math.round(selected.confidence_score * 100)}% confidence
               </span>
+            )}
+
+            {/* Cited sources */}
+            {selected.cited_sources && selected.cited_sources.length > 0 && (
+              <div className="mt-4">
+                <CollapsibleCitations
+                  sources={selected.cited_sources}
+                  variant="sacred-archive"
+                  defaultExpanded={true}
+                />
+              </div>
             )}
           </div>
         )}
@@ -132,21 +216,53 @@ export default function Dashboard({ slug }: DashboardProps) {
       <div className="w-full md:w-[25%] border-t md:border-t-0 md:border-l border-gray-700 p-6 flex flex-col gap-4">
         <h3 className="text-sacred-gold text-xs font-semibold uppercase tracking-wide">Actions</h3>
 
-        <button
-          onClick={() => handleAction('approve')}
-          disabled={!selected || actionLoading}
-          className="w-full py-2.5 rounded-xl bg-sacred-gold text-sacred-brown font-semibold text-sm hover:bg-sacred-gold-dark transition-colors disabled:opacity-40"
-        >
-          {actionLoading ? 'Processing...' : 'Approve'}
-        </button>
-
-        <button
-          onClick={() => handleAction('reject')}
-          disabled={!selected || actionLoading}
-          className="w-full py-2.5 rounded-xl bg-red-900/60 text-red-200 font-semibold text-sm hover:bg-red-900/80 transition-colors disabled:opacity-40"
-        >
-          Reject
-        </button>
+        {editMode ? (
+          <>
+            <button
+              onClick={handleEdit}
+              disabled={actionLoading || !editText.trim()}
+              className="w-full py-2.5 rounded-xl bg-sacred-gold text-sacred-brown font-semibold text-sm hover:bg-sacred-gold-dark transition-colors disabled:opacity-40"
+            >
+              {actionLoading ? 'Saving...' : 'Save Edit'}
+            </button>
+            <button
+              onClick={() => setEditMode(false)}
+              disabled={actionLoading}
+              className="w-full py-2.5 rounded-xl bg-gray-700 text-gray-300 font-semibold text-sm hover:bg-gray-600 transition-colors disabled:opacity-40"
+            >
+              Cancel
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => handleAction('approve')}
+              disabled={!selected || actionLoading}
+              className="w-full py-2.5 rounded-xl bg-sacred-gold text-sacred-brown font-semibold text-sm hover:bg-sacred-gold-dark transition-colors disabled:opacity-40"
+            >
+              {actionLoading ? 'Processing...' : <span className="flex items-center justify-center gap-2">Approve <kbd className="text-xs px-1.5 py-0.5 rounded bg-sacred-brown text-sacred-gold/60 font-mono">a</kbd></span>}
+            </button>
+            <button
+              onClick={() => {
+                if (selected) {
+                  setEditMode(true);
+                  setEditText(selected.response_text);
+                }
+              }}
+              disabled={!selected || actionLoading}
+              className="w-full py-2.5 rounded-xl bg-gray-700 text-gray-300 font-semibold text-sm hover:bg-gray-600 transition-colors disabled:opacity-40"
+            >
+              <span className="flex items-center justify-center gap-2">Edit <kbd className="text-xs px-1.5 py-0.5 rounded bg-gray-800 text-gray-500 font-mono">e</kbd></span>
+            </button>
+            <button
+              onClick={() => handleAction('reject')}
+              disabled={!selected || actionLoading}
+              className="w-full py-2.5 rounded-xl bg-red-900/60 text-red-200 font-semibold text-sm hover:bg-red-900/80 transition-colors disabled:opacity-40"
+            >
+              <span className="flex items-center justify-center gap-2">Reject <kbd className="text-xs px-1.5 py-0.5 rounded bg-red-950 text-red-400/60 font-mono">r</kbd></span>
+            </button>
+          </>
+        )}
 
         <textarea
           value={notes}
@@ -155,6 +271,8 @@ export default function Dashboard({ slug }: DashboardProps) {
           disabled={!selected}
           className="w-full h-32 bg-gray-800/50 border border-gray-700 rounded-xl p-3 text-sm text-sacred-ivory/80 placeholder-gray-600 outline-none resize-none disabled:opacity-40"
         />
+
+        <p className="text-xs text-gray-600 mt-auto">Arrow keys to navigate queue</p>
       </div>
     </div>
   );

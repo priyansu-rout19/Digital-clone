@@ -18,6 +18,26 @@ from core.db import psycopg_url as _psycopg_url
 logger = logging.getLogger(__name__)
 
 
+def _extract_topic_suggestions(state: dict, max_topics: int = 3) -> list[str]:
+    """
+    Extract topic names from retrieved_passages for silence message suggestions.
+    Uses source_title field with fallback to source_type. Deduplicates.
+    No LLM call — pure string extraction from existing passage metadata.
+    """
+    passages = state.get("retrieved_passages", [])
+    seen: set[str] = set()
+    topics: list[str] = []
+    for p in passages:
+        title = p.get("source_title") or p.get("source_type") or ""
+        title = title.strip()
+        if title and title.lower() not in seen and title.lower() != "unknown":
+            seen.add(title.lower())
+            topics.append(title)
+        if len(topics) >= max_topics:
+            break
+    return topics
+
+
 def make_soft_hedge_router(profile):
     """
     Factory function that creates a soft_hedge_router node with profile captured.
@@ -37,16 +57,22 @@ def make_soft_hedge_router(profile):
 
         Returns the profile's configured silence_message to gracefully handle
         low-confidence situations without completely refusing to respond.
+        Appends dynamic topic suggestions extracted from retrieved passages.
 
         Input: (state from confidence_scorer)
-        Output: raw_response (overwritten with hedge), silence_triggered
+        Output: raw_response (overwritten with hedge), silence_triggered, suggested_topics
         """
+        topics = _extract_topic_suggestions(state)
+        message = profile.silence_message
+        if topics:
+            message += f"\n\nYou might explore: {', '.join(topics)}"
 
         return {
             **state,
-            "raw_response": profile.silence_message,
-            "verified_response": profile.silence_message,
+            "raw_response": message,
+            "verified_response": message,
             "silence_triggered": True,
+            "suggested_topics": topics,
         }
 
     return soft_hedge_router
@@ -71,15 +97,22 @@ def make_strict_silence_router(profile):
     def strict_silence_router(state: TypedDict) -> TypedDict:
         """
         Overwrite response with silence message when confidence is too low.
+        Appends dynamic topic suggestions extracted from retrieved passages.
 
         Input: (state from confidence_scorer)
-        Output: raw_response, verified_response (overwritten), silence_triggered
+        Output: raw_response, verified_response (overwritten), silence_triggered, suggested_topics
         """
+        topics = _extract_topic_suggestions(state)
+        message = profile.silence_message
+        if topics:
+            message += f"\n\nRelated topics in the archive: {', '.join(topics)}"
+
         return {
             **state,
-            "raw_response": profile.silence_message,
-            "verified_response": profile.silence_message,
+            "raw_response": message,
+            "verified_response": message,
             "silence_triggered": True,
+            "suggested_topics": topics,
         }
 
     return strict_silence_router

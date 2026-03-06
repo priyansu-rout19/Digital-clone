@@ -423,6 +423,7 @@ async def test_review_approve(client, mock_db_session):
     """PATCH /review/{id} with action=approve updates status."""
     review = MagicMock(spec=ReviewQueue)
     review.id = "review-001"
+    review.response_text = "Approved response text"
     review.status = "approved"
     review.reviewer_notes = None
     review.reviewed_at = datetime.utcnow()
@@ -459,6 +460,7 @@ async def test_review_reject(client, mock_db_session):
     """PATCH /review/{clone_slug}/{id} with action=reject updates status."""
     review = MagicMock(spec=ReviewQueue)
     review.id = "review-001"
+    review.response_text = "Response text"
     review.status = "rejected"
     review.reviewer_notes = "Not on topic"
     review.reviewed_at = datetime.utcnow()
@@ -488,6 +490,42 @@ async def test_review_reject(client, mock_db_session):
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "rejected"
+
+
+@pytest.mark.asyncio
+async def test_review_edit(client, mock_db_session):
+    """PATCH /review/{clone_slug}/{id} with action=edit updates response_text."""
+    review = MagicMock(spec=ReviewQueue)
+    review.id = "review-001"
+    review.response_text = "Updated response"
+    review.status = "edited"
+    review.reviewer_notes = "Fixed typo"
+    review.reviewed_at = datetime.utcnow()
+
+    query_mock = MagicMock()
+    filter_mock = MagicMock()
+    filter_mock.first.return_value = review
+    query_mock.filter.return_value = filter_mock
+
+    original_side_effect = mock_db_session.query.side_effect
+    def new_query_side_effect(model):
+        if model == ReviewQueue:
+            return query_mock
+        return original_side_effect(model)
+
+    mock_db_session.query.side_effect = new_query_side_effect
+
+    response = await client.patch(
+        "/review/sacred-archive/review-001",
+        json={"action": "edit", "edited_response": "Updated response", "notes": "Fixed typo"}
+    )
+
+    mock_db_session.query.side_effect = original_side_effect
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "edited"
+    assert data["response_text"] == "Updated response"
 
 
 @pytest.mark.asyncio

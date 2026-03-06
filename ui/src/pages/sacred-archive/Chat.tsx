@@ -4,6 +4,7 @@ import MessageBubble from '../../components/MessageBubble';
 import ChatInput from '../../components/ChatInput';
 import NodeProgress from '../../components/NodeProgress';
 import CollapsibleCitations from '../../components/CollapsibleCitations';
+import ReasoningTrace from '../../components/ReasoningTrace';
 
 interface ChatProps {
   messages: ChatMessage[];
@@ -55,6 +56,11 @@ export default function Chat({ messages, isLoading, currentNode, onSendMessage, 
             {/* Provenance / citations */}
             {msg.role === 'assistant' && msg.cited_sources && msg.cited_sources.length > 0 && (
               <CollapsibleCitations sources={msg.cited_sources} variant="sacred-archive" />
+            )}
+
+            {/* Reasoning trace */}
+            {msg.role === 'assistant' && msg.trace && msg.trace.length > 0 && (
+              <ReasoningTrace trace={msg.trace} variant="sacred-archive" />
             )}
           </div>
         ))}

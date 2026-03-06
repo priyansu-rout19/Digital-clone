@@ -47,7 +47,7 @@ from core.langgraph.nodes.routing_nodes import (
 class ConversationState(TypedDict):
     """
     Typed state dict for all conversation context passed between nodes.
-    23 keys: query, retrieval, context, generation, routing.
+    24 keys: query, retrieval, context, generation, routing.
     """
 
     # Query & Analysis (set by query_analysis)
@@ -79,6 +79,7 @@ class ConversationState(TypedDict):
 
     # Output Routing (set by routing nodes)
     silence_triggered: bool
+    suggested_topics: list[str]  # topic suggestions for silence messages (extracted from passages)
     voice_chunks: list[str]  # text chunks for TTS
     audio_base64: str  # base64-encoded MP3 audio from TTS (empty if text_only)
     audio_format: str  # "mp3" or "" (set by voice_pipeline)

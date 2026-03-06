@@ -58,10 +58,31 @@ export interface ChatResponse {
   audio_format?: string | null;
 }
 
+// Reasoning trace record (per node in the pipeline)
+export interface TraceRecord {
+  node: string;
+  intent?: string;
+  sub_query_count?: number;
+  response_tokens?: number;
+  passage_count?: number;
+  confidence?: number;
+  retry_count?: number;
+  new_queries?: number;
+  context_chars?: number;
+  has_history?: boolean;
+  has_memory?: boolean;
+  generated?: boolean;
+  citation_count?: number;
+  final_confidence?: number;
+  silence_triggered?: boolean;
+  has_audio?: boolean;
+}
+
 // WebSocket messages (discriminated union)
 export interface WSProgressMessage {
   type: 'progress';
   node: string;
+  trace?: TraceRecord;
 }
 
 export interface WSResponseMessage {
@@ -87,17 +108,20 @@ export interface ReviewItem {
   query_text: string;
   response_text: string;
   confidence_score: number | null;
+  cited_sources?: CitedSource[];
   created_at: string;
 }
 
 export interface ReviewUpdate {
-  action: 'approve' | 'reject';
+  action: 'approve' | 'reject' | 'edit';
   notes?: string;
+  edited_response?: string;
 }
 
 export interface ReviewUpdateResponse {
   id: string;
   status: string;
+  response_text?: string;
   reviewer_notes: string | null;
   reviewed_at: string | null;
 }
@@ -121,4 +145,5 @@ export interface ChatMessage {
   silence_triggered?: boolean;
   audio_base64?: string;
   audio_format?: string;
+  trace?: TraceRecord[];
 }

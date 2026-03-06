@@ -5,6 +5,7 @@ import ChatInput from '../../components/ChatInput';
 
 import AudioPlayer from '../../components/AudioPlayer';
 import CollapsibleCitations from '../../components/CollapsibleCitations';
+import ReasoningTrace from '../../components/ReasoningTrace';
 import { useAudio } from '../../hooks/useAudio';
 
 interface ChatProps {
@@ -47,6 +48,11 @@ export default function Chat({ messages, isLoading, currentNode, onSendMessage, 
             {/* Citations */}
             {msg.role === 'assistant' && msg.cited_sources && msg.cited_sources.length > 0 && (
               <CollapsibleCitations sources={msg.cited_sources} variant="paragpt" />
+            )}
+
+            {/* Reasoning trace */}
+            {msg.role === 'assistant' && msg.trace && msg.trace.length > 0 && (
+              <ReasoningTrace trace={msg.trace} variant="paragpt" />
             )}
 
             {/* Audio player */}

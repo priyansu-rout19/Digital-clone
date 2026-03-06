@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { ChatMessage, WSMessage, WSResponseMessage } from '../api/types';
+import type { ChatMessage, WSMessage, WSResponseMessage, TraceRecord } from '../api/types';
 
 const NODE_LABELS: Record<string, string> = {
   query_analyzer: 'Analyzing your question...',
@@ -28,6 +28,7 @@ export function useChat(slug: string) {
   const [error, setError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const traceRef = useRef<TraceRecord[]>([]);
 
   // Helper: clear the response timeout
   const clearResponseTimeout = useCallback(() => {
@@ -63,6 +64,7 @@ export function useChat(slug: string) {
       setIsLoading(true);
       setError(null);
       setCurrentNode(null);
+      traceRef.current = [];
 
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const ws = new WebSocket(`${protocol}//${window.location.host}/chat/ws/${slug}`);
@@ -88,6 +90,10 @@ export function useChat(slug: string) {
           // goes completely silent for 60s, not just because pipeline is slow
           clearResponseTimeout();
           setCurrentNode(NODE_LABELS[msg.node] || msg.node);
+          // Accumulate trace record for reasoning panel
+          if (msg.trace) {
+            traceRef.current = [...traceRef.current, msg.trace];
+          }
           timeoutRef.current = setTimeout(() => {
             setError('Response timed out. Please try again.');
             setIsLoading(false);
@@ -97,6 +103,8 @@ export function useChat(slug: string) {
         } else if (msg.type === 'response') {
           clearResponseTimeout();
           const resp = msg as WSResponseMessage;
+          const accumulatedTrace = [...traceRef.current];
+          traceRef.current = [];
           setMessages((prev) => [
             ...prev,
             {
@@ -107,6 +115,7 @@ export function useChat(slug: string) {
               silence_triggered: resp.silence_triggered,
               audio_base64: resp.audio_base64 ?? undefined,
               audio_format: resp.audio_format ?? undefined,
+              trace: accumulatedTrace,
             },
           ]);
           setIsLoading(false);

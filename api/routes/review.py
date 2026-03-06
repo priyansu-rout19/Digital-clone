@@ -19,6 +19,7 @@ class ReviewItem(BaseModel):
     query_text: str
     response_text: str
     confidence_score: Optional[float]
+    cited_sources: Optional[list] = None
     created_at: datetime
 
     class Config:
@@ -26,13 +27,15 @@ class ReviewItem(BaseModel):
 
 
 class ReviewUpdateRequest(BaseModel):
-    action: Literal["approve", "reject"]
+    action: Literal["approve", "reject", "edit"]
     notes: Optional[str] = None
+    edited_response: Optional[str] = None
 
 
 class ReviewUpdateResponse(BaseModel):
     id: str
     status: str
+    response_text: Optional[str] = None
     reviewer_notes: Optional[str]
     reviewed_at: Optional[datetime]
 
@@ -62,7 +65,7 @@ async def list_pending_reviews(
     # Query pending reviews
     pending = (
         db.query(ReviewQueue)
-        .filter(and_(ReviewQueue.clone_id == clone_id, ReviewQueue.status == "pending"))
+        .filter(and_(ReviewQueue.clone_id == clone_id, ReviewQueue.status.in_(["pending", "edited"])))
         .order_by(ReviewQueue.created_at.desc())
         .all()
     )
@@ -73,6 +76,7 @@ async def list_pending_reviews(
             query_text=item.query_text,
             response_text=item.response_text,
             confidence_score=item.confidence_score,
+            cited_sources=item.cited_sources,
             created_at=item.created_at,
         )
         for item in pending
@@ -100,11 +104,20 @@ async def update_review(
     if not review:
         raise HTTPException(status_code=404, detail=f"Review '{review_id}' not found for clone '{clone_slug}'")
 
-    # Update status and reviewer notes
-    new_status = "approved" if request.action == "approve" else "rejected"
-    review.status = new_status
-    review.reviewer_notes = request.notes
-    review.reviewed_at = datetime.utcnow()
+    # Handle edit action
+    if request.action == "edit":
+        if not request.edited_response or not request.edited_response.strip():
+            raise HTTPException(status_code=400, detail="edited_response is required for edit action")
+        review.response_text = request.edited_response.strip()
+        review.status = "edited"
+        review.reviewer_notes = request.notes
+        review.reviewed_at = datetime.utcnow()
+    else:
+        # Update status and reviewer notes
+        new_status = "approved" if request.action == "approve" else "rejected"
+        review.status = new_status
+        review.reviewer_notes = request.notes
+        review.reviewed_at = datetime.utcnow()
 
     db.commit()
     db.refresh(review)
@@ -112,6 +125,7 @@ async def update_review(
     return ReviewUpdateResponse(
         id=str(review.id),
         status=review.status,
+        response_text=review.response_text,
         reviewer_notes=review.reviewer_notes,
         reviewed_at=review.reviewed_at,
     )
