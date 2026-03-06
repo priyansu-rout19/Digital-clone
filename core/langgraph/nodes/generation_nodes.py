@@ -163,57 +163,97 @@ def citation_verifier(state: TypedDict) -> TypedDict:
 
 def confidence_scorer(state: TypedDict) -> TypedDict:
     """
-    Score how well the response answers the original question (0.0-1.0).
+    Score overall response quality using multiple signals (0.0-1.0).
 
-    Uses LLM to evaluate response quality. Lower scores trigger silence behavior
-    or review queue depending on profile settings.
+    Combines 4 independent factors instead of relying on LLM self-evaluation
+    (LLMs are overconfident in 84%+ of scenarios — arXiv:2508.06225).
 
-    Input: verified_response, query_text
+    Factors:
+    - Retrieval confidence (0.35): how relevant were the retrieved passages?
+    - Citation coverage (0.25): what fraction of passages were actually cited?
+    - Response grounding (0.25): how much of the response comes from context?
+    - Passage count (0.15): did we find enough source material?
+
+    Input: retrieval_confidence, cited_sources, retrieved_passages,
+           verified_response, assembled_context
     Output: final_confidence (float 0.0-1.0)
     """
 
-    query = state.get("query_text", "")
     response = state.get("verified_response", "")
 
     if not response:
-        return {
-            **state,
-            "final_confidence": 0.0,
-        }
+        return {**state, "final_confidence": 0.0}
 
-    # Call LLM to score the response
-    llm = get_llm(temperature=0.0)  
+    # Factor 1: Retrieval confidence (from vector search / reranker)
+    retrieval_confidence = state.get("retrieval_confidence", 0.0)
 
-    system_prompt = """You are an evaluator. On a scale of 0.0 to 1.0, how well does the response answer the question?
-0.0 = doesn't answer at all
-0.5 = partially answers, missing key points
-1.0 = fully and thoroughly answers
+    # Factor 2: Citation coverage — what fraction of passages were cited?
+    passages = state.get("retrieved_passages", [])
+    cited_sources = state.get("cited_sources", [])
+    if passages:
+        citation_coverage = min(len(cited_sources) / max(len(passages), 1), 1.0)
+    else:
+        citation_coverage = 0.0
 
-Respond with ONLY a number (0.0-1.0), nothing else."""
+    # Factor 3: Response grounding — lexical overlap between response and context
+    context = state.get("assembled_context", "")
+    response_grounding = _compute_grounding_score(response, context)
 
-    user_message = f"""Question: {query}
+    # Factor 4: Passage count factor — did we find enough material?
+    passage_count_factor = min(len(passages) / 3.0, 1.0)
 
-Response: {response}
+    # Weighted combination
+    final_confidence = (
+        0.35 * retrieval_confidence
+        + 0.25 * citation_coverage
+        + 0.25 * response_grounding
+        + 0.15 * passage_count_factor
+    )
 
-Score:"""
+    # Clamp to [0.0, 1.0]
+    final_confidence = max(0.0, min(1.0, round(final_confidence, 3)))
 
-    try:
-        response_text = llm.invoke([
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message},
-        ]).content.strip()
+    return {**state, "final_confidence": final_confidence}
 
-        # Parse the score, handling various formats
-        score_str = response_text.split()[0]  # Get first token
-        confidence = float(score_str)
-        # Clamp to valid range
-        confidence = max(0.0, min(1.0, confidence))
 
-    except (ValueError, IndexError, AttributeError):
-        # Fallback: assume medium confidence if we have a response
-        confidence = 0.5
+def _compute_grounding_score(response: str, context: str) -> float:
+    """
+    Measure how grounded the response is in the context via word overlap.
 
-    return {
-        **state,
-        "final_confidence": confidence,
+    Computes the fraction of meaningful response words that appear in the context.
+    Filters out stop words and short tokens to focus on content words.
+    Returns 0.0-1.0.
+    """
+    if not response or not context:
+        return 0.0
+
+    stop_words = {
+        "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
+        "have", "has", "had", "do", "does", "did", "will", "would", "could",
+        "should", "may", "might", "shall", "can", "need", "dare", "ought",
+        "to", "of", "in", "for", "on", "with", "at", "by", "from", "as",
+        "into", "through", "during", "before", "after", "above", "below",
+        "between", "out", "off", "over", "under", "again", "further", "then",
+        "once", "and", "but", "or", "nor", "not", "so", "yet", "both",
+        "each", "few", "more", "most", "other", "some", "such", "no",
+        "only", "own", "same", "than", "too", "very", "just", "because",
+        "if", "when", "where", "how", "what", "which", "who", "whom",
+        "this", "that", "these", "those", "i", "you", "he", "she", "it",
+        "we", "they", "me", "him", "her", "us", "them", "my", "your",
+        "his", "its", "our", "their", "about", "also", "like", "there",
     }
+
+    response_words = {
+        w.lower() for w in response.split()
+        if len(w) > 2 and w.lower() not in stop_words
+    }
+    context_words = {
+        w.lower() for w in context.split()
+        if len(w) > 2 and w.lower() not in stop_words
+    }
+
+    if not response_words:
+        return 0.0
+
+    overlap = response_words & context_words
+    return len(overlap) / len(response_words)

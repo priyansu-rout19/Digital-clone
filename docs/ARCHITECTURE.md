@@ -1,6 +1,6 @@
 # ARCHITECTURE: Digital Clone Engine — Unified Technical System Design
 
-**Version:** 4.4 | **Date:** March 5, 2026 | **Prepared by:** Prem AI — Solution Architecture
+**Version:** 5.0 | **Date:** March 6, 2026 (Session 30) | **Prepared by:** Prem AI — Solution Architecture
 
 **Note:** This is the **specification/design document** (target production). For **current implementation status**, see [PROGRESS.md](../tasks/PROGRESS.md). Development currently uses drop-in proxy models (Google Gemini for embeddings, Groq for LLM) pending PCCI infrastructure — zero code changes needed when production models available.
 
@@ -104,10 +104,10 @@ clone_profile:
     ui/src/
     ├── api/         → REST client + WebSocket manager + TypeScript interfaces
     ├── hooks/       → useChat (WS), useCloneProfile, useAudio (base64→playback)
-    ├── components/  → ChatInput, MessageBubble, NodeProgress, AudioPlayer, CitationCard, ErrorBoundary
+    ├── components/  → ChatInput, MessageBubble, NodeProgress, AudioPlayer, CitationCard, CitationGroupCard, CitationList, CollapsibleCitations, ReasoningTrace, ErrorBoundary
     ├── pages/
-    │   ├── paragpt/        → Landing (glassmorphism) + Chat (teal accent)
-    │   ├── sacred-archive/ → Landing (tier selector) + Chat (serif+gold)
+    │   ├── paragpt/        → Landing (glassmorphism, corpus-aligned questions) + Chat (copper accent, reasoning trace)
+    │   ├── sacred-archive/ → Landing (tier selector) + Chat (serif+gold, reasoning trace)
     │   ├── review/         → Dashboard (3-column approve/reject)
     │   └── analytics/     → Monitoring dashboard (stats, charts)
     └── themes/      → Design tokens per clone profile
@@ -120,7 +120,7 @@ clone_profile:
 - Vite dev proxy: `/chat`, `/clone`, `/review`, `/ingest`, `/analytics`, `/users` → `http://localhost:8000`
 
 **Design System:** Clone-profile-driven theming:
-- ParaGPT: Dark navy (#0a1628) + teal (#00d4aa), glassmorphism cards, sans-serif
+- ParaGPT: Near-black (#0d0d0d) + copper (#d08050), glassmorphism cards, sans-serif, header-less chat with thinking bubble
 - Sacred Archive: Deep brown (#2c2c2c) + gold (#c4963c), serif typography, decorative quotes
 
 ### Layer 2: Gateway + Orchestration
@@ -171,22 +171,29 @@ Every query flows through this pipeline. The clone profile controls behavior at 
 - **~0.3s, 1 LLM call**
 
 ### Step 2: Two-Tier Retrieval with Self-Correction
-**Tier 1 — Vector Search** (<100ms):
-- Embed each sub-query
-- Search against Zvec collection
-- Reciprocal rank fusion for multiple sub-queries
-- If `provenance_graph_enabled`: parallel Apache AGE queries
+**Tier 1 — Hybrid Search (Vector + BM25)** (<200ms):
+- Embed each sub-query via Gemini embeddings (3072→1024 truncated)
+- **Vector search:** pgvector cosine similarity against `document_chunks.embedding`
+- **BM25 keyword search:** PostgreSQL `tsvector`/`tsquery` full-text search against `document_chunks.search_vector` (GIN index, migration 0006)
+- **RRF fusion:** `sum(1/(60+rank_i))` merges vector and BM25 results. BM25 retrieves DIFFERENT passages from vector search — critical for CRAG reformulation.
+- If `provenance_graph_enabled`: parallel provenance graph queries (recursive CTEs)
+
+**Reranking** (Session 29):
+- Over-retrieves 30 candidates (3x top_k), then reranks to top 10
+- **FlashRank** cross-encoder (`ms-marco-MiniLM-L-12-v2`, ~34MB, CPU-only)
+- Per-passage `rerank_score` stored. Mean of top-5 = `retrieval_confidence`
+- Graceful fallback to RRF order if FlashRank unavailable
 
 **Tier 2 — Tree Search** (conditional, +1-2s):
 - Runs immediately after Tier 1 (if profile enables it + documents have PageIndex trees)
 - LLM reasons about hierarchical sections of structured documents
-- Especially valuable for books, transcripts with hierarchy
 - Augments T1 results with structurally-relevant passages
 
-**Self-Correction (CRAG loop)**:
-- Evaluates the combined T1+T2 result
-- If confidence below threshold, reformulate query and retry both tiers
-- Max 3 hops
+**Self-Correction (CRAG loop)** (Session 29 fix):
+- **Evaluator:** Uses reranker scores (not passage-count heuristic). Mean reranker score * passage factor.
+- **Reformulator:** Sees actual passage text + reranker scores. Generates keyword extraction, sub-topic decomposition, domain jargon queries — NOT paraphrases (which embed identically).
+- BM25 breaks the stuck loop: keyword queries with different terms retrieve genuinely different passages.
+- Max 3 retries.
 
 ### Step 3: Context Assembly
 - Format retrieved passages into 8K-32K token context window
@@ -205,7 +212,11 @@ The LLM generates a response using:
 
 ### Step 5: Verification + Output
 - Verify each cited source against retrieved passages
-- Score confidence (0.0-1.0)
+- **Multi-factor confidence scoring** (Session 29 — deterministic, no LLM call):
+  - Retrieval confidence (0.35 weight) — from reranker scores or cosine similarity
+  - Citation coverage (0.25) — fraction of passages actually cited in response
+  - Response grounding (0.25) — lexical overlap between response and context (content words only)
+  - Passage count factor (0.15) — did we find enough source material?
 - Route based on profile:
   - High confidence → Stream to user
   - Low confidence + soft_hedge → Hedge message
@@ -215,24 +226,24 @@ The LLM generates a response using:
 
 ---
 
-## 6. Codebase Structure (Current Status — March 4, 2026, Session 13)
+## 6. Codebase Structure (Current Status — March 6, 2026, Session 30)
 
 | Component | Location | Status | Notes |
 |---|---|---|---|
-| **Config Model** | `core/models/clone_profile.py` | ✅ COMPLETE | 7 enums, 17 fields, 2 presets (+ ChunkingStrategy enum, Session 13) |
+| **Config Model** | `core/models/clone_profile.py` | ✅ COMPLETE | 7 enums, 17 fields, 2 presets (ParaGPT threshold=0.65 for demo corpus) |
 | **LLM Client** | `core/llm.py` | ✅ COMPLETE | Groq API (dev) → SGLang (prod) |
-| **Embeddings Client** | `core/rag/ingestion/embedder.py` | ✅ COMPLETE | Google Gemini (dev) → TEI (prod), 1024-dim verified |
-| **Mem0 Client** | `core/mem0_client.py` | ✅ COMPLETE | pgvector backend, Google Gemini embeddings |
+| **Embeddings Client** | `core/rag/ingestion/embedder.py` | ✅ COMPLETE | Google Gemini (dev) → TEI (prod), 3072→1024-dim truncated |
+| **Mem0 Client** | `core/mem0_client.py` | ✅ COMPLETE | pgvector backend, `TruncatedGoogleEmbeddings` wrapper (Session 26) |
 | **LangGraph Orchestrator** | `core/langgraph/conversation_flow.py` | ✅ COMPLETE | 19 nodes, T2 before CRAG |
-| **Orchestration Nodes** | `core/langgraph/nodes/` | ✅ COMPLETE | Real LLM, real retrieval, real memory |
+| **Orchestration Nodes** | `core/langgraph/nodes/` | ✅ COMPLETE | Real LLM, real retrieval, real memory, multi-factor scorer (S29) |
 | **Database Schema** | `core/db/schema.py` | ✅ COMPLETE | 15 tables, pgvector indexing |
-| **Migrations** | `core/db/migrations/` | ✅ COMPLETE | 4 migrations, applied + seeded |
-| **RAG Ingestion** | `core/rag/ingestion/` | ✅ COMPLETE | Parser + chunker (semantic, Session 13) + embedder + indexer |
-| **RAG Retrieval** | `core/rag/retrieval/` | ✅ COMPLETE | Tier 1 vector, Tier 2 tree, CRAG, RRF |
-| **FastAPI Layer** | `api/` | ✅ COMPLETE | 7 endpoint groups (chat, config, review, ingest, analytics, users, health), WebSocket streaming, rate limiting, CORS hardening |
-| **E2E Tests** | `tests/test_e2e.py` | ✅ COMPLETE | 4/4 passing, all profiles/flows |
-| **Database Seeding** | `scripts/` | ✅ COMPLETE | 2 clones, 1 user, provenance, 8 semantic chunks |
-| **Frontend** | `ui/` | ✅ COMPLETE | 25 source files, Vite+React+TS+Tailwind, chat, review, analytics pages |
+| **Migrations** | `core/db/migrations/` | ✅ COMPLETE | 6 migrations (0006: BM25 tsvector + GIN index, Session 29) |
+| **RAG Ingestion** | `core/rag/ingestion/` | ✅ COMPLETE | Parser + chunker (semantic) + embedder + indexer (with tsvector) |
+| **RAG Retrieval** | `core/rag/retrieval/` | ✅ COMPLETE | Hybrid vector+BM25, FlashRank reranking, RRF fusion, CRAG (S29) |
+| **FastAPI Layer** | `api/` | ✅ COMPLETE | 7 endpoint groups, WebSocket + reasoning trace, rate limiting, CORS |
+| **Test Suite** | `tests/` | ✅ COMPLETE | 77 tests passing (API+chunker+session16+e2e) |
+| **Database Seeding** | `scripts/` | ✅ COMPLETE | 2 clones, 1 user, 8 docs, 37 chunks (real Gemini embeddings, S30) |
+| **Frontend** | `ui/` | ✅ COMPLETE | 29 source files, ReasoningTrace, CollapsibleCitations, copper theme |
 
 ---
 
@@ -244,7 +255,10 @@ The LLM generates a response using:
 - **Stubs with correct state shapes** to verify orchestration before building dependencies
 - **No Apache AGE** — use pure SQL tables + recursive CTEs (team eliminated Oct 2024)
 - **BIGSERIAL for audit_log + query_analytics** — guarantees immutable ordering
-- **Semantic chunking** via LangChain SemanticChunker + Google Gemini embeddings (Session 13, updated Session 14). Old fixed-size chunker preserved as fallback. New dependency: `langchain-experimental==0.4.1`
+- **Semantic chunking** via LangChain SemanticChunker + Google Gemini embeddings (Session 13). Old fixed-size chunker preserved as fallback
+- **FlashRank cross-encoder reranking** (Session 29) — `ms-marco-MiniLM-L-12-v2` (~34MB, CPU-only). Over-retrieve 3x, rerank to top_k. No PyTorch dependency
+- **BM25 hybrid search** (Session 29) — PostgreSQL `tsvector` column + GIN index. Combined with vector results via RRF. Breaks CRAG retry loop where paraphrased queries retrieved identical passages
+- **Deterministic confidence scoring** (Session 29) — 4-factor weighted formula replaces LLM self-evaluation (which always returned ~1.0). No LLM call = faster + calibrated
 
 ---
 

@@ -175,7 +175,7 @@ async def test_get_clone_profile(client):
     assert data["slug"] == "paragpt-client"
     assert data["display_name"] == "Parag Khanna"
     assert data["generation_mode"] == "interpretive"
-    assert data["confidence_threshold"] == 0.80
+    assert data["confidence_threshold"] == 0.65
     assert data["review_required"] is False
     assert data["user_memory_enabled"] is True
 

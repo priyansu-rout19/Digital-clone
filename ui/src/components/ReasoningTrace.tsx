@@ -28,6 +28,7 @@ function formatDetail(r: TraceRecord): string {
   if (r.sub_query_count != null) parts.push(`${r.sub_query_count} sub-queries`);
   if (r.response_tokens != null) parts.push(`target: ${r.response_tokens} tokens`);
   if (r.passage_count != null) parts.push(`${r.passage_count} passages`);
+  if (r.reranked) parts.push('reranked');
   if (r.confidence != null) parts.push(`confidence: ${Math.round(r.confidence * 100)}%`);
   if (r.retry_count != null) parts.push(`retry #${r.retry_count}`);
   if (r.new_queries != null) parts.push(`${r.new_queries} new queries`);

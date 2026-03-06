@@ -1,7 +1,7 @@
 # Digital Clone Engine — Session Progress & Implementation Status
 
-**Last Updated:** March 6, 2026 (Session 28 — P1 SOW Gaps + Reasoning Trace Panel)
-**Current Focus:** All 4 P1 SOW gaps fixed + reasoning trace panel implemented. SOW compliance improved to ~93%. 29 frontend source files. 76 tests pass (74 + 2 skipped + 1 new).
+**Last Updated:** March 6, 2026 (Session 30 — Documentation Overhaul + Demo Readiness)
+**Current Focus:** All documentation updated to Session 30. Real Gemini embeddings in seed corpus (37 passages, 8 docs). Landing page questions aligned with demo corpus. 77 tests pass, zero TS errors, 93% SOW compliance.
 
 ---
 
@@ -28,7 +28,7 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 - Verified: Both profiles serialize to valid JSON, validators catch invalid combos
 
 **Component 03: PostgreSQL Database Schema**
-- Files: `core/db/schema.py` (360 lines) + `core/db/migrations/` (4 migrations)
+- Files: `core/db/schema.py` (360 lines) + `core/db/migrations/` (6 migrations)
 - 15 SQLAlchemy 2.0 ORM models with proper cascading relationships
 - 3 Pydantic JSONB schemas: DocumentProvenance, CitedSource, AuditDetails
 - Migration 0001: 6 core tables (users, clones, documents, review_queue, audit_log, query_analytics)
@@ -67,8 +67,8 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 |---|---|---|---|
 | query_analysis | Real | Yes | Classifies intent, decomposes queries (JSON with fallback) |
 | tier1_retrieval | ✅ Real | No | pgvector cosine search + RRF (Reciprocal Rank Fusion) |
-| crag_evaluator | ✅ Real | No | Passage-count confidence adjustment (no LLM, fast) — Session 16 |
-| query_reformulator | ✅ Real | Yes | Rephrases low-confidence queries (retry_count fix: only increments here) |
+| crag_evaluator | ✅ Real | No | Reranker-score confidence (not passage-count) — Session 29 fix |
+| query_reformulator | ✅ Real | Yes | Keyword extraction + sub-topic decomposition (not paraphrases) — Session 29 fix |
 | tier2_tree_search | Designed Stub | No | Returns passages unchanged, MinIO TODO (PCCI blocked) |
 | provenance_graph_query | ✅ Real | No | SQL recursive CTE (parameterized queries — Session 17 security fix) |
 | context_assembler | ✅ Real | No | Assembles passages into context string |
@@ -76,7 +76,7 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 | memory_writer | ✅ Real | No | Saves conversation turns to Mem0 (ParaGPT only) — Session 4 |
 | in_persona_generator | ✅ Real | Yes | Persona-aware generation (temp=0.0 for mirror_only — Session 17 fix) |
 | citation_verifier | ✅ Real | No | Parses [N] markers, cross-refs passages, populates cited_sources — Session 5 |
-| confidence_scorer | ✅ Real | Yes | LLM evaluates response quality (0.0-1.0) |
+| confidence_scorer | ✅ Real | No | Deterministic 4-factor scorer (no LLM) — Session 29 |
 | soft_hedge_router | ✅ Real | No | Overwrites both raw_response AND verified_response — Session 17 fix |
 | strict_silence_router | ✅ Real | No | Sets silence flag, routes to review or user |
 | review_queue_writer | ✅ Real | No | Real DB INSERT into review_queue (psycopg) — Session 16 |
@@ -100,8 +100,9 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 - ✅ Requirements: Added `langchain-google-genai` (for Google Gemini embeddings)
 
 **Component 02b: Retrieval Pipeline** ✅
-- ✅ `core/rag/retrieval/vector_search.py` — Tier 1 pgvector + RRF (143 lines, cleaned)
+- ✅ `core/rag/retrieval/vector_search.py` — Hybrid vector+BM25, FlashRank reranking, RRF fusion
   - `search(sub_queries, clone_id, access_tiers, db_url, top_k=10)` with RRF merging
+  - **Session 29:** BM25 keyword search via `tsvector`/`tsquery`, FlashRank cross-encoder reranking (over-retrieve 30, rerank to 10)
   - Handles ParaGPT (public) and Sacred Archive (devotee/friend/follower) access tiers
 - ✅ `core/rag/retrieval/provenance.py` — Tier 2+ teaching graph via recursive CTE (191 lines, cleaned)
   - `query_teaching_graph()` for Sacred Archive provenance traversal
@@ -184,7 +185,7 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 - ✅ `pytest.ini` — Pytest configuration file (asyncio_mode=auto)
 - ~~`tests/test_voyage_integration.py`~~ — DELETED Session 15 (provider changed to Google Gemini)
 - ✅ `requirements.txt` — Added pytest==9.0.2, pytest-asyncio==0.25.2; removed langchain-voyageai + voyageai (Session 15)
-- ✅ Full test suite: **75 passed** (33 API + 10 chunker + 26 session16 + 4 E2E + 2 WS)
+- ✅ Full test suite: **77 passed** (33 API + 10 chunker + 26 session16 + 4 E2E + 2 WS + 2 seed)
 
 ### ✅ COMPLETE
 
@@ -258,6 +259,30 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 
 ### ✅ COMPLETE
 
+**React Frontend** (Sessions 19-28)
+- ✅ 29 source files — Vite 6 + React 19 + TypeScript + Tailwind CSS v4
+- ✅ ParaGPT: Landing (glassmorphism, corpus-aligned questions) + Chat (copper theme, header-less, thinking bubble, reasoning trace)
+- ✅ Sacred Archive: Landing (tier selector) + Chat (serif + gold, provenance citations)
+- ✅ Review Dashboard: 3-column layout, edit mode, keyboard shortcuts (a/r/e), CollapsibleCitations
+- ✅ Analytics Dashboard: stat cards, bar charts, intent breakdown
+- ✅ 10 shared components: MessageBubble, ChatInput, CitationCard, CitationGroupCard, CitationList, CollapsibleCitations, NodeProgress, AudioPlayer, ReasoningTrace, ErrorBoundary
+- ✅ WebSocket streaming with node progress events + reasoning trace accumulation
+- ✅ Zero TypeScript errors, production build passes
+
+**RAG Pipeline Overhaul** (Session 29)
+- ✅ FlashRank cross-encoder reranking (`ms-marco-MiniLM-L-12-v2`, ~34MB, CPU-only)
+- ✅ BM25 hybrid search via PostgreSQL `tsvector` + GIN index (migration 0006)
+- ✅ Multi-factor confidence scorer: retrieval (0.35) + citation_coverage (0.25) + response_grounding (0.25) + passage_count (0.15)
+- ✅ CRAG loop fix: reranker-based evaluator + keyword/sub-topic reformulation (not paraphrases)
+
+**Demo Readiness** (Session 30)
+- ✅ Real Gemini embeddings in seed corpus (37 passages, 8 documents)
+- ✅ Landing page questions aligned with demo corpus + irrelevant question for hedge demo
+- ✅ All 6 documentation files updated to Session 30
+- ✅ 77 tests passing
+
+### ✅ COMPLETE
+
 **Database Setup + Seeding** (Session 12)
 - ✅ PostgreSQL 17 running locally (pg_hba.conf → trust for dev)
 - ✅ pgvector 0.8.2 installed (HNSW indexing enabled)
@@ -306,6 +331,10 @@ core/                       ← Runtime implementation
       versions/
         0001_initial_schema.py    ← 6 core tables
         0002_provenance_graph.py  ← 8 provenance tables
+        0003_document_chunks.py   ← pgvector VECTOR(1024) + HNSW index
+        0004_messages.py          ← Conversation persistence
+        0005_user_memory.py       ← Mem0 metadata
+        0006_bm25_search.py       ← tsvector column + GIN index (Session 29)
   langgraph/                ← Component 04 ✅
     conversation_flow.py    ← 19-node orchestration graph (build_graph factory)
     nodes/
@@ -326,13 +355,28 @@ scripts/                    ← Database setup + CLI utilities
     paragpt_sample.md       ← ParaGPT sample (geopolitics)
     sacred_archive_sample.md ← Sacred Archive sample (compassion)
 
-tests/                      ← Test suite (69 passed, 6 skipped)
+tests/                      ← Test suite (77 passed)
   test_api.py               ← FastAPI endpoint tests (33 tests, mocked) — Updated Session 17
   test_chunker.py           ← Semantic chunking tests (10 tests: 8 unit + 2 integration)
   test_session16.py          ← Stub replacement tests (26 tests) — NEW Session 16
   test_e2e.py               ← End-to-end REAL integration tests (4 tests, no mocks) — Updated Session 17
   show_pipeline.py          ← Educational pipeline visualizer (--real flag) — Updated Session 17
   conftest.py               ← Pytest configuration + real DB seeding fixtures
+
+ui/                         ← React Frontend (29 source files) — Sessions 19-28
+  src/
+    api/                    ← types.ts (22 interfaces + TraceRecord), client.ts, websocket.ts
+    hooks/                  ← useChat.ts (WS + trace), useCloneProfile.ts, useAudio.ts
+    components/             ← 10 shared components (MessageBubble, CitationCard, ReasoningTrace, etc.)
+    pages/
+      paragpt/              ← Landing.tsx (glassmorphism, corpus-aligned questions), Chat.tsx (copper theme)
+      sacred-archive/       ← Landing.tsx (tier selector), Chat.tsx (serif + gold)
+      review/               ← Dashboard.tsx (3-column, keyboard shortcuts, edit mode)
+      analytics/            ← Dashboard.tsx (stats cards, bar charts)
+    themes/                 ← paragpt.ts, sacred-archive.ts (design tokens)
+    App.tsx                 ← Router + profile loader
+    main.tsx                ← React root
+    index.css               ← Global styles + glass morphism + markdown
 
 build/                      ← Specification documents (reference only)
   components/
@@ -442,46 +486,17 @@ These were researched and decided. Do NOT re-debate:
 
 ---
 
-## Next Tasks: React Frontend Implementation
+## Component Status Summary (Session 30)
 
-**✅ DONE:** Sessions 12-17 — Full backend complete + hardened.
-**✅ DONE:** Session 18 — MVP UI/UX designs created in Variant.
-
-**Design Phase: ✅ COMPLETE**
-- [x] ParaGPT Chat Page landing mockup in Variant
-- [x] Sacred Archive Seeker Chat landing mockup in Variant
-- [ ] Sacred Archive Review Dashboard mockup (deferred — will design when needed)
-- [x] Design reference saved: `docs/UI-UX/DESIGN-REFERENCE.md`
-- [x] Variant prompts saved: `.claude/plans/magical-meandering-nygaard.md`
-
-**Next: React Frontend (MVP)**
-- Chat Page (ParaGPT):
-  - Landing: profile card, topic tags, starter questions, input bar
-  - Conversation: collapsed header, message bubbles, citations, audio player
-  - Real-time streaming via WebSocket
-  - Voice playback (edge-tts MP3)
-  - Cross-session memory ("Welcome back")
-
-- Seeker Chat (Sacred Archive):
-  - Landing: title, tier selector (Devotee/Friend/Follower), suggested questions
-  - Conversation: direct quotes with provenance, original recording links
-  - Sacred silence state
-  - No cross-session memory
-
-- Review Dashboard (Sacred Archive — after chat pages):
-  - 3-column layout (queue | detail | actions)
-  - Keyboard shortcuts (A/R/E)
-  - Stats bar
-
-**Then: Docker Compose + PCCI Deployment**
-
-**Status:**
-- ✅ Backend (core engine + API + tests): 100% COMPLETE + HARDENED (Session 17)
-- ✅ Database (setup + seeding + sample data): COMPLETE
-- ✅ All stubs resolved except 3 hardware-blocked (PCCI)
-- ✅ 69 tests passing, 6 skipped
-- ✅ UI/UX Designs: MVP mockups done (ParaGPT + Sacred Archive)
-- ⏳ Frontend: React implementation next
+| Component | Status | Sessions | Notes |
+|---|---|---|---|
+| Backend (core engine + API) | ✅ COMPLETE + HARDENED | 1-17 | 19 LangGraph nodes, 7 API endpoint groups |
+| Database (schema + seeding) | ✅ COMPLETE | 12, 25, 30 | 15 tables, 6 migrations, 37 seeded passages |
+| RAG Pipeline | ✅ COMPLETE | 13-14, 29 | FlashRank reranking, BM25 hybrid, multi-factor scorer |
+| Frontend (React SPA) | ✅ COMPLETE | 19-28 | 29 source files, zero TS errors, production build |
+| Documentation | ✅ COMPLETE | 30 | 6 docs refreshed to Session 30 |
+| Test Suite | ✅ COMPLETE | 10-16 | 77 tests passing |
+| Stubs | 3 remaining | — | All PCCI hardware-blocked |
 
 ---
 
@@ -506,102 +521,72 @@ These were researched and decided. Do NOT re-debate:
 
 ## Lessons Learned (from tasks/lessons.md)
 
-22 lessons documented. Key ones:
-1. **Lesson 10:** Factory pattern for profile-aware nodes (closures)
-2. **Lesson 11:** Real LLM integration with graceful fallbacks
-3. **Lesson 8:** Conditional routing drives unified codebase
-4. **Lesson 6:** Pydantic enum serialization (str, Enum)
+30 lessons documented. Key recent ones:
+1. **Lesson 28:** LLM self-evaluation unreliable for confidence scoring — use deterministic multi-factor scoring
+2. **Lesson 29:** Paraphrased queries embed identically — use keyword/sub-topic/jargon strategies
+3. **Lesson 30:** Random embeddings break testing — always use real embeddings for demo corpora
 
-See `tasks/lessons.md` for all 22.
+See `tasks/lessons.md` for all 30.
 
 ---
 
-## For Next Session (Session 19+)
+## For Next Session (Session 31+)
 
-**What's Ready:**
-- ✅ FULL BACKEND COMPLETE + HARDENED (Sessions 1-17)
-- ✅ MVP UI/UX DESIGNS COMPLETE (Session 18) — saved in `docs/UI-UX/`
-- ✅ 69 tests passing, 6 skipped
+**Current Status (Session 30):**
+- ✅ FULL SYSTEM COMPLETE — Backend + Frontend + RAG pipeline + Tests
+- ✅ 77 tests passing, zero TS errors, production build passes
+- ✅ SOW Compliance: ParaGPT 97%, Sacred Archive 90%, Combined 93%
+- ✅ Demo-ready: real Gemini embeddings, corpus-aligned starter questions, reasoning trace
+- ✅ All documentation updated to Session 30 (6 docs refreshed)
 - Only 3 hardware-blocked stubs remain (LLM swap, embeddings swap, tree search — all PCCI)
 
-**What's Next:**
+**Remaining Work (P2 Quality):**
+- [ ] AuditLog writes — table exists but never INSERT'd (needs writes on review/ingest/admin actions)
+- [ ] Rejection → seeker notification flow — no notification when reviewer rejects
+- [ ] GDPR delete auth — no authentication on DELETE endpoint
+- [ ] Demo videos — 5 user journey recordings (manager HIGH priority, non-code)
+- [ ] When full corpus loaded: raise `confidence_threshold` back to 0.80
 
-**Phase 1: Design ✅ COMPLETE**
-- [x] ParaGPT Chat Page mockup (landing state)
-- [x] Sacred Archive Seeker Chat mockup (landing + tier selector)
-- [x] Design reference: `docs/UI-UX/DESIGN-REFERENCE.md`
-
-**Phase 2: React Frontend (NEXT)**
-- [ ] Project setup: Vite + React + TypeScript + Tailwind CSS
-- [ ] ParaGPT Chat Page (landing → conversation states)
-- [ ] Sacred Archive Seeker Chat (landing → conversation states)
-- [ ] WebSocket streaming integration
-- [ ] Voice playback (audio player for edge-tts MP3)
-- [ ] Sacred Archive Review Dashboard
-- [ ] Docker Compose full-stack setup
-- [ ] Smoke test: Chat page → API → LangGraph → response
-
-**Phase 3: Production Deployment**
+**Phase 3: Production Deployment (PCCI-blocked)**
 - [ ] Replace dev proxies: Groq → SGLang, Google Gemini → TEI (when PCCI ready)
 - [ ] Docker Compose or Kubernetes on PCCI
-- [ ] CORS lockdown, auth hardening
+- [ ] Real voice cloning (OpenAudio S1-mini)
+- [ ] Air-gapped deployment for Sacred Archive
 
-**To Continue Next Session (Session 19):**
+**To Continue Next Session (Session 31):**
 1. Read `PROGRESS.md` (this file) — recap status
-2. Check `docs/UI-UX/DESIGN-REFERENCE.md` — design specs for React
-3. Run full test suite: `pytest tests/ -v` (expect 69 passed, 6 skipped)
-4. Start FastAPI server: `python3 -m uvicorn api.main:app --port 8000`
-5. Begin React project setup (Vite + TypeScript + Tailwind)
-6. Implement ParaGPT landing page first, then conversation view
+2. Run full test suite: `python3 -m pytest tests/ -v` (expect 77 passed)
+3. Check `docs/SOW-AUDIT.md` for remaining gaps
+4. Start with P2 quality fixes (AuditLog writes, rejection flow, GDPR auth)
 
 **Key Files Modified (Recent Sessions):**
 
-**Session 17 (Backend Audit & Hardening — 12 fixes):**
-- `core/langgraph/nodes/routing_nodes.py` — Fix 1 (silence mechanism), Fix 10 (DRY), Fix 11 (regex split)
-- `core/langgraph/nodes/generation_nodes.py` — Fix 3 (profile-aware temperature)
-- `core/rag/retrieval/provenance.py` — Fix 4 (SQL parameterization)
-- `api/routes/ingest.py` — Fix 2 (DB URL), Fix 5 (path traversal), Fix 9 (BackgroundTasks)
-- `api/routes/chat.py` — Fix 7 (WebSocket session leak), Fix 8 (user_memory privacy)
-- `api/routes/review.py` — Fix 6 (clone-scoped PATCH route)
-- `core/langgraph/nodes/retrieval_nodes.py` — Fix 10 (import shared psycopg_url)
-- `core/db/__init__.py` — Fix 10 (shared psycopg_url utility)
-- `requirements.txt` — Fix 12 (removed tf-keras, pinned versions)
-- `core/langgraph/conversation_flow.py` — P3 comment fix
-- `core/rag/ingestion/indexer.py` — P3 comment fix
-- `tests/show_pipeline.py` — P3 added audio_base64/audio_format keys
-- `tests/test_e2e.py` — P3 added GOOGLE_API_KEY to skipif
-- `tests/test_api.py` — Updated 4 test assertions for route/response changes
+**Session 30 (Demo Readiness + Documentation):**
+- `scripts/seed_paragpt_corpus.py` — Real Gemini embeddings (replaced random), 37 passages, 8 docs
+- `ui/src/pages/paragpt/Landing.tsx` — Corpus-aligned starter questions + irrelevant hedge demo
+- `core/models/clone_profile.py` — ParaGPT `confidence_threshold` 0.80 → 0.65 (for demo corpus)
+- All 6 documentation files updated (SOW-AUDIT, MANAGER-DIRECTIVES, ARCHITECTURE, FRONTEND, DEVELOPMENT-PLAN, lessons.md)
 
-**Session 16 (6 Stub Replacements):**
-- `core/langgraph/nodes/routing_nodes.py` — review_queue_writer, voice_pipeline, stream_to_user (real)
-- `core/langgraph/nodes/query_analysis_node.py` — token_budget (LLM-decided)
-- `core/langgraph/nodes/retrieval_nodes.py` — crag_evaluator (confidence adjustment)
-- `core/rag/ingestion/parser.py` — audio/video parsing (Groq Whisper)
-- `api/routes/chat.py` — audio_base64/audio_format in initial state
-- `core/langgraph/conversation_flow.py` — audio_base64/audio_format in ConversationState
-- `requirements.txt` — Added edge-tts==7.2.7
-- `tests/test_session16.py` (NEW) — 26 tests for stub replacements
+**Session 29 (RAG Pipeline Overhaul — 4 fixes):**
+- `core/langgraph/nodes/generation_nodes.py` — Multi-factor confidence scorer (4 deterministic factors)
+- `core/rag/retrieval/vector_search.py` — FlashRank reranking + BM25 hybrid search
+- `core/langgraph/nodes/retrieval_nodes.py` — Reranker-based CRAG evaluator + keyword reformulator
+- `core/rag/ingestion/indexer.py` — `search_vector` tsvector column population
+- `core/db/migrations/versions/0006_bm25_search.py` — tsvector + GIN index migration
+- `requirements.txt` — Added flashrank==0.2.10
 
-**Session 15 (Voyage AI Cleanup):**
-- `requirements.txt` — Removed voyageai, langchain-voyageai, tf-keras
-- `docs/STUBS-AND-MOCKS.md` — Updated inventory
-- Deleted `tests/test_voyage_integration.py`
+**Session 28 (P1 SOW Gaps + Reasoning Trace):**
+- `api/routes/chat.py` — `_extract_trace_data()`, `_extract_topic_suggestions()`, trace in WS progress
+- `api/routes/review.py` — PATCH edit action, cited_sources in GET response
+- `ui/src/components/ReasoningTrace.tsx` (NEW) — Pipeline trace timeline
+- `ui/src/pages/review/Dashboard.tsx` — Edit mode, keyboard shortcuts, CollapsibleCitations
 
-**Sessions 8-14:** See previous PROGRESS.md versions for detailed file lists.
+**Sessions 19-27:** Frontend build (29 source files), UI/UX overhaul (copper theme, glassmorphism, header-less chat), citation grouping, collapsible citations, dynamic response length, Mem0 dimension fix.
 
 **If Context Gets Full Again:**
 - Update PROGRESS.md with new progress
 - Keep `tasks/lessons.md` updated
-- Update `/home/priyansurout/.claude/projects/-home-priyansurout-Digital-Clone-Engine/memory/MEMORY.md`
-
----
-
-**Session 18 (UI/UX Design Phase):**
-- `docs/UI-UX/DESIGN-REFERENCE.md` (NEW) — Design system, color palettes, component specs
-- `.claude/plans/magical-meandering-nygaard.md` — All Variant prompts (1, 1B, 1C, 2, 3)
-- MVP mockups: ParaGPT landing + Sacred Archive landing created in Variant
-
-**Status (Session 18):** FULL SYSTEM OPERATIONAL + HARDENED + DESIGNED. Backend 100% complete. MVP UI/UX designs done (ParaGPT + Sacred Archive landing pages). Design reference saved in `docs/UI-UX/`. 69 tests passing, 6 skipped. Ready for React frontend implementation.
+- Update MEMORY.md
 
 ---
 
@@ -985,18 +970,99 @@ New key: `suggested_topics: list[str]`
 
 ---
 
-## For Next Session (Session 29)
+## Session 29 — RAG Pipeline Overhaul
+
+**Fixed 3 fundamental pipeline bugs discovered via reasoning trace panel (Session 28 screenshot).**
+
+### Problem Discovery
+The reasoning trace showed: CRAG retried 3x with identical 77% confidence → final confidence scorer returned 100%. Two disconnected confidence metrics (retrieval_confidence for CRAG, final_confidence for output routing) were never combined. The hedge/silence mechanism was effectively dead for ParaGPT.
+
+### Root Cause Analysis (3 interacting bugs)
+1. **CRAG evaluator was a no-op** — `min(10/3.0, 1.0) = 1.0` with 10 passages (default). Never adjusted confidence.
+2. **CRAG retry loop was useless** — paraphrased queries embed to identical vectors (by design). Reformulator had no diagnostic info (only `source_type`, no passage text).
+3. **Confidence scorer was blind** — LLM saw only question+answer, never retrieval_confidence or passages. Always rated ~1.0 (grading fluency, not groundedness).
+
+### Fix 1: Multi-Factor Confidence Scorer
+- **File:** `core/langgraph/nodes/generation_nodes.py`
+- Replaced LLM self-evaluation with deterministic 4-factor scoring:
+  - `0.35 * retrieval_confidence` (from vector search / reranker)
+  - `0.25 * citation_coverage` (cited_sources / retrieved_passages)
+  - `0.25 * response_grounding` (lexical overlap response↔context)
+  - `0.15 * passage_count_factor` (min(passages/3, 1.0))
+- No LLM call = faster, no overconfidence. Hedge/silence now actually triggers.
+
+### Fix 2: FlashRank Reranking
+- **File:** `core/rag/retrieval/vector_search.py`
+- Added cross-encoder reranking after vector search (2-stage retrieval):
+  1. Over-retrieve `top_k * 3` candidates via cosine similarity
+  2. Rerank with `ms-marco-MiniLM-L-12-v2` (~34MB, CPU-only)
+  3. Return top 10 reranked with per-passage `rerank_score`
+- Confidence = mean reranker score of top 5 (far more calibrated than cosine similarity)
+- Module-level singleton: model loaded once, reused across requests
+- Graceful fallback: if FlashRank unavailable, falls back to RRF order
+- **New dependency:** `flashrank==0.2.10`
+
+### Fix 3: CRAG Loop Improvement
+- **File:** `core/langgraph/nodes/retrieval_nodes.py`
+- **Evaluator:** Uses mean reranker scores (cross-encoder) instead of passage-count heuristic
+- **Reformulator:** Now sees actual passage text (first 200 chars of top 3) + reranker scores
+- **Prompt:** Asks for keyword extraction, sub-topic decomposition, domain jargon — NOT paraphrases
+- Fallback generates keyword queries instead of "What about X?" / "Explain X"
+
+### Fix 4: BM25 Hybrid Search
+- **Files:** `core/rag/retrieval/vector_search.py`, `core/rag/ingestion/indexer.py`
+- Added `search_vector` (tsvector) column to `document_chunks` table
+- **Migration 0006:** `ALTER TABLE` + `to_tsvector('english', passage)` + GIN index
+- BM25 results combined with vector results via existing RRF formula
+- **Why this breaks the stuck loop:** BM25 ranks by keyword frequency, not embedding similarity. Reformulated queries with different keywords → different passages.
+- Indexer updated to populate `search_vector` during ingestion
+
+### Trace Panel Update
+- `_extract_trace_data()` now shows `reranked` flag and `top_rerank_score`
+- Frontend `TraceRecord` type updated with new fields
+- `ReasoningTrace.tsx` displays "reranked" label when cross-encoder was used
+
+### Files Modified (Session 29)
+| File | Change |
+|------|--------|
+| `core/langgraph/nodes/generation_nodes.py` | Multi-factor confidence scorer (replaced LLM self-eval) |
+| `core/rag/retrieval/vector_search.py` | FlashRank reranking + BM25 hybrid search + confidence fix |
+| `core/langgraph/nodes/retrieval_nodes.py` | CRAG evaluator (reranker scores) + reformulator (diagnostic info) |
+| `core/rag/ingestion/indexer.py` | Populate `search_vector` tsvector column |
+| `core/db/migrations/versions/0006_bm25_tsvector.py` | New migration: tsvector column + GIN index |
+| `api/routes/chat.py` | Trace data: reranked flag + top_rerank_score |
+| `ui/src/api/types.ts` | TraceRecord: reranked, top_rerank_score fields |
+| `ui/src/components/ReasoningTrace.tsx` | Display "reranked" in trace |
+| `requirements.txt` | Added `flashrank==0.2.10` |
+
+### Verification
+- ✅ 70 tests passed (test_api 34 + test_session16 26 + test_chunker 10), 0 failed
+- ✅ Frontend: zero TS errors, production build passes
+- ✅ FlashRank reranker loads and scores correctly (verified with sample data)
+- ✅ Migration 0006 applied (tsvector column + GIN index)
+
+### Research Sources
+- CRAG Paper (arXiv:2401.15884) — retrieval evaluator + web search fallback
+- Anthropic Contextual Retrieval — 67% reduction in retrieval failures
+- LLM Overconfidence (arXiv:2508.06225) — 84.3% overconfident scenarios
+- FlashRank — ultra-lightweight CPU reranker
+- PostgreSQL tsvector — built-in BM25, no extension needed
+
+---
+
+## For Next Session (Session 30)
 
 **What's Ready:**
-- ✅ ALL P1 SOW gaps FIXED
-- ✅ Reasoning trace panel LIVE
-- ✅ 74 tests passing, zero TS errors, production build passes
+- ✅ RAG pipeline fundamentally improved (reranking + BM25 + multi-factor confidence)
+- ✅ ALL P0 + P1 SOW gaps FIXED
+- ✅ Reasoning trace panel LIVE with reranker metrics
+- ✅ 70 tests passing, zero TS errors
 - ✅ SOW compliance at ~93%
-- ✅ 29 frontend source files
 
 **Remaining Work:**
 1. **P2 Quality fixes:** AuditLog never written to, rejection→seeker flow missing, GDPR delete no auth
 2. **Demo videos:** 5 user journey recordings (manager request, non-code)
 3. **PCCI-blocked stubs:** LLM swap, embeddings swap, tree search, voice clone, air-gap enforcement
-4. **Polish:** NodeProgress still used in Sacred Archive (could switch to thinking bubble like ParaGPT)
-5. Update `docs/SOW-AUDIT.md` with Session 28 fixes
+4. **Future RAG improvements:** Contextual Retrieval (Anthropic), RAGAS evaluation framework
+5. Update `docs/SOW-AUDIT.md` and `docs/MANAGER-DIRECTIVES.md` with Sessions 28-29 fixes
+6. **Polish:** NodeProgress still used in Sacred Archive (could switch to thinking bubble)

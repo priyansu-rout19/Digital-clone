@@ -40,6 +40,7 @@ def index_chunks(
                         access_tier,
                         date,
                         embedding,
+                        chunk,  # repeated for to_tsvector('english', %s)
                     )
                 )
             with conn.cursor() as cur:
@@ -47,11 +48,14 @@ def index_chunks(
                     """
                     INSERT INTO document_chunks (
                         doc_id, clone_id, chunk_index, chunk_id, passage,
-                        source_type, access_tier, date, embedding
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        source_type, access_tier, date, embedding,
+                        search_vector
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        to_tsvector('english', %s))
                     ON CONFLICT (chunk_id) DO UPDATE SET
                         passage = EXCLUDED.passage,
-                        embedding = EXCLUDED.embedding
+                        embedding = EXCLUDED.embedding,
+                        search_vector = EXCLUDED.search_vector
                     """,
                     rows,
                 )

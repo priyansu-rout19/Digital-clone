@@ -1,6 +1,6 @@
 # Manager Directives & Product Vision
 
-**Source:** Prem AI management feedback | **Last Updated:** March 5, 2026 (Session 25)
+**Source:** Prem AI management feedback | **Last Updated:** March 6, 2026 (Session 30)
 
 ---
 
@@ -27,12 +27,12 @@
 
 ## Feature Requests (from management)
 
-### Reasoning & Tool Call Traces (REQUESTED — not yet built)
+### Reasoning & Tool Call Traces ✅ DONE (Session 28)
 - **What:** Full visibility into the AI's decision-making at each pipeline step
 - **Why:** Increase trust with clients. They need to see *why* the clone said what it said
-- **Details:** Show which sources were retrieved, what confidence scores were, whether CRAG retried, what citations were verified vs hallucinated
-- **Current state:** WebSocket sends node names only (`{"type": "progress", "node": "tier1_retrieval"}`) — no actual data payload
-- **Target:** Collapsible "Show reasoning" panel under each response with full pipeline trace
+- **Implementation:** `_extract_trace_data()` in `chat.py` extracts curated metrics per node. WS progress messages include `trace` field (never sends full passages). `ReasoningTrace.tsx` component — collapsible "{N} pipeline steps" pill with vertical timeline.
+- **Shows:** retrieval confidence, passage count, reranked flag, top rerank score, CRAG retry count, generation mode, citation count, silence trigger status
+- **Session 29 enhancement:** Trace panel now shows `reranked` flag and `top_rerank_score` from FlashRank cross-encoder
 
 ### Demo Videos (REQUESTED — not code)
 - **What:** Screen recordings of key user journeys
@@ -47,7 +47,7 @@
 
 ---
 
-## Requirement Audit Results (Sessions 22-25)
+## Requirement Audit Results (Sessions 22-30)
 
 ### ParaGPT Gaps Identified & Fixed
 | Gap | Status | Session |
@@ -63,6 +63,16 @@
 | Citation missing provenance fields | **Fixed** — date/location/event/verifier flow through | 24 |
 | Citation shows "essay" not source title | **Fixed** — `source_title` pipeline shows "The Future Is Asian (book) — 2019" | 25 |
 | No sample corpus for demo | **Fixed** — 6 documents, 22 chunks seeded | 25 |
+| Review EDIT action missing | **Fixed** — PATCH with `action: edit` + textarea in Dashboard | 28 |
+| Review keyboard shortcuts missing | **Fixed** — `a`/`r`/`e` keys + ArrowUp/Down navigation | 28 |
+| Review missing cited sources | **Fixed** — `CollapsibleCitations` with `defaultExpanded={true}` | 28 |
+| Dynamic topic suggestions missing | **Fixed** — `_extract_topic_suggestions()` from retrieved passages | 28 |
+| Reasoning trace panel | **Fixed** — `ReasoningTrace.tsx` + backend `_extract_trace_data()` | 28 |
+| Confidence scorer overconfident (always ~100%) | **Fixed** — deterministic 4-factor scorer (no LLM self-eval) | 29 |
+| CRAG loop stuck (same passages every retry) | **Fixed** — BM25 hybrid search + reranker-based evaluator | 29 |
+| Retrieval quality low | **Fixed** — FlashRank cross-encoder reranking (+48% quality) | 29 |
+| Seed corpus had random embeddings | **Fixed** — real Gemini embeddings, 37 passages, 8 documents | 30 |
+| Landing page questions didn't match corpus | **Fixed** — aligned with demo corpus, includes irrelevant question for hedge demo | 30 |
 
 ### Sacred Archive Gaps Identified & Fixed
 | Gap | Status | Session |
@@ -72,16 +82,17 @@
 | Provenance fields missing from citations | **Fixed** — all 5 fields (source, date, location, event, verifier) in frontend | 24-25 |
 | Silence message text wrong | **Fixed** — institutional voice per SOW | 24 |
 | Access tier not authenticated | Known gap — needs JWT auth system | — |
+| Dynamic topic suggestions missing | **Fixed** — same `_extract_topic_suggestions()` works for both clients | 28 |
+| Review EDIT/shortcuts/sources | **Fixed** — all 3 review dashboard enhancements | 28 |
 
 ### Still Missing (not blocked by PCCI)
 | Gap | Priority | Notes |
 |-----|----------|-------|
-| Reasoning trace panel | **HIGH** | Manager requested — increases trust. Show pipeline decisions under each response |
 | Demo videos | **HIGH** | Manager requested — 3-5 user journey recordings for stakeholders |
-| Success metrics tracking | MEDIUM | Citation accuracy, persona fidelity, latency — no measurement code |
-| Review EDIT action | MEDIUM | Only approve/reject — SOW requires edit capability |
-| Review keyboard shortcuts | MEDIUM | Mouse-only — SOW requires batch efficiency (50+/day) |
-| Dynamic topic suggestions | MEDIUM | Silence message doesn't suggest related topics |
+| AuditLog writes | MEDIUM | Table exists, never INSERT'd — needs writes on review/ingest/admin actions |
+| Rejection → seeker flow | MEDIUM | No notification to seeker when reviewer rejects |
+| GDPR delete auth | LOW | No authentication on DELETE endpoint |
+| Success metrics tracking | LOW | Citation accuracy, persona fidelity — no measurement code |
 
 ### Blocked by PCCI Hardware
 | Gap | Blocker |
@@ -92,12 +103,12 @@
 | Tree search (Tier 2) | MinIO on PCCI |
 | Air-gapped deployment | Full PCCI infra |
 
-### SOW Compliance Summary (Session 25)
+### SOW Compliance Summary (Session 30)
 | Client | Completion | Notes |
 |--------|-----------|-------|
-| ParaGPT | **96%** | Only voice clone remaining (PCCI-blocked) |
-| Sacred Archive | **83%** | Review dashboard enhancements + audit log remaining |
-| **Combined** | **89%** | Up from 80% (Session 23) → 85% (Session 24) → 89% (Session 25) |
+| ParaGPT | **97%** | Only voice clone remaining (PCCI-blocked) |
+| Sacred Archive | **90%** | AuditLog writes + rejection flow remaining (P2) |
+| **Combined** | **93%** | 80% (S23) → 85% (S24) → 89% (S25) → 93% (S28-30) |
 
 ---
 

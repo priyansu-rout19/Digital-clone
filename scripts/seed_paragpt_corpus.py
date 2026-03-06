@@ -6,9 +6,10 @@ so that citations show real-looking source titles and dates in the demo.
 
 Inserts:
   - 6 documents with provenance JSONB (title, date, location)
-  - 22 document_chunks with sample passage text and random 1024-dim embeddings
+  - 22 document_chunks with real Gemini embeddings (1024-dim, truncated from 3072)
 
 Idempotent: checks for existing rows before inserting.
+Requires: GOOGLE_API_KEY and EMBEDDING_MODEL in .env
 
 Run: python scripts/seed_paragpt_corpus.py
 """
@@ -17,8 +18,6 @@ import os
 import sys
 import uuid
 from pathlib import Path
-
-import numpy as np
 
 # ---------------------------------------------------------------------------
 # Add project root to sys.path so core/ imports work
@@ -36,6 +35,7 @@ from pgvector.psycopg import register_vector
 
 from core.db.schema import Clone, Document
 from core.db import psycopg_url
+from core.rag.ingestion.embedder import get_embedder
 
 # ---------------------------------------------------------------------------
 # Database setup (same pattern as seed_db.py)
@@ -92,6 +92,24 @@ CORPUS = [
                 "cables, and energy grids are the connective tissue of a continent that is "
                 "building its future in concrete and silicon, not just policy declarations."
             ),
+            (
+                "The future of ASEAN lies in its ability to deepen intra-regional connectivity "
+                "faster than external powers can fragment it. High-speed rail linking Kunming to "
+                "Singapore, cross-border digital payment systems, and harmonized customs protocols "
+                "are transforming ten separate markets into a single functional economic zone."
+            ),
+            (
+                "India's rise as a manufacturing alternative to China is the most significant "
+                "supply chain shift of the 2020s. But India's success depends on connectivity — "
+                "port infrastructure, logistics efficiency, and digital integration with ASEAN "
+                "markets. Geography alone guarantees nothing; infrastructure determines destiny."
+            ),
+            (
+                "The Asian century is not about any single country's dominance — it is about "
+                "the density of connections between Asian economies. Intra-Asian trade, investment, "
+                "and migration flows now exceed Asia's exchanges with any other region. This "
+                "self-reinforcing network effect is what makes Asia's rise structural, not cyclical."
+            ),
         ],
     },
     {
@@ -135,6 +153,20 @@ CORPUS = [
                 "and ports dominated their eras. Today, the same logic applies at planetary "
                 "scale — nations that build connectivity infrastructure gain resilience, while "
                 "those that rely on geographic isolation risk irrelevance."
+            ),
+            (
+                "My framework for understanding global connectivity rests on three pillars: "
+                "physical infrastructure (roads, ports, pipelines), digital infrastructure "
+                "(fiber-optic cables, data centers, cloud platforms), and institutional "
+                "infrastructure (trade agreements, customs unions, regulatory harmonization). "
+                "Nations that invest across all three pillars gain compounding advantages."
+            ),
+            (
+                "The map of the future is not defined by political borders but by supply chain "
+                "corridors and infrastructure networks. I call this connectography — the mapping "
+                "of how goods, data, capital, energy, and people flow across the world. This "
+                "functional geography is a more accurate representation of global power than "
+                "any political atlas."
             ),
         ],
     },
@@ -235,6 +267,19 @@ CORPUS = [
                 "connectivity first. The infrastructure comes before the institutions, and the "
                 "economic integration follows the supply chains — not the other way around."
             ),
+            (
+                "The future of ASEAN is as the world's most consequential swing region. It is "
+                "not aligned with either the US or China, and it does not need to be. ASEAN's "
+                "strategy is to maximize connectivity with all major powers simultaneously — "
+                "attracting investment from each while avoiding dependence on any single one."
+            ),
+            (
+                "ASEAN's digital economy is projected to exceed 300 billion dollars by 2025. "
+                "E-commerce platforms, fintech startups, and digital logistics companies are "
+                "scaling across borders faster than physical infrastructure can keep up. This "
+                "digital-first integration is ASEAN's greatest competitive advantage over older "
+                "regional blocs that started with bureaucratic harmonization."
+            ),
         ],
     },
     {
@@ -268,19 +313,100 @@ CORPUS = [
             ),
         ],
     },
+    {
+        "filename": "wef_asia_panel_2024.txt",
+        "source_type": "transcript",
+        "mime_type": "text/plain",
+        "provenance": {
+            "title": "WEF Panel: Asia's Next Chapter",
+            "date": "2024-01-18",
+            "location": "Davos, Switzerland",
+            "event": "World Economic Forum 2024",
+        },
+        "passages": [
+            (
+                "When people ask me about the future of ASEAN, I tell them to look at the "
+                "infrastructure pipelines, not the diplomatic communiques. Three trillion dollars "
+                "of planned infrastructure investment across Southeast Asia over the next decade "
+                "will physically rewire the region. That is the future of ASEAN — concrete, "
+                "steel, fiber optics, and energy grids connecting 700 million people."
+            ),
+            (
+                "The Belt and Road Initiative accelerated Asia's connectivity, but ASEAN nations "
+                "are not passive recipients. They are actively diversifying their infrastructure "
+                "partnerships — Japan, Korea, India, the EU, and the US are all competing to "
+                "finance projects. This multi-sourced connectivity model gives ASEAN more leverage "
+                "and resilience than dependence on any single partner."
+            ),
+            (
+                "Global supply chains are not deglobalizing — they are reglobalizing. The shift "
+                "is from concentrated production in China to distributed manufacturing across "
+                "ASEAN, India, and Mexico. This is not decoupling but diversification, and it "
+                "represents the largest reorganization of global production since the 1990s."
+            ),
+            (
+                "The geopolitics of AI will be defined not by who builds the best models but by "
+                "who controls the data infrastructure and energy supply to run them. Asia is "
+                "investing more in data centers and clean energy than any other region. The AI "
+                "race is ultimately an infrastructure race, and infrastructure is what Asia does."
+            ),
+        ],
+    },
+    {
+        "filename": "supply_chain_resilience_lecture.pdf",
+        "source_type": "essay",
+        "mime_type": "application/pdf",
+        "provenance": {
+            "title": "Supply Chain Resilience in the Poly-Crisis Era",
+            "date": "2023-09-20",
+            "location": "Singapore",
+        },
+        "passages": [
+            (
+                "Resilience is not about self-sufficiency — it is about diversified connectivity. "
+                "Nations that try to produce everything domestically will be outcompeted by those "
+                "that maintain multiple supplier relationships across geographies. The goal is "
+                "not fewer connections but more redundant ones."
+            ),
+            (
+                "Southeast Asia's supply chain advantage is its geographic position between the "
+                "Indian Ocean and the Pacific, combined with young demographics and improving "
+                "infrastructure. Vietnam, Indonesia, and Thailand are the primary beneficiaries "
+                "of the China-plus-one strategy, absorbing manufacturing that needs proximity "
+                "to both Chinese inputs and Western markets."
+            ),
+            (
+                "The semiconductor supply chain is the most consequential connectivity challenge "
+                "of our era. Taiwan produces over 60 percent of the world's advanced chips, "
+                "creating a single point of failure that threatens every industry. Diversifying "
+                "chip production to the US, Japan, and Southeast Asia is not just economic policy "
+                "— it is a matter of civilizational resilience."
+            ),
+            (
+                "My framework for supply chain resilience has four dimensions: geographic "
+                "diversification (multiple production sites), modal diversification (air, sea, "
+                "rail, digital), temporal diversification (buffer stocks and just-in-case "
+                "inventory), and relational diversification (multiple suppliers for critical "
+                "inputs). Companies and nations that optimize across all four dimensions will "
+                "thrive in an age of perpetual disruption."
+            ),
+        ],
+    },
 ]
 
 
-def _random_embedding(dim: int = 1024) -> list[float]:
-    """Generate a random normalized 1024-dim vector.
+def _generate_embeddings() -> list[list[float]]:
+    """Generate real Gemini embeddings for all corpus passages.
 
-    Real ingestion would create proper embeddings via the embedding model.
-    For demo/seed purposes, random normalized vectors let pgvector's cosine
-    similarity work without errors.
+    Collects all 22 passages into a single list and embeds them in one batch
+    via get_embedder() (Gemini gemini-embedding-001, 3072→1024 truncated).
     """
-    vec = np.random.randn(dim).astype(np.float32)
-    vec /= np.linalg.norm(vec)
-    return vec.tolist()
+    all_passages = [p for entry in CORPUS for p in entry["passages"]]
+    print(f"  Generating Gemini embeddings for {len(all_passages)} passages...")
+    embedder = get_embedder()
+    embeddings = embedder.embed(all_passages)
+    print(f"  Got {len(embeddings)} embeddings ({len(embeddings[0])} dims each)")
+    return embeddings
 
 
 def seed_documents(db, clone_id: uuid.UUID) -> list[tuple[uuid.UUID, dict]]:
@@ -319,10 +445,15 @@ def seed_documents(db, clone_id: uuid.UUID) -> list[tuple[uuid.UUID, dict]]:
     return inserted
 
 
-def seed_chunks(doc_list: list[tuple[uuid.UUID, dict]], clone_id: uuid.UUID):
+def seed_chunks(
+    doc_list: list[tuple[uuid.UUID, dict]],
+    clone_id: uuid.UUID,
+    embeddings: list[list[float]],
+):
     """Insert document_chunks via raw psycopg + pgvector (same pattern as indexer.py).
 
     Uses ON CONFLICT (chunk_id) DO UPDATE for idempotency — safe to re-run.
+    Includes search_vector (tsvector) for BM25 hybrid search.
     """
     raw_url = psycopg_url()
     if not raw_url:
@@ -330,6 +461,7 @@ def seed_chunks(doc_list: list[tuple[uuid.UUID, dict]], clone_id: uuid.UUID):
         return
 
     total_inserted = 0
+    emb_idx = 0  # Index into the flat embeddings list
 
     with psycopg.connect(raw_url) as conn:
         register_vector(conn)
@@ -338,7 +470,8 @@ def seed_chunks(doc_list: list[tuple[uuid.UUID, dict]], clone_id: uuid.UUID):
             rows = []
             for i, passage in enumerate(entry["passages"]):
                 chunk_id = f"{doc_id}_{i:04d}"
-                embedding = _random_embedding()
+                embedding = embeddings[emb_idx]
+                emb_idx += 1
                 rows.append((
                     str(doc_id),
                     str(clone_id),
@@ -349,6 +482,7 @@ def seed_chunks(doc_list: list[tuple[uuid.UUID, dict]], clone_id: uuid.UUID):
                     "public",                   # access_tier
                     entry["provenance"].get("date"),  # date
                     embedding,                  # embedding (1024-dim vector)
+                    passage,                    # repeated for to_tsvector('english', %s)
                 ))
 
             with conn.cursor() as cur:
@@ -356,11 +490,14 @@ def seed_chunks(doc_list: list[tuple[uuid.UUID, dict]], clone_id: uuid.UUID):
                     """
                     INSERT INTO document_chunks (
                         doc_id, clone_id, chunk_index, chunk_id, passage,
-                        source_type, access_tier, date, embedding
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        source_type, access_tier, date, embedding,
+                        search_vector
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        to_tsvector('english', %s))
                     ON CONFLICT (chunk_id) DO UPDATE SET
                         passage = EXCLUDED.passage,
-                        embedding = EXCLUDED.embedding
+                        embedding = EXCLUDED.embedding,
+                        search_vector = EXCLUDED.search_vector
                     """,
                     rows,
                 )
@@ -386,17 +523,21 @@ def main():
             return
         print(f"  Found clone: {clone.slug} (id={clone.id})")
 
-        # Step 2: Insert documents via ORM
-        print("\n2. Seeding documents...")
+        # Step 2: Generate real Gemini embeddings
+        print("\n2. Generating embeddings via Gemini API...")
+        embeddings = _generate_embeddings()
+
+        # Step 3: Insert documents via ORM
+        print("\n3. Seeding documents...")
         doc_list = seed_documents(db, clone.id)
 
-        # Step 3: Insert chunks via raw psycopg (pgvector)
-        print("\n3. Seeding document chunks (with random embeddings)...")
-        seed_chunks(doc_list, clone.id)
+        # Step 4: Insert chunks via raw psycopg (pgvector)
+        print("\n4. Seeding document chunks (with Gemini embeddings + tsvector)...")
+        seed_chunks(doc_list, clone.id, embeddings)
 
         # Summary
         total_passages = sum(len(e["passages"]) for e in CORPUS)
-        print(f"\nDone. Seeded {len(CORPUS)} documents with {total_passages} chunks total.")
+        print(f"\nDone. Seeded {len(CORPUS)} documents with {total_passages} chunks (real Gemini embeddings).")
 
     finally:
         db.close()

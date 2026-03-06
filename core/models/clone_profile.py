@@ -165,7 +165,7 @@ def paragpt_profile() -> CloneProfile:
             "Data-driven analysis connecting history, economics, and geography.",
         avatar_url="/avatars/parag-khanna.png",
         generation_mode=GenerationMode.interpretive,
-        confidence_threshold=0.80,
+        confidence_threshold=0.65,
         silence_behavior=SilenceBehavior.soft_hedge,
         silence_message="I don't have a specific teaching on that topic. "
                         "Feel free to ask about my work on geopolitics, connectivity, or strategic thinking.",

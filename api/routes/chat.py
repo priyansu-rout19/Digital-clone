@@ -126,8 +126,13 @@ def _extract_trace_data(node_name: str, node_output: dict) -> dict:
         trace["sub_query_count"] = len(node_output.get("sub_queries", []))
         trace["response_tokens"] = node_output.get("response_tokens", 0)
     elif node_name == "tier1_retrieval":
-        trace["passage_count"] = len(node_output.get("retrieved_passages", []))
+        passages = node_output.get("retrieved_passages", [])
+        trace["passage_count"] = len(passages)
         trace["confidence"] = round(node_output.get("retrieval_confidence", 0.0), 3)
+        # Show if reranking was used (rerank_score present on passages)
+        if passages and passages[0].get("rerank_score") is not None:
+            trace["reranked"] = True
+            trace["top_rerank_score"] = passages[0].get("rerank_score", 0.0)
     elif node_name == "tier2_tree_search":
         trace["passage_count"] = len(node_output.get("retrieved_passages", []))
     elif node_name == "crag_evaluator":

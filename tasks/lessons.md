@@ -478,6 +478,71 @@ PSYCOPG_URL = DATABASE_URL.replace("+psycopg", "")
 
 ---
 
+### Lesson 28: LLM Self-Evaluation is Unreliable for Confidence Scoring
+
+**Date:** Session 29 | **Category:** RAG pipeline / Confidence scoring
+
+**What happened:** The `confidence_scorer` node asked the LLM to rate its own response quality (0.0-1.0). It consistently returned ~1.0 (or 0.85+ at minimum), even for responses built on completely irrelevant passages. The LLM had no calibration — it always thought its answer was great.
+
+**Root cause:** LLMs are overconfident in self-evaluation (arXiv:2508.06225 reports 84%+ overconfidence). When given context and asked "how good is your response?", the LLM anchors on the fact that it produced coherent text, not on whether the context was actually relevant.
+
+**Fix:** Replaced with deterministic 4-factor scoring (no LLM call):
+- Retrieval confidence (0.35) — from reranker or cosine similarity
+- Citation coverage (0.25) — fraction of passages actually cited
+- Response grounding (0.25) — lexical overlap between response and context
+- Passage count factor (0.15) — enough source material?
+
+**Rule for future:**
+- Never use LLM self-evaluation for binary/numeric quality judgments — it's systematically overconfident
+- Deterministic scoring with multiple independent signals is more calibrated
+- If you must use LLM for evaluation, use a DIFFERENT model than the one that generated the response
+
+---
+
+### Lesson 29: Paraphrased Queries Embed Identically — Reformulation Must Change Strategy
+
+**Date:** Session 29 | **Category:** RAG pipeline / CRAG
+
+**What happened:** The CRAG reformulator asked the LLM to "rephrase the query differently." The LLM generated paraphrases like "Explain ASEAN's future" → "What lies ahead for ASEAN?" These embed to nearly identical vectors and retrieve the exact same passages every retry. The CRAG loop ran 3 times but retrieved identical results each time.
+
+**Root cause:** Vector embeddings capture semantic meaning, not surface form. Two sentences with the same meaning produce nearly identical embeddings regardless of wording. The reformulator was changing words without changing meaning.
+
+**Fix:** Rewrote reformulator prompt to require different STRATEGIES, not different words:
+1. Extract specific KEYWORDS and ENTITIES (BM25 search finds different results than vector)
+2. DECOMPOSE into sub-topics
+3. Use DOMAIN JARGON
+4. Try the OPPOSITE angle
+5. BROADEN or NARROW scope dramatically
+
+Added BM25 hybrid search — keyword queries with different terms actually retrieve different passages.
+
+**Rule for future:**
+- Paraphrasing is useless for vector search reformulation — embeddings capture meaning, not words
+- BM25 keyword search is the key complement — same meaning ≠ same keywords
+- Show the reformulator what it already found (actual passage text + scores) so it can diagnose and pivot
+
+---
+
+### Lesson 30: Seed Data Must Use Real Embeddings — Random Vectors Break Pipeline Testing
+
+**Date:** Session 30 | **Category:** Testing / Demo corpus
+
+**What happened:** `seed_paragpt_corpus.py` used `np.random.randn(1024)` for demo embeddings. Every query returned ~7% reranker confidence because random vectors have no semantic relationship to any query. The FlashRank reranker correctly scored them as irrelevant, triggering hedges on every query. We couldn't test if the RAG pipeline actually worked.
+
+**Root cause:** Random 1024-dim vectors have cosine similarity ~0.0 with any real query embedding. The reranker (cross-encoder) also scores random text-query pairs at ~7%. The pipeline was working perfectly — it was correctly identifying that the "retrieved" passages were nonsense.
+
+**Fix:** Replaced `_random_embedding()` with `get_embedder().embed()` for real Gemini embeddings. Also added `search_vector` (tsvector) to the INSERT for BM25 support. After fix: ASEAN queries scored 77% confidence, chocolate cake queries scored 23%.
+
+**Additional learning:** Profile config is loaded from the database (`clone.profile` JSONB), not from Python presets in `clone_profile.py`. Changing `confidence_threshold` in Python had no effect until we also ran an SQL UPDATE on the `clones` table.
+
+**Rule for future:**
+- Always use real embeddings for demo/test corpora — random vectors make the pipeline look broken when it's working perfectly
+- When profile changes don't take effect, check if the value is loaded from DB (not Python code)
+- Include `search_vector` (tsvector) in seed scripts for BM25 support
+- Test with both relevant AND irrelevant queries to verify both answer and hedge paths
+
+---
+
 ## Session Patterns to Remember
 
 1. **User is learning by building** — every spec/decision should explain the why, not just the what
@@ -507,3 +572,6 @@ PSYCOPG_URL = DATABASE_URL.replace("+psycopg", "")
 25. **Sanitize uploaded filenames** — always `Path(filename).name` to strip directory traversal. Never trust `file.filename` from multipart uploads.
 26. **Multi-tenant mutation endpoints need clone-scoping** — every PATCH/PUT/DELETE must verify `clone_id` matches the authenticated tenant. Easy to scope reads but forget writes.
 27. **Embedding dimension mismatch hides in silent failures** — wrapper libraries (Mem0) don't auto-truncate embeddings. Config fields like `embedding_dims` only declare schema, not transform data. Always verify what the library actually does with your embeddings.
+28. **LLM self-evaluation is systematically overconfident** — always returns ~1.0 for confidence scoring. Use deterministic multi-factor scoring instead (retrieval score + citation coverage + grounding + passage count). No LLM call = faster + calibrated.
+29. **Paraphrased queries embed identically** — reformulating via paraphrases doesn't change vector search results. Use keyword extraction, sub-topic decomposition, domain jargon, and BM25 hybrid search to actually retrieve different passages.
+30. **Seed data with random embeddings breaks pipeline testing** — use real embeddings for demo corpora. Also: profile config loads from DB (not Python preset), so changes require DB UPDATE. Always test both relevant and irrelevant queries.

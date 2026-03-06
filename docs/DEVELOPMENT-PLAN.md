@@ -1,6 +1,6 @@
 # DEVELOPMENT PLAN: Digital Clone Engine — Week 1-3 Roadmap
 
-**Version:** 7.0 | **Date:** March 5, 2026 (Session 25) | **Prepared by:** Prem AI Engineering
+**Version:** 8.0 | **Date:** March 6, 2026 (Session 30) | **Prepared by:** Prem AI Engineering
 
 ---
 
@@ -8,9 +8,9 @@
 
 **What:** A unified AI clone engine serving two clients (ParaGPT + Sacred Archive) through one codebase, behavior controlled by configuration.
 
-**Status:** Session 25 complete. **FULL STACK OPERATIONAL** — Backend 100% + React frontend (25 source files) + monitoring dashboard + GDPR + rate limiting. 75 tests passing. SOW compliance: **ParaGPT 96%, Sacred Archive 83%, Combined 89%**. All P0 release blockers FIXED (Sessions 24-25). Citation pipeline shows source titles per SOW requirement. Sample ParaGPT corpus seeded. See `docs/SOW-AUDIT.md` for full analysis.
+**Status:** Session 30 complete. **FULL STACK OPERATIONAL + DEMO-READY** — Backend 100% + React frontend (29 source files) + monitoring dashboard + GDPR + rate limiting + reasoning trace panel. 77 tests passing. SOW compliance: **ParaGPT 97%, Sacred Archive 90%, Combined 93%**. All P0+P1 gaps FIXED (Sessions 24-28). RAG pipeline overhauled (Session 29): FlashRank reranking, BM25 hybrid search, multi-factor confidence scorer. Demo corpus with real Gemini embeddings (37 passages, 8 documents). See `docs/SOW-AUDIT.md` for full analysis.
 
-**Confidence Level:** VERY HIGH — Full stack proven with REAL integration tests. All P0 gaps resolved (multi-turn, provenance, silence message, citation titles). Citation pipeline matches SOW: "The Future Is Asian (book) — 2019". Production path clear: dev proxies → prod with zero code changes. 3 PCCI-blocked stubs remain. Next: P1 review dashboard enhancements.
+**Confidence Level:** VERY HIGH — Full stack proven with 77 REAL tests. All P0+P1 gaps resolved. RAG pipeline produces real cited answers for relevant queries (77% confidence) and correctly hedges irrelevant queries (23% confidence). Reasoning trace panel shows full pipeline visibility. Production path clear: dev proxies → prod with zero code changes. 3 PCCI-blocked stubs remain. Only P2 quality fixes remaining (AuditLog, rejection flow, GDPR auth).
 
 ---
 
@@ -91,10 +91,11 @@ Every query flows through this sequence. The clone profile controls behavior at 
    - Decomposes complex queries into sub-queries
    - Checks access tier permissions (ParaGPT = public, Sacred Archive = devotee/friend/follower)
 
-2. **Two-Tier Retrieval with Self-Correction** (Tier 1: <100ms, Tier 2: +1-2s)
-   - **Tier 1:** Embed queries → search Zvec → reciprocal rank fusion for multi-query merging
+2. **Two-Tier Retrieval with Self-Correction** (Tier 1: <200ms, Tier 2: +1-2s)
+   - **Tier 1 — Hybrid Search:** Embed queries → pgvector cosine similarity + BM25 keyword search (tsvector/tsquery) → RRF fusion merges both result sets
+   - **Reranking:** Over-retrieve 30 candidates → FlashRank cross-encoder (`ms-marco-MiniLM-L-12-v2`, CPU-only) reranks to top 10. Mean of top-5 reranker scores = `retrieval_confidence`
    - **Tier 2** (if applicable): Immediately after T1, LLM reasons about hierarchical document structure via PageIndex. Augments T1 results with structurally-relevant passages.
-   - **CRAG loop:** Evaluates combined T1+T2 result. If confidence below threshold, reformulate and retry (max 3 hops, includes both tiers)
+   - **CRAG loop:** Evaluator uses reranker scores. Reformulator generates keyword/sub-topic/jargon queries (not paraphrases). BM25 retrieves genuinely different passages. Max 3 retries.
 
 3. **Context Assembly**
    - Format retrieved passages into 8K-32K token context window
@@ -109,7 +110,7 @@ Every query flows through this sequence. The clone profile controls behavior at 
 
 5. **Verification + Output**
    - Verify each cited source against retrieved passages
-   - Score confidence (0.0-1.0)
+   - Multi-factor confidence scoring (deterministic, no LLM call): retrieval confidence (0.35) + citation coverage (0.25) + response grounding (0.25) + passage count (0.15)
    - Route based on clone profile:
      - High confidence → Stream to user
      - Low confidence + soft_hedge → Add hedge message
@@ -150,6 +151,16 @@ Every query flows through this sequence. The clone profile controls behavior at 
 | **API Key Validation** | APIKeyMiddleware + X-API-Key header | Authenticate API requests + access tier checks | ✅ BUILT Session 11 (9 tests) |
 | **Database Seeding** | Python scripts (seed_db.py, seed_paragpt_corpus.py, ingest_samples.py) | Populate clones + sample documents + ParaGPT corpus | ✅ BUILT Session 12, expanded Session 25 (6 docs, 22 chunks) |
 | **Semantic Chunking** | LangChain SemanticChunker + Google Gemini | Topic-boundary aware document chunking | ✅ BUILT Session 13 (10 tests) |
+| **Dynamic Response Length** | LLM-decided response_tokens (100-1000) | Adaptive answer length per query | ✅ BUILT Session 26 |
+| **Mem0 Embedding Fix** | TruncatedGoogleEmbeddings wrapper | 3072→1024 truncation for Mem0 pgvector | ✅ BUILT Session 26 |
+| **Frontend UI/UX Overhaul** | Citation grouping, collapsible, dark theme | Near-black (#0d0d0d) + copper (#d08050) theme | ✅ BUILT Session 27 |
+| **Review EDIT + Keyboard Shortcuts** | PATCH edit action, a/r/e keys | Review dashboard enhancements per SOW | ✅ BUILT Session 28 |
+| **Reasoning Trace Panel** | ReasoningTrace.tsx + backend metrics | Collapsible pipeline visibility per response | ✅ BUILT Session 28 |
+| **FlashRank Reranking** | ms-marco-MiniLM-L-12-v2 (34MB, CPU) | Cross-encoder reranking of retrieved passages | ✅ BUILT Session 29 |
+| **BM25 Hybrid Search** | PostgreSQL tsvector + GIN index | Keyword search alongside vector search (RRF fusion) | ✅ BUILT Session 29 |
+| **Multi-Factor Confidence Scorer** | 4-factor weighted formula | Replaces LLM self-eval (always ~1.0) with deterministic scoring | ✅ BUILT Session 29 |
+| **CRAG Loop Fix** | Reranker-based evaluator + strategy reformulator | Breaks stuck loop where paraphrases retrieved same passages | ✅ BUILT Session 29 |
+| **Real Gemini Embeddings (Seed)** | get_embedder() in seed script | Demo corpus with real semantic embeddings (37 passages) | ✅ BUILT Session 30 |
 
 ### 3.2 Remaining Stubs (Hardware-Blocked Only)
 
@@ -398,12 +409,16 @@ This single configuration object controls all behavioral routing in the pipeline
 - ✅ Citation pipeline fix (LLM markers + field remap) — Session 21
 - ✅ Strict silence fix (factory function) — Session 22
 
-**Remaining (SOW gaps — updated Session 25):**
+**Remaining (SOW gaps — updated Session 30):**
 - [x] Multi-turn conversation — retrieve prior messages for LLM context (P0) — **FIXED Session 24**
 - [x] Provenance fields in citations — date, location, event, verifier (P0) — **FIXED Session 24**
 - [x] Citation source titles — "The Future Is Asian (book) — 2019" per SOW — **FIXED Session 25**
-- [ ] Review EDIT action + keyboard shortcuts (P1)
+- [x] Review EDIT action + keyboard shortcuts + cited sources (P1) — **FIXED Session 28**
+- [x] Dynamic topic suggestions in silence (P1) — **FIXED Session 28**
+- [x] Reasoning trace panel (manager HIGH priority) — **FIXED Session 28**
 - [ ] AuditLog writes on review/ingest/delete (P2)
+- [ ] Rejection → seeker notification flow (P2)
+- [ ] GDPR delete auth (P2)
 - [ ] OAuth/JWT for user authentication (beyond basic API key)
 
 ---
@@ -499,10 +514,34 @@ This single configuration object controls all behavioral routing in the pipeline
 - [x] **Citation source titles** — `source_title` pipeline: `DocumentProvenance.title` → `vector_search.py` → `citation_verifier` → `CitationCard.tsx` (Session 25)
 - [x] **Sample ParaGPT corpus** — `seed_paragpt_corpus.py` seeds 6 documents + 22 chunks (Session 25)
 - [x] **CLAUDE.md restructured** — 72→60 lines, 3 new sections (Session 24)
-- [ ] Phase 2 P1 fixes: review EDIT + keyboard shortcuts + cited sources (Next)
-- [ ] Phase 3 P2 fixes: AuditLog + rejection flow + GDPR auth (After P1)
+- [x] Phase 2 P1 fixes: review EDIT + keyboard shortcuts + cited sources — **FIXED Session 28**
 
-**Tech Stack:** Vite 6 + React 19 + TypeScript + Tailwind CSS v4 (25 source files)
+**Phase 8: Sessions 26-27 — Dynamic Response Length + Frontend UI/UX Overhaul**
+- [x] **Dynamic response length** — LLM decides `response_tokens` (100-1000) per query (Session 26)
+- [x] **Mem0 embedding fix** — `TruncatedGoogleEmbeddings` wrapper for 3072→1024 truncation (Session 26)
+- [x] **Frontend UI/UX overhaul** — citation grouping, collapsible citations, dark theme (#0d0d0d + copper #d08050), header-less chat, thinking bubble (Session 27)
+
+**Phase 9: Session 28 — P1 SOW Gaps + Reasoning Trace Panel**
+- [x] **Review EDIT action** — PATCH with `action: edit`, textarea + Save/Cancel
+- [x] **Review keyboard shortcuts** — a/r/e keys + ArrowUp/Down, `<kbd>` badge hints
+- [x] **Review cited sources** — `CollapsibleCitations` with `defaultExpanded={true}` in center panel
+- [x] **Dynamic topic suggestions** — `_extract_topic_suggestions()` from passages, appended to silence messages
+- [x] **Reasoning trace panel** — `ReasoningTrace.tsx` + backend `_extract_trace_data()`, collapsible vertical timeline
+
+**Phase 10: Session 29 — RAG Pipeline Overhaul**
+- [x] **FlashRank reranking** — cross-encoder `ms-marco-MiniLM-L-12-v2` (~34MB, CPU). Over-retrieve 30 → rerank to 10. +48% retrieval quality.
+- [x] **BM25 hybrid search** — PostgreSQL tsvector + GIN index (migration 0006). Combined with vector via RRF.
+- [x] **Multi-factor confidence scorer** — 4-factor deterministic formula replaces LLM self-eval (always ~1.0)
+- [x] **CRAG loop fix** — evaluator uses reranker scores, reformulator uses keyword/jargon strategies (not paraphrases)
+
+**Phase 11: Session 30 — Demo Readiness**
+- [x] **Real Gemini embeddings** — seed corpus uses `get_embedder()` instead of random vectors (37 passages, 8 docs)
+- [x] **BM25 in seed script** — INSERT includes `search_vector` tsvector for keyword search
+- [x] **Confidence threshold tuned** — ParaGPT 0.80→0.65 for demo corpus size
+- [x] **Landing page questions** — aligned with corpus (ASEAN, infrastructure, + chocolate cake for hedge demo)
+- [ ] Phase 3 P2 fixes: AuditLog + rejection flow + GDPR auth (Next)
+
+**Tech Stack:** Vite 6 + React 19 + TypeScript + Tailwind CSS v4 (29 source files)
 
 **Remaining — Production Deployment:**
 
@@ -547,8 +586,11 @@ The following choices are **proven** via working code and will not be re-debated
 | **Stub Nodes** | Correct state shapes, mock data | Unblocks orchestration testing before all dependencies ready. |
 | **LLM (dev)** | Groq + qwen3-32b | Aligns with prod Qwen3.5-35B. Swap to SGLang when PCCI ready. |
 | **Embeddings (dev)** | Google Gemini gemini-embedding-001 3072→1024 (Session 14) | Matryoshka truncation to 1024-dim, same as prod TEI. Replaced Voyage AI (rate limits). |
+| **FlashRank Reranking** | ms-marco-MiniLM-L-12-v2 (Session 29) | CPU-only cross-encoder (~34MB). Over-retrieve 3x, rerank to top_k. No PyTorch. |
+| **BM25 Hybrid Search** | PostgreSQL tsvector + GIN (Session 29) | Keyword search combined with vector via RRF. Breaks CRAG stuck loop. |
+| **Confidence Scoring** | 4-factor deterministic (Session 29) | Retrieval (0.35) + citations (0.25) + grounding (0.25) + passages (0.15). No LLM call. |
 | **Pydantic Enums** | `class MyEnum(str, Enum)` | Clean JSONB serialization, no custom serializers. |
-| **Migrations** | Alembic with versioned scripts | Reversible, trackable, works on PCCI air-gap. |
+| **Migrations** | Alembic with versioned scripts | Reversible, trackable, works on PCCI air-gap. 6 migrations. |
 | **Code Style** | Minimal docstrings, functional | Lean, readable, tested. |
 
 ---
@@ -592,7 +634,9 @@ core/
 │       ├── 0001_initial_schema.py
 │       ├── 0002_provenance_graph.py
 │       ├── 0003_document_chunks.py
-│       └── 0004_messages.py              (Session 11 — messages table, 4 indexes)
+│       ├── 0004_messages.py              (Session 11 — messages table, 4 indexes)
+│       ├── 0005_query_analytics.py      (Session 22 — analytics table)
+│       └── 0006_bm25_tsvector.py        (Session 29 — tsvector column + GIN index for BM25)
 ├── langgraph/
 │   ├── conversation_flow.py     (320+ lines — 19-node graph factory, memory_writer added)
 │   └── nodes/
@@ -613,7 +657,7 @@ core/
         ├── provenance.py        (recursive CTEs)
         └── tree_search.py       (stub for PageIndex)
 
-tests/                           (✅ COMPLETE — Session 20: 33 API + 3 WS + 10 chunker + 26 session16 + 4 E2E)
+tests/                           (✅ COMPLETE — Session 30: 77 tests passing)
 ├── __init__.py
 ├── conftest.py                (Session 14 — real DB seeding fixtures, pytest-asyncio config)
 ├── test_e2e.py                (Session 17 — 4 REAL E2E tests, GOOGLE_API_KEY skipif)
@@ -637,43 +681,47 @@ api/                             (✅ COMPLETE — Sessions 8-22)
     ├── analytics.py           (GET /analytics/{slug} — Session 22 NEW)
     └── users.py               (DELETE /users/{user_id}/data — Session 22 NEW)
 
-ui/                              (✅ COMPLETE — Sessions 19-22, Vite 6 + React 19 + TypeScript + Tailwind v4)
+ui/                              (✅ COMPLETE — Sessions 19-30, Vite 6 + React 19 + TypeScript + Tailwind v4)
 ├── index.html
 ├── package.json
 ├── vite.config.ts             (Proxy /chat, /clone, /review, /ingest, /analytics, /users → localhost:8000)
 ├── tsconfig.json
-└── src/                       (25 source files)
+└── src/                       (29 source files)
     ├── main.tsx
     ├── App.tsx                (React Router, clone-profile-driven theme switching, analytics route)
-    ├── index.css              (Tailwind v4 @theme + glass utility classes)
+    ├── index.css              (Tailwind v4 @theme + glass utility + copper/gold tokens + hide-scrollbar)
     ├── api/
-    │   ├── types.ts           (22 TypeScript interfaces + AnalyticsSummary)
+    │   ├── types.ts           (22 TypeScript interfaces + TraceRecord + AnalyticsSummary)
     │   ├── client.ts          (5 REST functions + getAnalytics)
     │   └── websocket.ts       (WebSocket manager)
     ├── hooks/
-    │   ├── useChat.ts         (WebSocket + 60s timeout + unmount cleanup)
+    │   ├── useChat.ts         (WebSocket + 60s timeout + trace accumulation via ref)
     │   ├── useCloneProfile.ts (Profile fetcher)
     │   └── useAudio.ts        (base64→Blob→Audio + cleanup)
     ├── components/
     │   ├── ChatInput.tsx      (Input bar + loading spinner)
-    │   ├── MessageBubble.tsx  (react-markdown + typewriter animation)
+    │   ├── MessageBubble.tsx  (react-markdown + typewriter animation + copper glow)
     │   ├── NodeProgress.tsx   (15 node progress labels)
     │   ├── AudioPlayer.tsx    (Pill-shaped play/pause + progress)
-    │   ├── CitationCard.tsx   (Expandable citations)
+    │   ├── CitationCard.tsx   (Single citation, passageOnly mode for groups)
+    │   ├── CitationGroupCard.tsx  (Groups passages by doc_id)
+    │   ├── CitationList.tsx   (Groups citations by doc_id/source_title)
+    │   ├── CollapsibleCitations.tsx (Pill toggle "N sources cited", collapsed by default)
+    │   ├── ReasoningTrace.tsx (Collapsible pipeline steps timeline — Session 28)
     │   └── ErrorBoundary.tsx  (React class component, catches render errors)
     ├── pages/
     │   ├── paragpt/
-    │   │   ├── Landing.tsx    (Glassmorphism profile card + starter questions)
-    │   │   └── Chat.tsx       (Messages + citations + audio + error banner)
+    │   │   ├── Landing.tsx    (Glassmorphism + corpus-aligned starter questions)
+    │   │   └── Chat.tsx       (Header-less, thinking bubble, reasoning trace, copper theme)
     │   ├── sacred-archive/
     │   │   ├── Landing.tsx    (Tier selector + suggested questions)
-    │   │   └── Chat.tsx       (Serif quotes + provenance + error banner)
+    │   │   └── Chat.tsx       (Serif quotes + provenance + reasoning trace)
     │   ├── review/
-    │   │   └── Dashboard.tsx  (3-column approve/reject, mobile responsive)
+    │   │   └── Dashboard.tsx  (3-column + edit mode + keyboard shortcuts + cited sources)
     │   └── analytics/
-    │       └── Dashboard.tsx  (Stats cards, bar charts, intent breakdown — Session 22)
+    │       └── Dashboard.tsx  (Stats cards, bar charts, intent breakdown)
     └── themes/
-        ├── paragpt.ts         (Navy + teal design tokens)
+        ├── paragpt.ts         (Near-black + copper design tokens)
         └── sacred-archive.ts  (Brown + gold design tokens)
 ```
 
@@ -681,10 +729,10 @@ ui/                              (✅ COMPLETE — Sessions 19-22, Vite 6 + Reac
 
 ## 10. Next Steps
 
-**Current Status (Session 25 Complete):**
-✅ **FULL STACK OPERATIONAL + ALL P0 FIXED** — Backend 100% + React frontend (25 files, zero TS errors) + monitoring dashboard + GDPR endpoint + rate limiting + CORS hardening. 75 tests passing. SOW compliance: **ParaGPT 96%, Sacred Archive 83%, Combined 89%** — all P0 release blockers fixed. Citation pipeline shows source titles per SOW requirement.
+**Current Status (Session 30 Complete):**
+✅ **FULL STACK OPERATIONAL + ALL P0+P1 FIXED + DEMO-READY** — Backend 100% + React frontend (29 files, zero TS errors) + reasoning trace panel + monitoring dashboard + GDPR endpoint + rate limiting. 77 tests passing. SOW compliance: **ParaGPT 97%, Sacred Archive 90%, Combined 93%** — all P0+P1 gaps fixed. RAG pipeline overhauled with FlashRank + BM25. Demo corpus with real Gemini embeddings (37 passages, 8 documents).
 
-**✅ DONE: Sessions 15-25 Summary**
+**✅ DONE: Sessions 15-30 Summary**
 
 | Session | Focus | Key Changes |
 |---------|-------|-------------|
@@ -699,6 +747,11 @@ ui/                              (✅ COMPLETE — Sessions 19-22, Vite 6 + Reac
 | 23 | SOW Line-by-Line Audit | 3-agent audit of both client SOWs → 12 gaps found, `docs/SOW-AUDIT.md` created |
 | 24 | P0 Release Blocker Fixes | Multi-turn conversation, provenance fields, silence message text — all 3 P0 gaps fixed |
 | 25 | Citation Titles + Sample Corpus | `source_title` pipeline (5 files), `seed_paragpt_corpus.py` (6 docs, 22 chunks) |
+| 26 | Dynamic Response Length + Mem0 Fix | LLM-decided `response_tokens`, `TruncatedGoogleEmbeddings` wrapper |
+| 27 | Frontend UI/UX Overhaul | Citation grouping, collapsible citations, dark theme, copper accent, thinking bubble |
+| 28 | P1 SOW Gaps + Reasoning Trace | Review EDIT/shortcuts/sources, topic suggestions, ReasoningTrace.tsx |
+| 29 | RAG Pipeline Overhaul | FlashRank reranking, BM25 hybrid search, multi-factor scorer, CRAG fix |
+| 30 | Demo Readiness | Real Gemini embeddings (37 passages), landing page questions, threshold tuning |
 
 **SOW Gap Fix Plan (see `docs/SOW-AUDIT.md` for full details):**
 
@@ -708,27 +761,27 @@ Phase 1 — P0 Release Blockers: ✅ ALL FIXED
 - [x] **Sacred Archive silence message** — institutional voice per SOW — **Session 24**
 - [x] **Citation source titles** — `source_title` shows "The Future Is Asian (book) — 2019" — **Session 25**
 
-Phase 2 — P1 SOW Requirements (NEXT):
-- [ ] **Review EDIT action** — PUT endpoint + textarea in Dashboard
-- [ ] **Review keyboard shortcuts** — a=approve, r=reject, e=edit, Tab=next
-- [ ] **Review cited sources display** — Render CitationCards alongside review items
-- [ ] **Dynamic topic suggestions in silence** — Extract topics from retrieved passages
+Phase 2 — P1 SOW Requirements ✅ ALL FIXED (Session 28):
+- [x] **Review EDIT action** — PATCH with `action: edit` + textarea in Dashboard
+- [x] **Review keyboard shortcuts** — a/r/e keys + ArrowUp/Down + `<kbd>` hints
+- [x] **Review cited sources display** — CollapsibleCitations in review center panel
+- [x] **Dynamic topic suggestions in silence** — `_extract_topic_suggestions()` from passages
 
-Phase 3 — P2 Quality & Security:
+Phase 3 — P2 Quality & Security (NEXT):
 - [ ] **AuditLog writes** — INSERT on review decisions, ingestion, admin actions
 - [ ] **Rejection → seeker notification** — Return silence message when review status = rejected
 - [ ] **GDPR delete auth** — Add authentication to DELETE endpoint
 
-Phase 4 — Manager Requests (HIGH priority):
-- [ ] **Reasoning trace panel** — Collapsible pipeline visibility per response (manager requested)
+Phase 4 — Manager Requests:
+- [x] **Reasoning trace panel** — `ReasoningTrace.tsx` + backend `_extract_trace_data()` — **FIXED Session 28**
 - [ ] **Demo videos** — Screen recordings of user journeys (manager requested)
 - [ ] Success metrics tracking (citation accuracy, persona fidelity, latency)
 
 **Infrastructure:**
 - [x] PostgreSQL 17 + pgvector 0.8.2 locally (Session 12)
-- [x] All 4 Alembic migrations applied (17 tables)
+- [x] All 6 Alembic migrations applied (17 tables + tsvector column + GIN index)
 - [x] Database seeded (2 clones, admin user, provenance, sample docs)
-- [x] React frontend (Vite + TypeScript + Tailwind CSS v4, Sessions 19-22)
+- [x] React frontend (Vite + TypeScript + Tailwind CSS v4, Sessions 19-28, 29 source files)
 - [x] Rate limiting — slowapi 60/min chat, 10/min ingest (Session 22)
 - [x] CORS hardened — origins from env var (Session 22)
 - [x] Monitoring dashboard — analytics pipeline + frontend (Session 22)

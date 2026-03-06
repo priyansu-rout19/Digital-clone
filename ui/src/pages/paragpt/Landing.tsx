@@ -10,9 +10,9 @@ interface LandingProps {
 const TOPIC_TAGS = ['Geopolitics', 'Connectivity', 'Strategic Thinking', 'Asia', 'Global Trends'];
 
 const STARTER_QUESTIONS = [
-  'How will AI reshape geopolitics in the next decade?',
-  'What is your framework for understanding global connectivity?',
-  'How should countries prepare for climate migration?',
+  'What is the future of ASEAN?',
+  'How does infrastructure shape global power?',
+  'What is your best recipe for chocolate cake?',
 ];
 
 export default function Landing({ profile, onSendMessage, onQuestionClick }: LandingProps) {
