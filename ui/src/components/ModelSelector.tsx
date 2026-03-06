@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import type { ModelInfo } from '../api/types';
 import { getModels } from '../api/client';
 
@@ -96,8 +97,8 @@ export default function ModelSelector({ selectedModel, onModelChange, variant = 
         </svg>
       </button>
 
-      {/* Dropdown — uses fixed positioning to escape any parent overflow/fixed containers */}
-      {isOpen && (
+      {/* Dropdown — portaled to document.body to escape backdrop-filter containing block */}
+      {isOpen && createPortal(
         <div
           ref={dropdownRef}
           className={`w-64 rounded-xl py-1 max-h-60 overflow-y-auto hide-scrollbar ${
@@ -125,7 +126,8 @@ export default function ModelSelector({ selectedModel, onModelChange, variant = 
               </span>
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

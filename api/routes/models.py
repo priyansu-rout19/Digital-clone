@@ -22,8 +22,11 @@ router = APIRouter()
 _cache: list = [0.0, []]
 CACHE_TTL_SECONDS = 300  # 5 minutes
 
-# Model ID substrings to filter out (non-text-generation models)
-_EXCLUDE_PATTERNS = ("whisper", "embed", "guard", "tts", "moderation", "dall-e", "image")
+# Model ID substrings to filter out (non-text, niche, or low-quality models)
+_EXCLUDE_PATTERNS = (
+    "whisper", "embed", "guard", "tts", "moderation", "dall-e", "image",
+    "allam", "compound", "orpheus", "playai", "distil-whisper",
+)
 
 
 @router.get("/")
