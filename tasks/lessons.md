@@ -543,6 +543,82 @@ Added BM25 hybrid search — keyword queries with different terms actually retri
 
 ---
 
+### Lesson 31: Multi-Turn Conversation — Three Compounding Bugs Disabled It Entirely
+
+**Date:** Session 34 | **Category:** Architecture / Pipeline ordering / Frontend
+
+**What happened:** Follow-up questions like "what that mean in context of india" (after asking about ASEAN) triggered the silence/hedge mechanism instead of building on conversation context. The system responded with "I don't have a specific teaching on that topic..." for every follow-up, across all models.
+
+**Root causes (3 compounding bugs):**
+
+1. **Frontend hard-coded "anonymous" user_id:** `App.tsx:61` passed `sendMessage(query, 'anonymous', ...)`. Then `context_nodes.py:163` explicitly returned empty history for `user_id == "anonymous"`. Result: conversation history was NEVER loaded for frontend users.
+
+2. **Pipeline ordering:** `conversation_history` node ran AFTER retrieval and query analysis (`context_assembler -> conversation_history`). Even with a valid user_id, query analysis happened without conversation context, generating poor sub_queries.
+
+3. **Query analysis was context-blind:** `query_analysis_node.py` only read `query_text`, never `conversation_history`. The LLM prompt had no awareness of prior conversation, so vague follow-ups like "what about India?" generated irrelevant sub_queries, dropping confidence below threshold.
+
+**Additional bugs found during testing:**
+
+4. **CLI script didn't save messages:** `ask_clone.py` never wrote messages to the DB, so `conversation_history_node` found nothing.
+
+5. **Reranker used wrong query:** `vector_search.py` scored passages against raw `query_text` ("what that mean in context of india") instead of the rewritten sub_queries. Good ASEAN passages scored near-zero.
+
+6. **Confidence scorer ignored conversation history:** `_compute_grounding_score` only checked `assembled_context`, not `conversation_history`. Follow-up responses mention terms from history that aren't in retrieved passages.
+
+**Fixes (7 files changed):**
+- Removed `== "anonymous"` guard in context_nodes.py
+- Generated persistent UUID user_id via localStorage in App.tsx
+- Reordered pipeline: conversation_history -> query_analysis (not after context_assembler)
+- Made query_analysis context-aware with follow-up detection and query rewriting
+- Added message DB persistence to CLI script
+- Changed reranker to use longest sub_query for scoring
+- Added conversation_history to grounding score + multi-turn confidence bonus (+0.10)
+
+**Rule for future:**
+- Pipeline node ordering matters hugely. Nodes that provide context to other nodes must run FIRST
+- Never hard-code sentinel values ("anonymous") as guards. Use proper empty/null checks
+- When testing multi-turn conversation, verify messages are actually persisted to DB between turns
+- Reranking/scoring must use the BEST AVAILABLE query (rewritten), not the raw user input
+- Test multi-turn with at least 3-4 sequential turns, including one very vague follow-up
+
+---
+
+### Lesson 32: Conditional Edge Ordering — review_required Must Not Short-Circuit Silence
+
+**Date:** Session 34 (continued) | **Category:** LangGraph / Routing logic
+
+**What happened:** All 3 Sacred Archive tests showed `Silence: False` despite confidence (0.00-0.50) being well below the 0.95 strict_silence threshold. Sacred Archive was never silencing low-confidence responses.
+
+**Root cause:** In `conversation_flow.py:after_confidence()`, the routing logic checked `profile.review_required` BEFORE the confidence threshold:
+
+```python
+# BROKEN: review_required checked FIRST
+if profile.review_required:           # Always True for Sacred Archive
+    return "review_queue_writer"      # Skips confidence check entirely
+if final_confidence >= profile.confidence_threshold:  # Never reached
+    return "stream_to_user"
+```
+
+Since Sacred Archive has `review_required=True`, EVERY response went straight to `review_queue_writer`, bypassing both the confidence check and the `strict_silence_router`. The silence mechanism was completely disabled for Sacred Archive since Session 17 (when `review_required` was added).
+
+**Fix:** Reorder so confidence is checked first. Low-confidence responses route to silence handler, which then routes to review queue via its own `after_strict_silence` conditional edge (which already existed and already checked `review_required`):
+
+```python
+# FIXED: confidence checked FIRST
+if final_confidence >= profile.confidence_threshold:
+    if profile.review_required:
+        return "review_queue_writer"
+    return "stream_to_user"
+# Low confidence → silence handler
+```
+
+**Rule for future:**
+- In conditional routing with multiple concerns (confidence, review, silence), never let an administrative flag (review_required) short-circuit a safety check (confidence threshold)
+- When adding new routing conditions, trace ALL possible paths through the graph for EACH client profile
+- Test the complete matrix: {high confidence, low confidence} x {review_required, not required} x {soft_hedge, strict_silence}
+
+---
+
 ## Session Patterns to Remember
 
 1. **User is learning by building** — every spec/decision should explain the why, not just the what

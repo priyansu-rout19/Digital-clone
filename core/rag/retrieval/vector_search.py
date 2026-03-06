@@ -191,7 +191,11 @@ def search(
 
         # Stage 2: Rerank candidates with cross-encoder
         reranker = _get_reranker()
-        rerank_query = query_text or (sub_queries[0] if sub_queries else "")
+        # Use the longest sub_query for reranking — it's the most descriptive.
+        # query_text may be a vague follow-up ("what about India?") while
+        # sub_queries contain the rewritten self-contained query.
+        longest_sub = max(sub_queries, key=len) if sub_queries else ""
+        rerank_query = longest_sub if len(longest_sub) > len(query_text) else (query_text or longest_sub)
 
         if reranker and candidates and rerank_query:
             try:

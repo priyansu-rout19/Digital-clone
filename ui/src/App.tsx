@@ -19,6 +19,15 @@ function ClonePage() {
   const [accessTier, setAccessTier] = useState('public');
   const [selectedModel, setSelectedModel] = useState('');
 
+  // Persistent anonymous user ID for conversation history & Mem0 scoping
+  const [userId] = useState(() => {
+    const stored = localStorage.getItem('dce_user_id');
+    if (stored) return stored;
+    const newId = crypto.randomUUID();
+    localStorage.setItem('dce_user_id', newId);
+    return newId;
+  });
+
   const handleNewConversation = () => {
     clearMessages();
     setChatActive(false);
@@ -58,12 +67,12 @@ function ClonePage() {
 
   const handleSend = (query: string) => {
     if (!chatActive) setChatActive(true);
-    sendMessage(query, 'anonymous', accessTier, selectedModel);
+    sendMessage(query, userId, accessTier, selectedModel);
   };
 
   const handleQuestionClick = (question: string) => {
     setChatActive(true);
-    sendMessage(question, 'anonymous', accessTier, selectedModel);
+    sendMessage(question, userId, accessTier, selectedModel);
   };
 
   if (isSacredArchive) {

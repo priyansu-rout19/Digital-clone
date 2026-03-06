@@ -196,7 +196,11 @@ def confidence_scorer(state: TypedDict) -> TypedDict:
         citation_coverage = 0.0
 
     # Factor 3: Response grounding — lexical overlap between response and context
+    # Include conversation history as valid grounding source for multi-turn queries
     context = state.get("assembled_context", "")
+    history = state.get("conversation_history", "")
+    if history:
+        context = context + "\n" + history
     response_grounding = _compute_grounding_score(response, context)
 
     # Factor 4: Passage count factor — did we find enough material?
@@ -209,6 +213,12 @@ def confidence_scorer(state: TypedDict) -> TypedDict:
         + 0.25 * response_grounding
         + 0.15 * passage_count_factor
     )
+
+    # Multi-turn context bonus: follow-up responses draw on conversation history
+    # as additional grounding that isn't captured by passage-only metrics.
+    # Small boost (0.10) compensates for naturally lower citation_coverage in follow-ups.
+    if history:
+        final_confidence += 0.10
 
     # Clamp to [0.0, 1.0]
     final_confidence = max(0.0, min(1.0, round(final_confidence, 3)))

@@ -160,7 +160,7 @@ def conversation_history_node(state: TypedDict) -> TypedDict:
     clone_id = state.get("clone_id", "")
     user_id = state.get("user_id", "anonymous")
 
-    if not clone_id or not user_id or user_id == "anonymous":
+    if not clone_id or not user_id:
         return {**state, "conversation_history": ""}
 
     db_url = _psycopg_url()

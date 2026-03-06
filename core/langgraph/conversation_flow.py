@@ -139,7 +139,7 @@ def build_graph(profile: CloneProfile):
     # SET ENTRY POINT
     # ========================================================================
 
-    graph.set_entry_point("query_analysis")
+    graph.set_entry_point("conversation_history")
 
     # ========================================================================
     # ADD EDGES WITH CONDITIONAL ROUTING
@@ -206,18 +206,18 @@ def build_graph(profile: CloneProfile):
     # tier2_tree_search → crag_evaluator (augmented passages evaluated for confidence)
     graph.add_edge("tier2_tree_search", "crag_evaluator")
 
-    # context_assembler → conversation_history (always — both clients need multi-turn)
-    graph.add_edge("context_assembler", "conversation_history")
+    # conversation_history runs FIRST (entry point), then feeds into query_analysis
+    graph.add_edge("conversation_history", "query_analysis")
 
-    # conversation_history: memory retrieval (if enabled) or direct to generation
-    def after_history(state: ConversationState) -> str:
+    # context_assembler: memory retrieval (if enabled) or direct to generation
+    def after_context_assembler(state: ConversationState) -> str:
         if profile.user_memory_enabled:
             return "memory_retrieval"
         return "in_persona_generator"
 
     graph.add_conditional_edges(
-        "conversation_history",
-        after_history,
+        "context_assembler",
+        after_context_assembler,
         {
             "memory_retrieval": "memory_retrieval",
             "in_persona_generator": "in_persona_generator",
@@ -233,19 +233,18 @@ def build_graph(profile: CloneProfile):
     # citation_verifier → confidence_scorer (always)
     graph.add_edge("citation_verifier", "confidence_scorer")
 
-    # confidence_scorer: review queue OR stream OR silence handling
+    # confidence_scorer: silence handling OR review queue OR stream
     def after_confidence(state: ConversationState) -> str:
         final_confidence = state.get("final_confidence", 0.0)
 
-        # First: does this go to review queue?
-        if profile.review_required:
-            return "review_queue_writer"
-
-        # Second: is confidence high enough?
+        # First: is confidence high enough?
         if final_confidence >= profile.confidence_threshold:
+            # High confidence — review queue if required, else stream
+            if profile.review_required:
+                return "review_queue_writer"
             return "stream_to_user"
 
-        # Third: how do we handle low confidence?
+        # Second: low confidence — route to silence handler
         if profile.silence_behavior == SilenceBehavior.soft_hedge:
             return "soft_hedge_router"
         else:  # strict_silence

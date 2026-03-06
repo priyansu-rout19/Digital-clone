@@ -100,6 +100,7 @@ def main():
             "intent_class": "",
             "access_tier": args.access_tier,
             "token_budget": 2000,
+            "response_tokens": 500,
             "clone_id": clone_id,
             "user_id": args.user_id,
             "retrieved_passages": [],
@@ -108,11 +109,13 @@ def main():
             "retry_count": 0,
             "assembled_context": "",
             "user_memory": "",
+            "conversation_history": "",
             "raw_response": "",
             "verified_response": "",
             "final_confidence": 0.0,
             "cited_sources": [],
             "silence_triggered": False,
+            "suggested_topics": [],
             "voice_chunks": [],
             "audio_base64": "",
             "audio_format": "",
@@ -138,6 +141,20 @@ def main():
         )
 
         citations = result.get("cited_sources", [])
+
+        # --- Save to messages table (enables multi-turn conversation history) ---
+        from core.db.schema import Message
+        msg = Message(
+            clone_id=clone_id,
+            user_id=args.user_id,
+            query_text=args.query,
+            response_text=response,
+            confidence=result.get("final_confidence", 0.0),
+            silence_triggered=result.get("silence_triggered", False),
+            cited_sources=citations,
+        )
+        db.add(msg)
+        db.commit()
 
         # --- Output ---
         print("=" * 60)
