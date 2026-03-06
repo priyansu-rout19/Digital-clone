@@ -108,48 +108,53 @@ def search(
         raise ValueError("top_k must be >= 1")
 
     try:
-        embedder = get_embedder()
-        query_vectors = embedder.embed(sub_queries)
-
-        if not query_vectors:
-            return ([], 0.0)
-
         per_query_results = []
+        query_vectors = []
 
-        for i, query_vector in enumerate(query_vectors):
-            try:
-                with psycopg.connect(db_url) as conn:
-                    with conn.cursor() as cur:
-                        vector_str = "[" + ",".join(str(v) for v in query_vector) + "]"
+        # Stage 1: Vector search (may fail if embedding API is down/quota-exhausted)
+        try:
+            embedder = get_embedder()
+            query_vectors = embedder.embed(sub_queries)
 
-                        cur.execute(
-                            """
-                            SELECT dc.chunk_id, dc.doc_id, dc.passage, dc.source_type,
-                                   dc.access_tier, dc.date,
-                                   1 - (dc.embedding <=> %s::vector) AS similarity,
-                                   d.provenance, d.filename
-                            FROM document_chunks dc
-                            LEFT JOIN documents d ON dc.doc_id = d.id
-                            WHERE dc.clone_id = %s
-                              AND dc.access_tier = ANY(%s)
-                            ORDER BY dc.embedding <=> %s::vector
-                            LIMIT %s
-                            """,
-                            (vector_str, clone_id, access_tiers, vector_str, top_k),
-                        )
+            for i, query_vector in enumerate(query_vectors):
+                try:
+                    with psycopg.connect(db_url) as conn:
+                        with conn.cursor() as cur:
+                            vector_str = "[" + ",".join(str(v) for v in query_vector) + "]"
 
-                        rows = cur.fetchall()
+                            cur.execute(
+                                """
+                                SELECT dc.chunk_id, dc.doc_id, dc.passage, dc.source_type,
+                                       dc.access_tier, dc.date,
+                                       1 - (dc.embedding <=> %s::vector) AS similarity,
+                                       d.provenance, d.filename
+                                FROM document_chunks dc
+                                LEFT JOIN documents d ON dc.doc_id = d.id
+                                WHERE dc.clone_id = %s
+                                  AND dc.access_tier = ANY(%s)
+                                ORDER BY dc.embedding <=> %s::vector
+                                LIMIT %s
+                                """,
+                                (vector_str, clone_id, access_tiers, vector_str, top_k),
+                            )
 
-                        ranked = [(row, rank) for rank, row in enumerate(rows, start=1)]
-                        per_query_results.append(ranked)
+                            rows = cur.fetchall()
 
-            except Exception as e:
-                raise ValueError(
-                    f"pgvector search failed for sub-query {i} "
-                    f"(text={sub_queries[i][:50]}...): {str(e)}"
-                )
+                            ranked = [(row, rank) for rank, row in enumerate(rows, start=1)]
+                            per_query_results.append(ranked)
 
-        # BM25 keyword search (runs in parallel with vector results via RRF fusion)
+                except Exception as e:
+                    raise ValueError(
+                        f"pgvector search failed for sub-query {i} "
+                        f"(text={sub_queries[i][:50]}...): {str(e)}"
+                    )
+
+        except Exception as e:
+            logger.warning(f"Vector search failed (falling back to BM25 only): {e}")
+
+        # Stage 2: BM25 keyword search — runs independently of embeddings.
+        # Uses PostgreSQL tsvector (fully local, no API calls), so it works
+        # even when the embedding API is down or quota-exhausted.
         bm25_query = query_text or (sub_queries[0] if sub_queries else "")
         if bm25_query:
             bm25_results = _bm25_search(bm25_query, clone_id, access_tiers, db_url)
@@ -231,7 +236,7 @@ def search(
         retrieved_passages = candidates[:top_k]
 
         retrieval_confidence = 0.0
-        if retrieved_passages:
+        if retrieved_passages and query_vectors:
             try:
                 top_chunk_id = retrieved_passages[0]["chunk_id"]
                 vector_str = "[" + ",".join(str(v) for v in query_vectors[0]) + "]"
@@ -251,6 +256,9 @@ def search(
                             retrieval_confidence = float(result[0])
             except Exception as e:
                 logger.warning(f"Fallback confidence calc failed: {e}")
+        elif retrieved_passages:
+            # BM25-only results (embedding API was down) — use a modest base confidence
+            retrieval_confidence = 0.3
 
         return (retrieved_passages, retrieval_confidence)
 

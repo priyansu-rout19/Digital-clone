@@ -83,6 +83,7 @@ class ConversationState(TypedDict):
     voice_chunks: list[str]  # text chunks for TTS
     audio_base64: str  # base64-encoded MP3 audio from TTS (empty if text_only)
     audio_format: str  # "mp3" or "" (set by voice_pipeline)
+    model_override: str  # per-request LLM model override (empty = use env default)
 
 
 # ============================================================================

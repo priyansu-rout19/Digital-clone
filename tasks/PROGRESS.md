@@ -1,7 +1,7 @@
 # Digital Clone Engine — Session Progress & Implementation Status
 
-**Last Updated:** March 6, 2026 (Session 34 — Multi-Turn Fix + Comprehensive Testing + Sacred Archive Silence Fix)
-**Current Focus:** Comprehensive CLI testing (28 tests, 7 batches) verified multi-turn conversation fix. Found and fixed Sacred Archive silence bypass bug. 34 API tests pass, zero TS errors, production build clean.
+**Last Updated:** March 7, 2026 (Session 35 — OpenRouter Switch + 5 Bug Fixes)
+**Current Focus:** Switched LLM provider from Groq to OpenRouter (400+ models). Fixed 5 bugs: model_override TypedDict, ModelSelector cache, max_tokens default, BM25 fallback, Qwen thinking suppression. 34 API tests pass, zero TS errors, production build clean.
 
 ---
 
@@ -57,9 +57,11 @@ The Digital Clone Engine is a unified backend system serving two digital clones 
 
 **LLM Integration**
 - File: `core/llm.py`
-- ChatOpenAI client factory pointing at Groq API (configurable via `LLM_BASE_URL`)
-- Default model: `qwen/qwen3-32b` (configurable via `LLM_MODEL` env var)
+- ChatOpenAI client factory pointing at OpenRouter API (configurable via `LLM_BASE_URL`)
+- Default model: `meta-llama/llama-3.3-70b-instruct` (configurable via `LLM_MODEL` env var)
 - Per-request override via `model` parameter (Session 33)
+- Default `max_tokens=2048` prevents OpenRouter credit over-reservation (Session 35)
+- Qwen3.5 thinking suppression via `extra_body` (OpenRouter) or `reasoning_effort` (Groq) — Session 35
 - API key: stored in `.env` (gitignored)
 - Temperature control (0.0 for classification, 0.7 for generation)
 
@@ -321,7 +323,7 @@ core/                       ← Runtime implementation
   __init__.py
   models/
     clone_profile.py        ← Component 01 ✅ (7 enums, 17 fields, 2 presets)
-  llm.py                    ← LLM client factory (Groq + Qwen)
+  llm.py                    ← LLM client factory (OpenRouter + any OpenAI-compatible provider)
   mem0_client.py            ← Mem0 client factory (pgvector backend) ✅ NEW Session 4
   db/                       ← Component 03 ✅
     __init__.py
@@ -487,58 +489,60 @@ These were researched and decided. Do NOT re-debate:
 
 ---
 
-## Component Status Summary (Session 33)
+## Component Status Summary (Session 35)
 
 | Component | Status | Sessions | Notes |
 |---|---|---|---|
-| Backend (core engine + API) | ✅ COMPLETE + HARDENED | 1-17, 33 | 19 LangGraph nodes, 8 API endpoint groups (added /models) |
+| Backend (core engine + API) | ✅ COMPLETE + HARDENED | 1-17, 33, 35 | 19 LangGraph nodes, 8 API endpoint groups, OpenRouter provider |
 | Database (schema + seeding) | ✅ COMPLETE | 12, 25, 30 | 15 tables, 6 migrations, 37 seeded passages |
-| RAG Pipeline | ✅ COMPLETE | 13-14, 29 | FlashRank reranking, BM25 hybrid, multi-factor scorer |
-| Frontend (React SPA) | ✅ COMPLETE | 19-28, 31, 33 | 31 source files, zero TS errors, production build |
-| Documentation | ✅ COMPLETE | 30, 33 | Docs refreshed to Session 33 |
-| Test Suite | ✅ COMPLETE | 10-16 | 77 tests passing |
+| RAG Pipeline | ✅ COMPLETE | 13-14, 29, 35 | FlashRank reranking, BM25 hybrid (independent fallback), multi-factor scorer |
+| Frontend (React SPA) | ✅ COMPLETE | 19-28, 31, 33, 35 | 31 source files, zero TS errors, production build |
+| Documentation | ✅ COMPLETE | 30, 33, 35 | Docs refreshed to Session 35 |
+| Test Suite | ✅ COMPLETE | 10-16, 34 | 34 API tests passing |
 | Stubs | 3 remaining | — | All PCCI hardware-blocked |
 
 ---
 
-## Groq API Setup (For Next Session)
+## OpenRouter API Setup (Session 35+)
 
 **What's Already Set Up:**
-- `.env` file with `GROQ_API_KEY=gsk_...` (local, gitignored)
-- `core/llm.py` with `get_llm()` factory function
+- `.env` file with `LLM_API_KEY=sk-or-v1-...`, `LLM_BASE_URL=https://openrouter.ai/api/v1`, `LLM_MODEL=meta-llama/llama-3.3-70b-instruct`
+- `core/llm.py` with `get_llm()` factory function (env-var driven, any OpenAI-compatible provider)
 - All nodes import and use LLM via `get_llm()`
+- Default `max_tokens=2048` to prevent credit over-reservation
 
 **If Key Expires:**
-- Get new key from https://console.groq.com/keys
-- Update `.env` file
-- Tests will pass again
+- Get new key from https://openrouter.ai/settings/keys
+- Update `LLM_API_KEY` in `.env` file
 
-**Available Qwen Model on Groq:**
-- `qwen/qwen3-32b` (Preview tier)
-- If it gets deprecated, check https://console.groq.com/docs/models
-- Fallback alternatives: `llama-3.3-70b-versatile`, `llama-3.1-8b-instant`
+**Available Models on OpenRouter (400+):**
+- Default: `meta-llama/llama-3.3-70b-instruct`
+- Tested: `qwen/qwen3.5-35b-a3b` (thinking suppressed via `extra_body`)
+- Model selector in frontend allows per-request switching
+- Check https://openrouter.ai/models for full list
 
 ---
 
 ## Lessons Learned (from tasks/lessons.md)
 
-30 lessons documented. Key recent ones:
-1. **Lesson 28:** LLM self-evaluation unreliable for confidence scoring — use deterministic multi-factor scoring
-2. **Lesson 29:** Paraphrased queries embed identically — use keyword/sub-topic/jargon strategies
-3. **Lesson 30:** Random embeddings break testing — always use real embeddings for demo corpora
+34 lessons documented. Key recent ones:
+1. **Lesson 33:** LangGraph TypedDict drops undeclared keys — every state key must be in TypedDict
+2. **Lesson 34:** OpenRouter max_tokens credit reservation — always set explicit max_tokens
+3. **Lesson 35:** LangChain model_kwargs vs extra_body — use extra_body for provider-specific params
 
-See `tasks/lessons.md` for all 30.
+See `tasks/lessons.md` for all 34.
 
 ---
 
-## For Next Session (Session 31+)
+## For Next Session (Session 36+)
 
-**Current Status (Session 30):**
+**Current Status (Session 35):**
 - ✅ FULL SYSTEM COMPLETE — Backend + Frontend + RAG pipeline + Tests
-- ✅ 77 tests passing, zero TS errors, production build passes
-- ✅ SOW Compliance: ParaGPT 97%, Sacred Archive 90%, Combined 93%
-- ✅ Demo-ready: real Gemini embeddings, corpus-aligned starter questions, reasoning trace
-- ✅ All documentation updated to Session 30 (6 docs refreshed)
+- ✅ 34 API tests passing, zero TS errors, production build passes
+- ✅ SOW Compliance: ParaGPT ~97%, Sacred Archive ~92%, Combined ~94%
+- ✅ LLM provider: OpenRouter (400+ models, per-request switching via ModelSelector)
+- ✅ BM25 fallback works independently when Gemini embedding API is down
+- ✅ Qwen3.5 thinking suppression implemented (via extra_body)
 - Only 3 hardware-blocked stubs remain (LLM swap, embeddings swap, tree search — all PCCI)
 
 **Remaining Work (P2 Quality):**
@@ -546,21 +550,29 @@ See `tasks/lessons.md` for all 30.
 - [ ] Rejection → seeker notification flow — no notification when reviewer rejects
 - [ ] GDPR delete auth — no authentication on DELETE endpoint
 - [ ] Demo videos — 5 user journey recordings (manager HIGH priority, non-code)
-- [ ] When full corpus loaded: raise `confidence_threshold` back to 0.80
+- [ ] When full corpus loaded: raise `confidence_threshold` back to 0.80 (currently 0.60 for BM25-only)
+- [ ] Investigate Gemini API key/project mismatch (dashboard shows 3/1K RPD but API returns 429)
 
 **Phase 3: Production Deployment (PCCI-blocked)**
-- [ ] Replace dev proxies: Groq → SGLang, Google Gemini → TEI (when PCCI ready)
+- [ ] Replace dev proxies: OpenRouter → SGLang, Google Gemini → TEI (when PCCI ready)
 - [ ] Docker Compose or Kubernetes on PCCI
 - [ ] Real voice cloning (OpenAudio S1-mini)
 - [ ] Air-gapped deployment for Sacred Archive
 
-**To Continue Next Session (Session 34):**
+**To Continue Next Session (Session 36):**
 1. Read `PROGRESS.md` (this file) — recap status
-2. Run full test suite: `python3 -m pytest tests/ -v` (expect 77 passed)
+2. Run full test suite: `python3 -m pytest tests/test_api.py -v` (expect 34 passed)
 3. Check `docs/SOW-AUDIT.md` for remaining gaps
-4. Start with P2 quality fixes (AuditLog writes, rejection flow, GDPR auth)
+4. Start with P2 quality fixes or corpus expansion
 
 **Key Files Modified (Recent Sessions):**
+
+**Session 35 (OpenRouter Switch + 5 Bug Fixes):**
+- `core/llm.py` — OpenRouter as default provider, `max_tokens=2048` default, Qwen thinking suppression via `extra_body`
+- `core/langgraph/conversation_flow.py` — `model_override: str` added to ConversationState TypedDict
+- `core/rag/retrieval/vector_search.py` — BM25 runs independently when embedding API fails (inner try/except)
+- `ui/src/components/ModelSelector.tsx` — Module-level cache (`_cachedModels`, `_cachedDefault`) survives remount
+- DB: ParaGPT `confidence_threshold` 0.65→0.60 (for BM25-only mode)
 
 **Session 33 (Model Selector — Frontend + Backend + CLI):**
 - `core/llm.py` — `model` param for per-request override

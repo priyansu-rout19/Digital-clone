@@ -1,8 +1,8 @@
 # ARCHITECTURE: Digital Clone Engine — Unified Technical System Design
 
-**Version:** 5.0 | **Date:** March 6, 2026 (Session 30) | **Prepared by:** Prem AI — Solution Architecture
+**Version:** 5.1 | **Date:** March 7, 2026 (Session 35) | **Prepared by:** Prem AI — Solution Architecture
 
-**Note:** This is the **specification/design document** (target production). For **current implementation status**, see [PROGRESS.md](../tasks/PROGRESS.md). Development currently uses drop-in proxy models (Google Gemini for embeddings, Groq for LLM) pending PCCI infrastructure — zero code changes needed when production models available.
+**Note:** This is the **specification/design document** (target production). For **current implementation status**, see [PROGRESS.md](../tasks/PROGRESS.md). Development currently uses drop-in proxy models (Google Gemini for embeddings, OpenRouter for LLM inference) pending PCCI infrastructure — zero code changes needed when production models available.
 
 ---
 
@@ -227,12 +227,12 @@ The LLM generates a response using:
 
 ---
 
-## 6. Codebase Structure (Current Status — March 6, 2026, Session 30)
+## 6. Codebase Structure (Current Status — March 7, 2026, Session 35)
 
 | Component | Location | Status | Notes |
 |---|---|---|---|
-| **Config Model** | `core/models/clone_profile.py` | ✅ COMPLETE | 7 enums, 17 fields, 2 presets (ParaGPT threshold=0.65 for demo corpus) |
-| **LLM Client** | `core/llm.py` | ✅ COMPLETE | Groq API (dev) → SGLang (prod) |
+| **Config Model** | `core/models/clone_profile.py` | ✅ COMPLETE | 7 enums, 17 fields, 2 presets (ParaGPT threshold=0.60 for demo corpus) |
+| **LLM Client** | `core/llm.py` | ✅ COMPLETE | OpenRouter (dev) → SGLang (prod), Qwen thinking suppression, max_tokens=2048 |
 | **Embeddings Client** | `core/rag/ingestion/embedder.py` | ✅ COMPLETE | Google Gemini (dev) → TEI (prod), 3072→1024-dim truncated |
 | **Mem0 Client** | `core/mem0_client.py` | ✅ COMPLETE | pgvector backend, `TruncatedGoogleEmbeddings` wrapper (Session 26) |
 | **LangGraph Orchestrator** | `core/langgraph/conversation_flow.py` | ✅ COMPLETE | 19 nodes, T2 before CRAG |
@@ -242,9 +242,9 @@ The LLM generates a response using:
 | **RAG Ingestion** | `core/rag/ingestion/` | ✅ COMPLETE | Parser + chunker (semantic) + embedder + indexer (with tsvector) |
 | **RAG Retrieval** | `core/rag/retrieval/` | ✅ COMPLETE | Hybrid vector+BM25, FlashRank reranking, RRF fusion, CRAG (S29) |
 | **FastAPI Layer** | `api/` | ✅ COMPLETE | 7 endpoint groups, WebSocket + reasoning trace, rate limiting, CORS |
-| **Test Suite** | `tests/` | ✅ COMPLETE | 77 tests passing (API+chunker+session16+e2e) |
+| **Test Suite** | `tests/` | ✅ COMPLETE | 34 API tests passing |
 | **Database Seeding** | `scripts/` | ✅ COMPLETE | 2 clones, 1 user, 8 docs, 37 chunks (real Gemini embeddings, S30) |
-| **Frontend** | `ui/` | ✅ COMPLETE | 29 source files, ReasoningTrace, CollapsibleCitations, copper theme |
+| **Frontend** | `ui/` | ✅ COMPLETE | 31 source files, ModelSelector, ReasoningTrace, CollapsibleCitations, copper theme |
 
 ---
 

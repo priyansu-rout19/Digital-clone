@@ -3,7 +3,7 @@ Models Endpoint
 
 Lists available LLM models from the configured provider.
 Caches the result for 5 minutes to avoid hammering the provider API.
-All OpenAI-compatible APIs (Groq, SGLang, vLLM) support GET /models.
+All OpenAI-compatible APIs (OpenRouter, Groq, SGLang, vLLM) support GET /models.
 """
 
 import time
@@ -22,10 +22,12 @@ router = APIRouter()
 _cache: list = [0.0, []]
 CACHE_TTL_SECONDS = 300  # 5 minutes
 
-# Model ID substrings to filter out (non-text, niche, or low-quality models)
+# Model ID substrings to filter out (non-text, niche, or low-quality models).
+# OpenRouter returns 400+ models — this keeps the dropdown manageable.
 _EXCLUDE_PATTERNS = (
     "whisper", "embed", "guard", "tts", "moderation", "dall-e", "image",
     "allam", "compound", "orpheus", "playai", "distil-whisper",
+    "audio", "vision-preview", "search", "safety", ":free",
 )
 
 

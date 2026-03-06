@@ -15,18 +15,34 @@ function displayName(id: string): string {
   return parts[parts.length - 1];
 }
 
+// Module-level cache: survives component unmount/remount across page transitions.
+// Without this, remounting ModelSelector on the Chat page starts with models=[]
+// and canOpen=false, blocking the dropdown until the async fetch completes.
+let _cachedModels: ModelInfo[] = [];
+let _cachedDefault = '';
+
 export default function ModelSelector({ selectedModel, onModelChange, variant = 'paragpt' }: ModelSelectorProps) {
-  const [models, setModels] = useState<ModelInfo[]>([]);
-  const [defaultModel, setDefaultModel] = useState('qwen/qwen3-32b');
+  const [models, setModels] = useState<ModelInfo[]>(_cachedModels);
+  const [defaultModel, setDefaultModel] = useState(_cachedDefault || 'qwen/qwen3.5-35b-a3b');
   const [isOpen, setIsOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
-  // Fetch available models on mount
+  // Fetch available models on mount (skips if cache already populated)
   useEffect(() => {
+    if (_cachedModels.length > 0) {
+      // Cache hit — set selectedModel if not already set
+      if (!selectedModel && _cachedDefault) {
+        onModelChange(_cachedDefault);
+      }
+      return;
+    }
+
     getModels()
       .then((resp) => {
+        _cachedModels = resp.models;
+        _cachedDefault = resp.default;
         setModels(resp.models);
         setDefaultModel(resp.default);
         if (!selectedModel) {

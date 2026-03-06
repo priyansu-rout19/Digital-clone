@@ -619,6 +619,59 @@ if final_confidence >= profile.confidence_threshold:
 
 ---
 
+### Lesson 33: LangGraph TypedDict Drops Undeclared State Keys
+
+**Date:** Session 35 | **Category:** LangGraph / State management
+
+**What happened:** `model_override` was set in `build_initial_state()` (in `chat.py`) and passed to `graph.invoke()`, but by the time it reached the first LLM-calling node, it was gone. All 4 LLM nodes saw `state.get("model_override")` as `None`, ignoring the per-request model selection.
+
+**Root cause:** LangGraph's `StateGraph` uses the `TypedDict` class as its state schema. During state propagation between nodes, LangGraph validates the state against the TypedDict and **silently drops any key not declared in the TypedDict**. `model_override` was being set correctly at init but wasn't declared in `ConversationState`, so LangGraph discarded it at the first edge.
+
+**Fix:** Added `model_override: str` to the `ConversationState` TypedDict in `conversation_flow.py`.
+
+**Rule for future:**
+- Every new state key MUST be declared in the TypedDict — LangGraph silently drops undeclared keys
+- Test by inspecting state AFTER the first node (not just at init) to verify keys survive propagation
+- If a state key "mysteriously disappears" between nodes, check the TypedDict first
+
+---
+
+### Lesson 34: OpenRouter max_tokens Credit Reservation
+
+**Date:** Session 35 | **Category:** LLM provider / Billing
+
+**What happened:** After switching from Groq to OpenRouter, the pipeline returned 402 errors: "This request requires more credits. You requested up to 65536 tokens, but can only afford 31329."
+
+**Root cause:** OpenRouter **reserves** `max_tokens` against your credit balance before processing. When `max_tokens=None`, the LangChain ChatOpenAI client doesn't send it, and OpenRouter defaults to the model's full context window (e.g., 65K for Llama 3.3). Even a simple "hello" query would try to reserve 65K tokens worth of credits. Groq didn't have this behavior because it's a flat-rate API.
+
+**Fix:** Default `max_tokens=2048` in `get_llm()` when not explicitly specified. This is enough for all pipeline use cases (query analysis ~100 tokens, generation ~500 tokens, reformulation ~200 tokens).
+
+**Rule for future:**
+- Always set explicit `max_tokens` for pay-per-token providers (OpenRouter, OpenAI, Anthropic API)
+- `None`/unlimited is only safe for flat-rate APIs (Groq, local inference)
+- Check provider billing docs when switching — credit reservation behavior varies
+
+---
+
+### Lesson 35: LangChain model_kwargs vs extra_body — Provider-Specific Params
+
+**Date:** Session 35 | **Category:** LangChain / LLM integration
+
+**What happened:** Qwen3.5-35B-A3B on OpenRouter burned 1,268 reasoning tokens on internal `<think>` reasoning per call, causing timeouts. The fix (`reasoning={"effort": "none"}`) worked via direct HTTP but broke when passed through LangChain's `model_kwargs`.
+
+**Root cause:** LangChain's `ChatOpenAI` inspects `model_kwargs` for known keys. When it sees `reasoning`, it interprets it as an instruction to use structured content blocks and converts `response.content` from a plain `str` to a `list[dict]` like `[{"type": "text", "text": "..."}]`. The entire pipeline (citation verifier, confidence scorer, etc.) expected `str` content and broke.
+
+**Fix:** Use `extra_body={"reasoning": {"effort": "none"}}` instead of `model_kwargs`. `extra_body` passes parameters directly in the HTTP request body without LangChain interpreting them. The response comes back as a normal `str`.
+
+**Rule for future:**
+- `model_kwargs` → params that LangChain knows about (temperature, top_p, etc.) — LangChain may interpret them
+- `extra_body` → params that bypass LangChain entirely — sent raw in HTTP body
+- For provider-specific features (thinking suppression, response format overrides), prefer `extra_body`
+- Verify `type(response.content)` after switching — should be `str`, not `list`
+- Different providers use different suppression methods: Groq uses `reasoning_effort` (top-level param), OpenRouter uses `reasoning.effort` (extra_body)
+
+---
+
 ## Session Patterns to Remember
 
 1. **User is learning by building** — every spec/decision should explain the why, not just the what
@@ -635,7 +688,7 @@ if final_confidence >= profile.confidence_threshold:
 12. **Environment dependency pinning matters** — pip can silently downgrade packages; verify after install
 13. **Mock path resolution: patch at source, not import site** — for lazy imports, patch where function is defined
 14. **E2E test fixtures must respect profile thresholds** — confidence thresholds differ per profile
-15. **Reasoning mode control varies by backend** — Groq uses `reasoning_effort`, vLLM/SGLang use `enable_thinking`, same problem different solutions
+15. **Reasoning mode control varies by backend** — Groq uses `reasoning_effort`, OpenRouter uses `reasoning.effort` via `extra_body`, vLLM/SGLang use `enable_thinking`
 16. **Spec compliance: verify implementation against original spec** — drift happens during incremental development. Check spec when questions arise. Spec is source of truth, not implementation.
 17. **Sync code in async framework doesn't require full async rewrite** — FastAPI supports sync dependencies. Measure first (if <100ms, use sync directly). Only use async wrappers if operations are slow.
 18. **FastAPI testing with async fixtures and dependency overrides** — Use httpx.AsyncClient(transport=ASGITransport), override dependencies globally, mock flexible models with side_effect dispatchers. Always restore original side_effect to avoid recursion.
@@ -651,3 +704,8 @@ if final_confidence >= profile.confidence_threshold:
 28. **LLM self-evaluation is systematically overconfident** — always returns ~1.0 for confidence scoring. Use deterministic multi-factor scoring instead (retrieval score + citation coverage + grounding + passage count). No LLM call = faster + calibrated.
 29. **Paraphrased queries embed identically** — reformulating via paraphrases doesn't change vector search results. Use keyword extraction, sub-topic decomposition, domain jargon, and BM25 hybrid search to actually retrieve different passages.
 30. **Seed data with random embeddings breaks pipeline testing** — use real embeddings for demo corpora. Also: profile config loads from DB (not Python preset), so changes require DB UPDATE. Always test both relevant and irrelevant queries.
+31. **Multi-turn conversation: 3 compounding bugs** — hard-coded "anonymous" user_id, pipeline ordering (history after analysis), context-blind query analysis. Fix all three for follow-ups to work.
+32. **Conditional edge ordering: safety before admin flags** — `review_required` must not short-circuit `confidence_threshold` check. Check confidence FIRST, then decide review vs silence.
+33. **LangGraph TypedDict drops undeclared keys** — every state key must be declared in TypedDict. Undeclared keys silently disappear between nodes.
+34. **OpenRouter max_tokens credit reservation** — always set explicit max_tokens for pay-per-token providers. None reserves full context window worth of credits.
+35. **LangChain model_kwargs vs extra_body** — use `extra_body` for provider-specific params (thinking suppression). `model_kwargs` gets intercepted by LangChain, changing response format.

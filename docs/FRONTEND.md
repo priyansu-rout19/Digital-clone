@@ -1,6 +1,6 @@
 # Digital Clone Engine — Frontend Documentation
 
-**Last updated:** Session 33 (March 6, 2026)
+**Last updated:** Session 35 (March 7, 2026)
 **Tech stack:** Vite 6 + React 19 + TypeScript + Tailwind CSS v4
 **Entry point:** `ui/src/main.tsx` | **Build:** `cd ui && npm run build`
 
@@ -56,7 +56,7 @@ ui/src/
 | `NodeProgress.tsx` | Animated dots showing current LangGraph node ("Searching knowledge base..."). **Unused since Session 31** — both clients now use inline thinking bubble. |
 | `AudioPlayer.tsx` | Play/pause button + clickable/seekable progress bar for voice responses. |
 | `ReasoningTrace.tsx` | Collapsible "{N} pipeline steps" pill with vertical timeline. Shows per-node metrics (retrieval confidence, reranked flag, citation count, etc.). `TraceRecord` type from `types.ts`. Accumulated via ref in `useChat.ts`. Session 28. |
-| `ModelSelector.tsx` | Compact pill showing current model name (e.g., "qwen3-32b ▾"). Click opens upward dropdown with available models from `GET /models`. Uses `position: fixed` + `getBoundingClientRect()` to escape parent overflow/flex constraints. Theme-aware via `variant` prop (copper/gold). Fetches on mount, default shown immediately. Session 33. |
+| `ModelSelector.tsx` | Compact pill showing current model name (e.g., "qwen3-32b ▾"). Click opens upward dropdown with available models from `GET /models`. Uses `position: fixed` + `getBoundingClientRect()` to escape parent overflow/flex constraints. Theme-aware via `variant` prop (copper/gold). Module-level cache (`_cachedModels`, `_cachedDefault`) survives component unmount/remount across page transitions — prevents dropdown going dead after Landing→Chat transition. Session 33, cache fix Session 35. |
 | `ErrorBoundary.tsx` | React class component catching render errors with "Try Again" button. |
 
 ### Pages (`ui/src/pages/`)
