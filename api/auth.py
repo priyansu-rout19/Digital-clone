@@ -7,10 +7,41 @@ These are endpoint-specific authorization checks used as FastAPI dependencies.
 
 import os
 import logging
+from typing import Callable
 
-from fastapi import Request, HTTPException
+from fastapi import Request, HTTPException, Depends
 
 logger = logging.getLogger(__name__)
+
+
+def require_role(*allowed_roles: str) -> Callable:
+    """
+    FastAPI dependency factory: enforce X-Actor-Role header.
+
+    Usage: Depends(require_role("reviewer", "curator"))
+
+    Returns the validated role string so it can be used downstream.
+    When DCE_API_KEY is not set (dev mode), enforcement is skipped
+    and the header value (or "dev") is returned.
+    """
+    allowed = set(allowed_roles)
+
+    def _check(request: Request) -> str:
+        role = request.headers.get("X-Actor-Role", "").lower().strip()
+
+        # Dev convenience: skip enforcement when API key is not configured
+        if not os.environ.get("DCE_API_KEY"):
+            return role or "dev"
+
+        if role not in allowed:
+            raise HTTPException(
+                status_code=403,
+                detail=f"This endpoint requires one of these roles: {', '.join(sorted(allowed))}. "
+                       f"Send X-Actor-Role header with your request.",
+            )
+        return role
+
+    return _check
 
 
 def verify_gdpr_access(user_id: str, request: Request) -> str:

@@ -42,7 +42,7 @@ export default function Chat({ messages, isLoading, currentNode, onSendMessage, 
       <div className="flex-1 overflow-y-auto hide-scrollbar px-4 pt-8 pb-4 max-w-3xl mx-auto w-full">
         {/* Conversation start — scrolls with messages */}
         <div className="flex flex-col items-center pt-2 pb-6">
-          <img src="/avatars/parag-khanna.png" alt={profile?.display_name || 'Clone'} className="w-12 h-12 rounded-full object-cover mb-2" />
+          <img src={profile?.avatar_url || '/avatars/parag-khanna.png'} alt={profile?.display_name || 'Clone'} className="w-12 h-12 rounded-full object-cover mb-2" />
           <span className="text-white/80 text-sm font-medium">{profile?.display_name || 'Clone'}</span>
         </div>
         {messages.map((msg, i) => (

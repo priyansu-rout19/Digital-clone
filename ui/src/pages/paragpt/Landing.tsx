@@ -37,7 +37,7 @@ export default function Landing({ profile, onSendMessage, onQuestionClick, selec
       {/* Profile Card */}
       <div className="glass rounded-[16px] w-full max-w-[640px] p-6 flex flex-col items-center text-center">
         <img
-          src="/avatars/parag-khanna.png"
+          src={profile.avatar_url || '/avatars/parag-khanna.png'}
           alt={profile.display_name}
           className="w-20 h-20 rounded-full object-cover mb-4"
         />

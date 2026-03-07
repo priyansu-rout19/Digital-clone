@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getAnalytics } from '../../api/client';
 import type { AnalyticsSummary } from '../../api/types';
+
+const POLL_INTERVAL_MS = 30_000;
 
 interface Props {
   slug: string;
@@ -22,12 +24,25 @@ export default function AnalyticsDashboard({ slug }: Props) {
   const [data, setData] = useState<AnalyticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    getAnalytics(slug)
-      .then(setData)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+    let cancelled = false;
+
+    const fetchData = () => {
+      getAnalytics(slug)
+        .then((d) => { if (!cancelled) setData(d); })
+        .catch((e) => { if (!cancelled) setError(e.message); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    };
+
+    fetchData();
+    intervalRef.current = setInterval(fetchData, POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
   }, [slug]);
 
   if (loading) {

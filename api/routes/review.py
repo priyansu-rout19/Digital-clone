@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
 from api.deps import get_clone, get_db
+from api.auth import require_role
 from core.models.clone_profile import CloneProfile
 from core.db.schema import ReviewQueue, AuditDetails
 from core.audit import write_audit, extract_actor
@@ -97,6 +98,7 @@ async def update_review(
     review_id: str,
     request: ReviewUpdateRequest,
     http_request: Request,
+    actor_role: str = Depends(require_role("reviewer", "curator")),
     clone_info: tuple[str, CloneProfile] = Depends(get_clone),
     db: Session = Depends(get_db),
 ) -> ReviewUpdateResponse:
@@ -134,13 +136,13 @@ async def update_review(
     db.refresh(review)
 
     # Audit trail
-    actor_id, actor_role = extract_actor(http_request)
+    actor_id, _ = extract_actor(http_request)
     write_audit(
         db,
         clone_id=clone_id,
         action=f"review.{request.action}",
         actor_id=actor_id,
-        actor_role=actor_role or "reviewer",
+        actor_role=actor_role,
         details=AuditDetails(
             response_id=review_id,
             decision=request.action,
