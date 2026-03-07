@@ -1,6 +1,6 @@
 # Digital Clone Engine — Frontend Documentation
 
-**Last updated:** Session 39 (March 7, 2026)
+**Last updated:** Session 40 (March 8, 2026)
 **Tech stack:** Vite 6 + React 19 + TypeScript + Tailwind CSS v4
 **Entry point:** `ui/src/main.tsx` | **Build:** `cd ui && npm run build`
 
@@ -12,7 +12,7 @@
 ui/src/
   api/          → Backend communication (REST + WebSocket)
   hooks/        → Reusable React hooks (chat, audio, profile)
-  components/   → Shared UI components (10 files)
+  components/   → Shared UI components (11 files)
   pages/        → Route-specific pages (ParaGPT, Sacred Archive, Review, Analytics)
   themes/       → Design token exports (not currently used at runtime)
   index.css     → Global styles + glass morphism + markdown rendering
@@ -21,18 +21,18 @@ ui/src/
 ```
 
 **Routing:** `/:slug` auto-detects ParaGPT vs Sacred Archive via `profile.generation_mode`. Analytics at `/:slug/analytics`.
-**Proxy:** Vite dev server proxies `/chat`, `/clone`, `/review`, `/ingest`, `/analytics`, `/users`, `/models` to `http://localhost:8000`
+**Proxy:** Vite dev server proxies `/chat`, `/clone`, `/review`, `/ingest`, `/analytics`, `/users`, `/models`, `/feedback` to `http://localhost:8000`
 
 ---
 
-## File Inventory (29 source files)
+## File Inventory (31 source files)
 
 ### API Layer (`ui/src/api/`)
 
 | File | Purpose |
 |------|---------|
 | `types.ts` | 24 TypeScript interfaces mirroring backend models (ChatMessage, CloneProfile, WSMessage, TraceRecord, ModelInfo, ModelsResponse, etc.). Shared `NODE_LABELS` (28 entries) + `NODE_DISPLAY_NAMES` (22 entries) constants. |
-| `client.ts` | 6 REST functions (cloneProfile, chat, review, reviewAction, analytics, getModels) with 15s AbortController timeout + API key header. `ApiError` class with HTTP status (S39). |
+| `client.ts` | 8 REST functions (+batchReview, submitFeedback) with 15s AbortController timeout + API key header. `ApiError` class with HTTP status (S39). |
 
 ### Hooks (`ui/src/hooks/`)
 
@@ -57,6 +57,7 @@ ui/src/
 | `ReasoningTrace.tsx` | Collapsible "{N} pipeline steps" pill with vertical timeline. Shows per-node metrics (retrieval confidence, reranked flag, citation count, etc.). `TraceRecord` type from `types.ts`. Accumulated via ref in `useChat.ts`. Session 28. |
 | `ModelSelector.tsx` | Compact pill showing current model name (e.g., "qwen3-32b ▾"). Click opens upward dropdown with available models from `GET /models`. Uses `position: fixed` + `getBoundingClientRect()` to escape parent overflow/flex constraints. Theme-aware via `variant` prop (copper/gold). Module-level cache (`_cachedModels`, `_cachedDefault`) with 5-min TTL. S37: `cancelled` flag, `fetchError` state with red dot indicator. Session 33, cache fix S35, TTL S37. |
 | `ErrorBoundary.tsx` | React class component catching render errors with "Try Again" button. S37: `unhandledrejection` listener for async errors. |
+| `FeedbackWidget.tsx` | 5-star rating + optional comment. Submits to `POST /feedback/{slug}`. Dark theme with amber accent. Shows "Thank you!" confirmation. S40. |
 
 ### Pages (`ui/src/pages/`)
 
@@ -66,7 +67,7 @@ ui/src/
 | `paragpt/Chat.tsx` | Chat view — conversation-start intro (centered avatar+name, scrolls with messages), message list, collapsible citations, audio, thinking bubble (animated dots in glass bubble), input bar with model selector |
 | `sacred-archive/Landing.tsx` | Tier selector (Devotee/Friend/Follower), "Continue to Archive" button, model selector in input bar |
 | `sacred-archive/Chat.tsx` | Chat view — serif quotes with gold accents, provenance citations, thinking bubble, suggested topic pills, new conversation button, model selector |
-| `review/Dashboard.tsx` | 3-column review queue (pending/approved/rejected). Edit mode (textarea + Save/Cancel), keyboard shortcuts (a/r/e + arrows), cited sources with `CollapsibleCitations`. Mobile: stacked columns. |
+| `review/Dashboard.tsx` | 3-column review queue. Edit mode, keyboard shortcuts (a/r/e + arrows), cited sources. S40: batch select checkboxes + Batch Approve/Reject buttons. Mobile: stacked columns. |
 | `analytics/Dashboard.tsx` | Monitoring dashboard: stat cards (total queries, avg confidence, avg latency, silence rate), queries per day bar chart, top intent classes. Route: `/:slug/analytics`. S39: 30s auto-refresh. |
 
 ### Other Files
@@ -175,6 +176,7 @@ cd ui && npm run build        # Output: ui/dist/ (56+ modules)
 | **35** | OpenRouter switch: ModelSelector module-level cache fix (survives unmount/remount). |
 | **37** | 16 frontend edge case fixes + 3 second-pass: useChat (isMountedRef, 10s connect timeout, race guard, JSON.parse safety, slug reset), ChatInput (IME guard, Tailwind bg fix), useCloneProfile (cancelled flag, retryCount, retry()), ModelSelector (5-min TTL, cancelled flag, fetchError), MessageBubble (XSS defense, copy fallback), ErrorBoundary (unhandledrejection), review/Dashboard (editText reset), CitationCard (null safety). |
 | **39** | Frontend resilience: useCloneProfile exponential backoff (5 attempts), ApiError class with HTTP status, differentiated error pages (404 vs transient), AudioPlayer Tailwind fix, useReviewPolling cancelledRef, Dashboard stale notes fix, analytics 30s auto-refresh. Deleted websocket.ts + NodeProgress.tsx. 29 source files. |
+| **40** | Batch review (checkboxes + Batch Approve/Reject in Dashboard), FeedbackWidget.tsx (5-star + comment), batchReview() + submitFeedback() in client.ts, /feedback Vite proxy. 31 source files. |
 
 ---
 

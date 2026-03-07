@@ -1,6 +1,6 @@
 # Stubs & Mocks Inventory — Digital Clone Engine
 
-**Last Updated:** March 7, 2026 (Session 39) | **Status:** 34 API tests passing, zero xfails. Only 3 hardware-blocked stubs remain. Sessions 21-22 fixed citation pipeline, strict silence router, added monitoring dashboard, GDPR delete, rate limiting, CORS hardening. Session 39 added evaluation framework (`core/evaluation/` — persona_scorer, consistency_checker), corpus expansion (ParaGPT 48+ passages, Sacred Archive 41+), Gemini singleton embedder with retry backoff.
+**Last Updated:** March 8, 2026 (Session 40) | **Status:** 34 API tests passing, zero xfails. Only 3 hardware-blocked stubs remain. Session 40 added pgcrypto encryption (migration 0007), seeker_feedback table, batch review endpoint, feedback endpoint, 50-query eval suites, foundation gate, corpus gap detection.
 
 ---
 

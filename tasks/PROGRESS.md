@@ -1,7 +1,7 @@
 # Digital Clone Engine — Progress & Status
 
-**Last Updated:** March 7, 2026 (Session 39)
-**Status:** ~97% SOW delivered. 34 API tests pass, zero TS errors, production build clean.
+**Last Updated:** March 8, 2026 (Session 40)
+**Status:** ~99% SOW delivered (all non-PCCI code gaps closed). 34 API tests pass, zero TS errors, production build clean.
 
 ---
 
@@ -22,15 +22,15 @@ All behavioral differences driven by `CloneProfile` config + `build_graph(profil
 | Clone Profile Config | COMPLETE | 1, 13 | 7 enums, 17 fields, 2 presets (`core/models/clone_profile.py`) |
 | RAG Ingestion | COMPLETE | 13-14 | Semantic chunking (LangChain), Gemini embeddings (1024-dim), pgvector HNSW |
 | RAG Retrieval | COMPLETE | 14, 29, 35 | Hybrid vector+BM25, FlashRank reranking, RRF fusion, independent fallback |
-| DB Schema | COMPLETE | 3, 12, 29 | 15 tables, 6 migrations, PostgreSQL 17 + pgvector (`core/db/schema.py`) |
+| DB Schema | COMPLETE | 3, 12, 29, 40 | 16 tables, 7 migrations, PostgreSQL 17 + pgvector + pgcrypto (`core/db/schema.py`) |
 | LangGraph Orchestration | COMPLETE | 4-7, 34 | 19 nodes, 25-key ConversationState, `build_graph(profile)` factory |
 | LLM Integration | COMPLETE | 32-33, 35 | OpenRouter (400+ models), per-request override, max_tokens=2048 |
 | Mem0 Memory | COMPLETE | 4, 14, 26 | pgvector backend, TruncatedGoogleEmbeddings (3072->1024), ParaGPT only |
-| FastAPI Layer | COMPLETE | 8-10, 17 | 8 endpoint groups, CORS, rate limiting, role-based access |
-| React Frontend | COMPLETE | 19-28, 31, 33, 37, 39 | 29 source files, Vite 6 + React 19 + TS + Tailwind v4 |
+| FastAPI Layer | COMPLETE | 8-10, 17, 40 | 9 endpoint groups (+feedback), CORS, rate limiting, role-based access |
+| React Frontend | COMPLETE | 19-28, 31, 33, 37, 39, 40 | 31 source files, Vite 6 + React 19 + TS + Tailwind v4 |
 | Test Suite | COMPLETE | 10, 16, 34 | 34 API tests (`tests/test_api.py`) |
 | Corpus | COMPLETE | 25, 30, 36, 39 | ParaGPT 48+ passages/13 docs, Sacred Archive 41+ passages/10 docs |
-| Evaluation | COMPLETE | 39 | `core/evaluation/` — persona_scorer + consistency_checker |
+| Evaluation | COMPLETE | 39, 40 | `core/evaluation/` + 50-query eval suites + 30-query foundation gate |
 | Remaining Stubs (3) | PCCI-BLOCKED | — | LLM swap (SGLang), embeddings swap (TEI), tree search (MinIO) |
 
 ---
@@ -109,6 +109,7 @@ All behavioral differences driven by `CloneProfile` config + `build_graph(profil
 | 37 | Mar 7 | Frontend hardening | 19 edge case bugs: unmount safety, race guards, XSS defense, IME, cancelled patterns |
 | 38 | Mar 7 | P2 quality | AuditLog writes, rejection->seeker flow, GDPR delete auth |
 | 39 | Mar 7 | Corpus + eval | Corpus expanded (89+ passages), Gemini singleton+retry, evaluation framework, role-based access, frontend resilience |
+| 40 | Mar 8 | Close all gaps | SOW audits, chat audit logging, prediction hedging, 50-query eval suites, foundation gate, corpus gap detection, pgcrypto encryption, batch review, seeker feedback survey, FeedbackWidget |
 
 ---
 
@@ -139,14 +140,13 @@ conversation_history -> query_analysis -> tier1_retrieval -> provenance_graph_qu
 
 ---
 
-## For Next Session (Session 40)
+## For Next Session (Session 41)
 
 **Remaining Work:**
 1. Demo videos — 5 user journey recordings (manager request, non-code)
-2. Run eval tools — persona fidelity + consistency baselines
-3. Build eval suite — 50-query test + 30-query foundation gate
-4. Encryption at rest — PostgreSQL TDE or pgcrypto for corpus/messages
-5. Full corpus — current 89+ passages / 23 docs is demo-level. Need full library.
+2. Run eval suites — `python3 tests/eval_suite_paragpt.py` + `python3 tests/eval_suite_sacred_archive.py`
+3. Run foundation gate — `python3 scripts/foundation_gate.py`
+4. Full corpus — current 89+ passages / 23 docs is demo-level. Need full library from client.
 
 **PCCI-Blocked (Phase 3 — Production):**
 - LLM: OpenRouter -> SGLang (env var swap)
@@ -157,14 +157,10 @@ conversation_history -> query_analysis -> tier1_retrieval -> provenance_graph_qu
 
 **Quick Start:**
 ```bash
-# Run tests
-python3 -m pytest tests/test_api.py -v  # expect 34 passed
-
-# Test LLM
-python3 -c "from core.llm import get_llm; r = get_llm().invoke('Say hello'); print(r.content)"
-
-# Query pipeline
-python3 scripts/ask_clone.py "What is the future of ASEAN?" --clone paragpt -v
+python3 -m pytest tests/test_api.py -v       # expect 34 passed
+python3 scripts/foundation_gate.py            # pass/fail gate
+python3 scripts/corpus_gap_report.py          # coverage gaps
+cd ui && npm run build                        # zero TS errors
 ```
 
-**Cross-references:** `tasks/lessons.md` (35 lessons), `tasks/todo.md` (action items), `docs/SOW-AUDIT.md` (gap analysis)
+**Cross-references:** `tasks/lessons.md` (35 lessons), `tasks/todo.md` (action items), `docs/PARAGPT-AUDIT-REPORT.md`, `docs/SACRED-AUDIT-REPORT.md`
