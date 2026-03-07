@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { CloneProfile } from '../../api/types';
 import ModelSelector from '../../components/ModelSelector';
 
@@ -26,6 +26,11 @@ const SUGGESTED_QUESTIONS = [
 export default function Landing({ profile: _profile, onSelectTier, onSendMessage, onQuestionClick, selectedModel, onModelChange }: LandingProps) {
   const [selectedTier, setSelectedTier] = useState('devotee');
   const [query, setQuery] = useState('');
+
+  // Sync default tier to parent so first query uses 'devotee', not 'public'
+  useEffect(() => {
+    onSelectTier('devotee');
+  }, [onSelectTier]);
 
   const handleTierSelect = (tierId: string) => {
     setSelectedTier(tierId);

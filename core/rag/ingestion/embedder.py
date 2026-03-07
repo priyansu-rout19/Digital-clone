@@ -40,7 +40,7 @@ class EmbeddingClient:
 
         all_embeddings: list[list[float]] = []
 
-        batch_size = 32
+        batch_size = 100
         for i in range(0, len(texts), batch_size):
             batch = texts[i : i + batch_size]
             try:
