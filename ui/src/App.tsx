@@ -14,7 +14,7 @@ import AnalyticsDashboard from './pages/analytics/Dashboard';
 
 function ClonePage() {
   const { slug } = useParams<{ slug: string }>();
-  const { profile, loading, error, retry } = useCloneProfile(slug || '');
+  const { profile, loading, error, errorKind, retrying, attempt, retry } = useCloneProfile(slug || '');
   const { messages, setMessages, isLoading, currentNode, error: chatError, sendMessage, clearMessages } = useChat(slug || '');
   const [chatActive, setChatActive] = useState(false);
   const [accessTier, setAccessTier] = useState('public');
@@ -44,31 +44,33 @@ function ClonePage() {
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center bg-para-navy">
-        <div className="flex gap-1">
-          <span className="w-3 h-3 bg-para-teal rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-          <span className="w-3 h-3 bg-para-teal rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-          <span className="w-3 h-3 bg-para-teal rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+        <div className="text-center">
+          <div className="flex gap-1 justify-center mb-4">
+            <span className="w-3 h-3 bg-para-teal rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+            <span className="w-3 h-3 bg-para-teal rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+            <span className="w-3 h-3 bg-para-teal rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          </div>
+          {retrying && (
+            <p className="text-gray-400 text-sm">
+              Connecting to server... (attempt {attempt}/5)
+            </p>
+          )}
         </div>
       </div>
     );
   }
 
   if (error || !profile) {
-    return (
-      <div className="h-full flex items-center justify-center bg-para-navy text-white">
-        <div className="text-center max-w-md px-6">
-          <div className="text-6xl mb-4 opacity-30">404</div>
-          <h1 className="text-xl font-semibold mb-2">Clone not found</h1>
-          <p className="text-gray-500 text-sm mb-6">{error || `No clone profile exists for "/${slug}". Check the URL and try again.`}</p>
-          <div className="flex items-center justify-center gap-3">
-            {error && (
-              <button
-                onClick={retry}
-                className="px-5 py-2.5 rounded-full bg-para-teal text-white text-sm font-medium hover:opacity-90 transition-opacity"
-              >
-                Retry
-              </button>
-            )}
+    // True 404: clone does not exist in the database
+    if (errorKind === 'not_found') {
+      return (
+        <div className="h-full flex items-center justify-center bg-para-navy text-white">
+          <div className="text-center max-w-md px-6">
+            <div className="text-6xl mb-4 opacity-30">404</div>
+            <h1 className="text-xl font-semibold mb-2">Clone not found</h1>
+            <p className="text-gray-500 text-sm mb-6">
+              No clone profile exists for &ldquo;/{slug}&rdquo;. Check the URL and try again.
+            </p>
             <a
               href="/paragpt-client"
               className="inline-block px-5 py-2.5 rounded-full bg-gray-700 text-white text-sm font-medium hover:opacity-90 transition-opacity"
@@ -76,6 +78,44 @@ function ClonePage() {
               Go to ParaGPT
             </a>
           </div>
+        </div>
+      );
+    }
+
+    // Transient error: server was unreachable after all retries
+    if (errorKind === 'transient') {
+      return (
+        <div className="h-full flex items-center justify-center bg-para-navy text-white">
+          <div className="text-center max-w-md px-6">
+            <div className="text-5xl mb-4 opacity-30">&#9888;</div>
+            <h1 className="text-xl font-semibold mb-2">Server unavailable</h1>
+            <p className="text-gray-500 text-sm mb-6">
+              Could not connect to the backend after multiple attempts. The server may still be starting up.
+            </p>
+            <button
+              onClick={retry}
+              className="px-5 py-2.5 rounded-full bg-para-teal text-white text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              Try again
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Unknown / unexpected error (fallback)
+    return (
+      <div className="h-full flex items-center justify-center bg-para-navy text-white">
+        <div className="text-center max-w-md px-6">
+          <div className="text-5xl mb-4 opacity-30">&#9888;</div>
+          <h1 className="text-xl font-semibold mb-2">Something went wrong</h1>
+          <p className="text-gray-500 text-sm mb-6">{error || 'An unexpected error occurred.'}</p>
+          <button
+            onClick={retry}
+            className="px-5 py-2.5 rounded-full bg-para-teal text-white text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            Try again
+          </button>
         </div>
       </div>
     );

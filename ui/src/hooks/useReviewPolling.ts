@@ -19,9 +19,11 @@ export function useReviewPolling(
 ) {
   const intervalsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
   const startTimesRef = useRef<Map<string, number>>(new Map());
+  const cancelledRef = useRef(false);
 
   useEffect(() => {
     if (!slug || !silenceMessage) return;
+    cancelledRef.current = false;
 
     // Find messages that need polling (have review_id, status=pending)
     const pendingMessages = messages.filter(
@@ -46,6 +48,7 @@ export function useReviewPolling(
 
         try {
           const result = await getReviewStatus(slug, rid);
+          if (cancelledRef.current) return;
 
           if (result.status !== 'pending') {
             // Stop polling
@@ -84,6 +87,7 @@ export function useReviewPolling(
 
     // Cleanup on unmount
     return () => {
+      cancelledRef.current = true;
       for (const interval of intervalsRef.current.values()) {
         clearInterval(interval);
       }

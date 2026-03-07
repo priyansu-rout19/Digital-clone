@@ -3,6 +3,25 @@ import type { AnalyticsSummary, ChatRequest, ChatResponse, CloneProfile, ModelsR
 const API_KEY = import.meta.env.VITE_API_KEY as string | undefined;
 const REQUEST_TIMEOUT_MS = 15_000;
 
+/**
+ * Custom error that preserves the HTTP status code from a failed API response.
+ * status = 0 means no HTTP response was received (network error / timeout).
+ */
+export class ApiError extends Error {
+  readonly status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+/** Returns true for errors that may resolve on retry (server starting, network blip). */
+export function isTransientError(err: unknown): boolean {
+  if (!(err instanceof ApiError)) return false;
+  return err.status === 0 || err.status >= 500;
+}
+
 async function apiFetch<T>(url: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -21,15 +40,19 @@ async function apiFetch<T>(url: string, options: RequestInit = {}): Promise<T> {
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(text || `Request failed: ${res.status}`);
+      throw new ApiError(text || `Request failed: ${res.status}`, res.status);
     }
 
     return res.json() as Promise<T>;
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error('Request timed out');
+      throw new ApiError('Request timed out', 0);
     }
-    throw err;
+    if (err instanceof ApiError) throw err;
+    throw new ApiError(
+      err instanceof Error ? err.message : 'Network error',
+      0,
+    );
   } finally {
     clearTimeout(timeout);
   }

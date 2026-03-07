@@ -1,5 +1,10 @@
 import type { MouseEvent } from 'react';
 
+const ACCENT_BG: Record<string, string> = {
+  'para-teal': 'bg-para-teal',
+  'sacred-gold': 'bg-sacred-gold',
+};
+
 interface AudioPlayerProps {
   isPlaying: boolean;
   progress: number;
@@ -25,7 +30,7 @@ export default function AudioPlayer({
     >
       <button
         onClick={onToggle}
-        className={`w-6 h-6 rounded-full bg-${accent} flex items-center justify-center`}
+        className={`w-6 h-6 rounded-full ${ACCENT_BG[accent]} flex items-center justify-center`}
       >
         {isPlaying ? (
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3 text-white">
@@ -55,7 +60,7 @@ export default function AudioPlayer({
         }}
       >
         <div
-          className={`h-1 bg-${accent} rounded-full transition-all duration-200`}
+          className={`h-1 ${ACCENT_BG[accent]} rounded-full transition-all duration-200`}
           style={{ width: `${progress}%` }}
         />
       </div>
