@@ -14,7 +14,9 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from api.deps import get_clone, get_db
+from core.audit import write_audit, extract_actor
 from core.db import psycopg_url as _psycopg_url
+from core.db.schema import AuditDetails
 from core.models.clone_profile import CloneProfile
 from core.langgraph.conversation_flow import build_graph
 from core.llm import LLM_MODEL
@@ -47,7 +49,8 @@ class ChatResponse(BaseModel):
 
 
 def build_initial_state(query: str, clone_id: str, user_id: str,
-                        access_tier: str = "public", model: str = "") -> dict:
+                        access_tier: str = "public", model: str = "",
+                        voice_enabled: bool = True) -> dict:
     """Build the initial ConversationState dict for the graph."""
     return {
         "query_text": query,
@@ -75,6 +78,7 @@ def build_initial_state(query: str, clone_id: str, user_id: str,
         "audio_format": "",
         "model_override": model,
         "review_id": "",
+        "voice_enabled": voice_enabled,
     }
 
 
@@ -226,6 +230,21 @@ async def chat_sync(
     # Write analytics (non-blocking, fails silently)
     _write_analytics(clone_id, chat_request.user_id, chat_request.query, final_state, latency_ms)
 
+    # Audit log — every query logged per SOW
+    actor_id, actor_role = extract_actor(request)
+    write_audit(
+        db,
+        clone_id=clone_id,
+        action="chat.query",
+        actor_id=actor_id or chat_request.user_id,
+        actor_role=actor_role or "user",
+        details=AuditDetails(
+            query_text=chat_request.query[:500],
+            confidence=final_state.get("final_confidence", 0.0),
+            silence_triggered=final_state.get("silence_triggered", False),
+        ),
+    )
+
     # Extract response fields (user_memory excluded — internal pipeline use only)
     return ChatResponse(
         response=final_state.get("verified_response", ""),
@@ -263,6 +282,7 @@ async def chat_ws(
         user_id = data.get("user_id", "anonymous")
         access_tier = data.get("access_tier", "public")
         model = data.get("model", "")
+        voice_enabled = data.get("voice_enabled", True)
 
         if not query:
             await websocket.send_json({"type": "error", "message": "query is required"})
@@ -304,7 +324,7 @@ async def chat_ws(
             clone_id = str(clone_row.id)
 
             # Build initial state with access_tier and model override
-            initial_state = build_initial_state(query, clone_id, user_id, access_tier, model)
+            initial_state = build_initial_state(query, clone_id, user_id, access_tier, model, voice_enabled)
 
             # Build graph and stream (with latency tracking)
             graph = build_graph(profile)
@@ -341,6 +361,20 @@ async def chat_ws(
 
             # Write analytics (non-blocking, fails silently)
             _write_analytics(clone_id, user_id, query, final_state, latency_ms)
+
+            # Audit log — every query logged per SOW
+            write_audit(
+                db,
+                clone_id=clone_id,
+                action="chat.query",
+                actor_id=user_id if user_id != "anonymous" else None,
+                actor_role="user",
+                details=AuditDetails(
+                    query_text=query[:500],
+                    confidence=final_state.get("final_confidence", 0.0),
+                    silence_triggered=final_state.get("silence_triggered", False),
+                ),
+            )
 
             # Send final response after all nodes complete and message saved
             await websocket.send_json(

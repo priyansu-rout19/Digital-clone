@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { ReviewItem } from '../../api/types';
-import { getReviews, updateReview } from '../../api/client';
+import { getReviews, updateReview, batchReview } from '../../api/client';
 import CollapsibleCitations from '../../components/CollapsibleCitations';
 
 interface DashboardProps {
@@ -16,6 +16,8 @@ export default function Dashboard({ slug }: DashboardProps) {
   const [actionLoading, setActionLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editText, setEditText] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchLoading, setBatchLoading] = useState(false);
 
   const fetchReviews = () => {
     setLoading(true);
@@ -67,6 +69,36 @@ export default function Dashboard({ slug }: DashboardProps) {
       setError(err instanceof Error ? err.message : 'Edit failed');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBatchAction = async (action: 'approve' | 'reject') => {
+    if (selectedIds.size === 0) return;
+    setBatchLoading(true);
+    try {
+      const result = await batchReview(slug, Array.from(selectedIds), action, notes || undefined);
+      setReviews((prev) => prev.filter((r) => !selectedIds.has(r.id)));
+      if (selected && selectedIds.has(selected.id)) {
+        setSelected(null);
+      }
+      setSelectedIds(new Set());
+      setNotes('');
+      if (result.errors.length > 0) {
+        setError(`Batch completed with errors: ${result.errors.join(', ')}`);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Batch action failed');
+    } finally {
+      setBatchLoading(false);
     }
   };
 
@@ -147,22 +179,32 @@ export default function Dashboard({ slug }: DashboardProps) {
           <p className="px-4 py-8 text-center text-gray-500 text-sm">No pending reviews</p>
         ) : (
           reviews.map((item) => (
-            <button
+            <div
               key={item.id}
-              type="button"
-              onClick={() => { setSelected(item); setEditMode(false); setEditText(''); setNotes(''); }}
-              className={`w-full text-left px-4 py-3 border-b border-gray-800 hover:bg-gray-800/50 transition-colors cursor-pointer ${
+              className={`flex items-start gap-2 px-4 py-3 border-b border-gray-800 hover:bg-gray-800/50 transition-colors ${
                 selected?.id === item.id ? 'border-l-2 border-l-sacred-gold bg-gray-800/30' : ''
               }`}
             >
-              <p className="text-sm text-sacred-ivory/80 truncate">{item.query_text}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <span className={`text-xs ${confidenceColor(item.confidence_score)}`}>
-                  {item.confidence_score != null ? `${Math.round(item.confidence_score * 100)}%` : 'N/A'}
-                </span>
-                <span className="text-xs text-gray-600">{new Date(item.created_at).toLocaleDateString()}</span>
-              </div>
-            </button>
+              <input
+                type="checkbox"
+                checked={selectedIds.has(item.id)}
+                onChange={() => toggleSelection(item.id)}
+                className="mt-1 accent-sacred-gold cursor-pointer shrink-0"
+              />
+              <button
+                type="button"
+                onClick={() => { setSelected(item); setEditMode(false); setEditText(''); setNotes(''); }}
+                className="flex-1 text-left cursor-pointer"
+              >
+                <p className="text-sm text-sacred-ivory/80 truncate">{item.query_text}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className={`text-xs ${confidenceColor(item.confidence_score)}`}>
+                    {item.confidence_score != null ? `${Math.round(item.confidence_score * 100)}%` : 'N/A'}
+                  </span>
+                  <span className="text-xs text-gray-600">{new Date(item.created_at).toLocaleDateString()}</span>
+                </div>
+              </button>
+            </div>
           ))
         )}
       </div>
@@ -217,6 +259,33 @@ export default function Dashboard({ slug }: DashboardProps) {
       {/* Right — Actions */}
       <div className="w-full md:w-[25%] border-t md:border-t-0 md:border-l border-gray-700 p-6 flex flex-col gap-4">
         <h3 className="text-sacred-gold text-xs font-semibold uppercase tracking-wide">Actions</h3>
+
+        {selectedIds.size > 0 && (
+          <div className="flex flex-col gap-2 pb-3 border-b border-gray-700">
+            <p className="text-xs text-gray-400">{selectedIds.size} item{selectedIds.size > 1 ? 's' : ''} selected</p>
+            <button
+              onClick={() => handleBatchAction('approve')}
+              disabled={batchLoading}
+              className="w-full py-2 rounded-xl bg-sacred-gold text-sacred-brown font-semibold text-sm hover:bg-sacred-gold-dark transition-colors disabled:opacity-40"
+            >
+              {batchLoading ? 'Processing...' : 'Batch Approve'}
+            </button>
+            <button
+              onClick={() => handleBatchAction('reject')}
+              disabled={batchLoading}
+              className="w-full py-2 rounded-xl bg-red-900/60 text-red-200 font-semibold text-sm hover:bg-red-900/80 transition-colors disabled:opacity-40"
+            >
+              {batchLoading ? 'Processing...' : 'Batch Reject'}
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              disabled={batchLoading}
+              className="w-full py-1.5 rounded-xl text-gray-400 text-xs hover:text-gray-200 transition-colors disabled:opacity-40"
+            >
+              Clear Selection
+            </button>
+          </div>
+        )}
 
         {editMode ? (
           <>

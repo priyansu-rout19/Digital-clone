@@ -1,6 +1,6 @@
 # Manager Directives & Product Vision
 
-**Source:** Prem AI management feedback | **Last Updated:** March 7, 2026 (Session 35)
+**Source:** Prem AI management feedback | **Last Updated:** March 7, 2026 (Session 39)
 
 ---
 
@@ -92,7 +92,7 @@
 | AuditLog writes | MEDIUM | Table exists, never INSERT'd — needs writes on review/ingest/admin actions |
 | Rejection → seeker flow | MEDIUM | No notification to seeker when reviewer rejects |
 | GDPR delete auth | LOW | No authentication on DELETE endpoint |
-| Success metrics tracking | LOW | Citation accuracy, persona fidelity — no measurement code |
+| ~~Success metrics tracking~~ | ~~LOW~~ | ✅ Session 39 — `core/evaluation/` (persona_scorer + consistency_checker) |
 
 ### Blocked by PCCI Hardware
 | Gap | Blocker |
@@ -103,12 +103,20 @@
 | Tree search (Tier 2) | MinIO on PCCI |
 | Air-gapped deployment | Full PCCI infra |
 
-### SOW Compliance Summary (Session 30)
+### SOW Compliance Summary (Session 39)
 | Client | Completion | Notes |
 |--------|-----------|-------|
-| ParaGPT | **97%** | Only voice clone remaining (PCCI-blocked) |
-| Sacred Archive | **90%** | AuditLog writes + rejection flow remaining (P2) |
-| **Combined** | **93%** | 80% (S23) → 85% (S24) → 89% (S25) → 93% (S28-30) |
+| ParaGPT | **~97%** | Only voice clone remaining (PCCI-blocked) |
+| Sacred Archive | **~90%** | AuditLog writes + rejection flow remaining (P2) |
+| **Combined** | **~97%** | 80% (S23) → 85% (S24) → 89% (S25) → 93% (S28-30) → ~97% (S39, corpus+eval+resilience) |
+
+### Session 39 Additions
+- **Corpus expansion:** ParaGPT 48+ passages (13 docs), Sacred Archive 41+ passages (10 docs)
+- **Evaluation framework:** `core/evaluation/` — persona fidelity scorer + consistency checker
+- **Gemini hardening:** Singleton embedder, retry backoff (3 attempts), startup health check
+- **Confidence threshold:** Restored to 0.80 (from 0.65) after corpus expansion
+- **Role-based access:** `require_role()` dependency — review PATCH requires reviewer/curator, ingest POST requires curator/admin
+- **Frontend resilience:** Exponential backoff retry, differentiated error pages, analytics auto-refresh
 
 ---
 

@@ -17,6 +17,7 @@ export default defineConfig({
       '/analytics': 'http://localhost:8000',
       '/users': 'http://localhost:8000',
       '/models': 'http://localhost:8000',
+      '/feedback': 'http://localhost:8000',
       '/health': 'http://localhost:8000',
     },
   },

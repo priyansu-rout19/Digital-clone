@@ -61,7 +61,7 @@ export function useChat(slug: string) {
   }, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sendMessage = useCallback(
-    (query: string, userId = 'anonymous', accessTier = 'public', model = '') => {
+    (query: string, userId = 'anonymous', accessTier = 'public', model = '', voiceEnabled = true) => {
       clearResponseTimeout();
       clearConnectTimeout();
       closeWs();
@@ -91,7 +91,7 @@ export function useChat(slug: string) {
         if (ws !== wsRef.current) { ws.close(); return; }
         if (!isMountedRef.current) return;
 
-        ws.send(JSON.stringify({ query, user_id: userId, access_tier: accessTier, model }));
+        ws.send(JSON.stringify({ query, user_id: userId, access_tier: accessTier, model, voice_enabled: voiceEnabled }));
 
         timeoutRef.current = setTimeout(() => {
           if (!isMountedRef.current) return;

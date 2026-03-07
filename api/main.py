@@ -72,7 +72,7 @@ async def health():
 
 
 # Import and register routers
-from api.routes import chat, ingest, review, config, analytics, users, models
+from api.routes import chat, ingest, review, config, analytics, users, models, feedback
 
 app.include_router(chat.router, prefix="/chat", tags=["Chat"])
 app.include_router(ingest.router, prefix="/ingest", tags=["Ingest"])
@@ -81,6 +81,7 @@ app.include_router(config.router, prefix="/clone", tags=["Config"])
 app.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
 app.include_router(users.router, prefix="/users", tags=["Users"])
 app.include_router(models.router, prefix="/models", tags=["Models"])
+app.include_router(feedback.router, prefix="/feedback", tags=["Feedback"])
 
 
 if __name__ == "__main__":

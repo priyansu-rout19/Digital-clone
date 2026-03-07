@@ -1,6 +1,6 @@
 # ARCHITECTURE: Digital Clone Engine — Unified Technical System Design
 
-**Version:** 5.1 | **Date:** March 7, 2026 (Session 35) | **Prepared by:** Prem AI — Solution Architecture
+**Version:** 5.2 | **Date:** March 7, 2026 (Session 39) | **Prepared by:** Prem AI — Solution Architecture
 
 **Note:** This is the **specification/design document** (target production). For **current implementation status**, see [PROGRESS.md](../tasks/PROGRESS.md). Development currently uses drop-in proxy models (Google Gemini for embeddings, OpenRouter for LLM inference) pending PCCI infrastructure — zero code changes needed when production models available.
 
@@ -144,8 +144,8 @@ The orchestrator is the **core** — it reads the clone profile and adjusts beha
 - All served via **SGLang** (OpenAI-compatible API, continuous batching, prefix caching)
 
 **Development (current):**
-- **Groq API** — qwen/qwen3-32b via env-var configurable `core/llm.py` (`LLM_MODEL`, `LLM_BASE_URL`, `LLM_API_KEY`)
-- **Google Gemini** — gemini-embedding-001 (3072→1024-dim Matryoshka, HTTP API via LangChain)
+- **OpenRouter API** — meta-llama/llama-3.3-70b-instruct (default) via env-var configurable `core/llm.py` (`LLM_MODEL`, `LLM_BASE_URL`, `LLM_API_KEY`). 400+ models available. Switched from Groq in Session 35.
+- **Google Gemini** — gemini-embedding-001 (3072→1024-dim Matryoshka, HTTP API via LangChain). Singleton embedder with retry backoff (3 attempts) + startup health check (Session 39).
 - Both are drop-in replacements with identical output dimensions/signatures
 - **Zero code changes** needed to swap production models — just set env vars
 - **Experiment script:** `scripts/test_model.py` tests any model against 5 use-case prompts
@@ -227,13 +227,13 @@ The LLM generates a response using:
 
 ---
 
-## 6. Codebase Structure (Current Status — March 7, 2026, Session 35)
+## 6. Codebase Structure (Current Status — March 7, 2026, Session 39)
 
 | Component | Location | Status | Notes |
 |---|---|---|---|
-| **Config Model** | `core/models/clone_profile.py` | ✅ COMPLETE | 7 enums, 17 fields, 2 presets (ParaGPT threshold=0.60 for demo corpus) |
+| **Config Model** | `core/models/clone_profile.py` | ✅ COMPLETE | 7 enums, 17+ fields, 2 presets (ParaGPT threshold=0.80), `persona_eval` field (S39) |
 | **LLM Client** | `core/llm.py` | ✅ COMPLETE | OpenRouter (dev) → SGLang (prod), Qwen thinking suppression, max_tokens=2048 |
-| **Embeddings Client** | `core/rag/ingestion/embedder.py` | ✅ COMPLETE | Google Gemini (dev) → TEI (prod), 3072→1024-dim truncated |
+| **Embeddings Client** | `core/rag/ingestion/embedder.py` | ✅ COMPLETE | Google Gemini (dev) → TEI (prod), 3072→1024-dim truncated, singleton + retry backoff (S39) |
 | **Mem0 Client** | `core/mem0_client.py` | ✅ COMPLETE | pgvector backend, `TruncatedGoogleEmbeddings` wrapper (Session 26) |
 | **LangGraph Orchestrator** | `core/langgraph/conversation_flow.py` | ✅ COMPLETE | 19 nodes, T2 before CRAG |
 | **Orchestration Nodes** | `core/langgraph/nodes/` | ✅ COMPLETE | Real LLM, real retrieval, real memory, multi-factor scorer (S29) |
@@ -243,15 +243,16 @@ The LLM generates a response using:
 | **RAG Retrieval** | `core/rag/retrieval/` | ✅ COMPLETE | Hybrid vector+BM25, FlashRank reranking, RRF fusion, CRAG (S29) |
 | **FastAPI Layer** | `api/` | ✅ COMPLETE | 7 endpoint groups, WebSocket + reasoning trace, rate limiting, CORS |
 | **Test Suite** | `tests/` | ✅ COMPLETE | 34 API tests passing |
-| **Database Seeding** | `scripts/` | ✅ COMPLETE | 2 clones, 1 user, 8 docs, 37 chunks (real Gemini embeddings, S30) |
-| **Frontend** | `ui/` | ✅ COMPLETE | 31 source files, ModelSelector, ReasoningTrace, CollapsibleCitations, copper theme |
+| **Database Seeding** | `scripts/` | ✅ COMPLETE | 2 clones, 1 user, 13 docs (ParaGPT) + 10 docs (Sacred), 48+ passages (S39 corpus expansion) |
+| **Evaluation** | `core/evaluation/` | ✅ COMPLETE | Persona fidelity scorer + consistency checker (S39) |
+| **Frontend** | `ui/` | ✅ COMPLETE | 29 source files (2 dead files removed S39), ModelSelector, ReasoningTrace, CollapsibleCitations, copper theme, resilience hardening (S37-39) |
 
 ---
 
 ## 7. Key Decisions (Locked)
 
 - **Profile-driven routing** via closures + conditional edges (no code branches per client)
-- **Groq + qwen/qwen3-32b** as development LLM proxy
+- **OpenRouter** as development LLM proxy (switched from Groq in S35, 400+ models)
 - **Pydantic models** for clean JSON serialization
 - **Stubs with correct state shapes** to verify orchestration before building dependencies
 - **No Apache AGE** — use pure SQL tables + recursive CTEs (team eliminated Oct 2024)

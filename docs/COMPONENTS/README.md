@@ -8,8 +8,9 @@ Engineering specifications for each component of the Digital Clone Engine.
 | **02** | RAG Pipeline (Ingestion + Retrieval + Semantic Chunking) | ✅ COMPLETE (v1.1 — Session 13) | `core/rag/` |
 | **03** | PostgreSQL Database Schema | ✅ COMPLETE (v1.5 — applied + seeded) | `core/db/schema.py`, `core/db/migrations/` |
 | **04** | LangGraph Orchestration (19-node graph) | ✅ COMPLETE (v2.1) | `core/langgraph/conversation_flow.py` |
-| **05** | FastAPI Gateway + 3 Improvements | ✅ COMPLETE (v1.1) | `api/main.py`, `api/middleware.py`, `api/routes/` |
-| **06** | Database Seeding Scripts | ✅ COMPLETE (Session 12) | `scripts/seed_db.py`, `scripts/ingest_samples.py` |
+| **05** | FastAPI Gateway + Role-Based Access | ✅ COMPLETE (v1.2) | `api/main.py`, `api/middleware.py`, `api/routes/` |
+| **06** | Database Seeding Scripts | ✅ COMPLETE (Session 39 — corpus expansion) | `scripts/seed_db.py`, `scripts/seed_paragpt_corpus.py`, `scripts/seed_sacred_archive_corpus.py` |
+| **07** | Evaluation Framework | ✅ COMPLETE (Session 39) | `core/evaluation/` (persona_scorer, consistency_checker) |
 
 ## Component 01: Clone Profile Config
 
@@ -50,11 +51,11 @@ The orchestration graph. 19 nodes (query analysis, retrieval, context assembly, 
 
 Real nodes: query_analyzer, tier1_retrieval, context_assembler, in_persona_generator, confidence_scorer, citation_verifier, memory_retrieval, memory_writer, review_queue_writer.
 
-## Component 05: FastAPI Gateway + API Improvements (Session 11)
+## Component 05: FastAPI Gateway + Role-Based Access
 
 **Location:** `api/` (6 files, 700+ lines) + `core/db/migrations/0004_messages.py`
 
-The HTTP gateway layer. 5 endpoint groups (health, config, chat, ingest, review) + WebSocket streaming. Session 11 additions:
+The HTTP gateway layer. 7 endpoint groups (health, config, chat, ingest, review, analytics, models, users) + WebSocket streaming. Session 39: `require_role()` dependency — review PATCH requires reviewer/curator, ingest POST requires curator/admin. Session 11 additions:
 
 **Feature 1: Conversation Persistence**
 - New ORM model: `Message` (1 row per chat exchange)
@@ -91,3 +92,13 @@ Database setup utilities for populating the system with initial data.
   - 2 markdown documents → 8 semantic chunks with Voyage AI 1024-dim embeddings
 - `sample_docs/paragpt_sample.md` — ParaGPT sample (geopolitics/connectivity)
 - `sample_docs/sacred_archive_sample.md` — Sacred Archive sample (compassion teachings)
+
+## Component 07: Evaluation Framework (Session 39)
+
+**Location:** `core/evaluation/` (2 files)
+
+Quality measurement tools for clone responses:
+- `persona_scorer.py` — Persona fidelity scoring (does the response sound like the clone?)
+- `consistency_checker.py` — Cross-response consistency verification
+- `persona_eval` field added to CloneProfile for per-clone evaluation config
+- Confidence threshold restored to 0.80 (from 0.65) after corpus expansion

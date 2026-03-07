@@ -85,6 +85,9 @@ class AuditDetails(BaseModel):
     session_id: Optional[str] = Field(None, description="Conversation session identifier")
     previous_status: Optional[str] = Field(None, description="Status before this action")
     new_status: Optional[str] = Field(None, description="Status after this action")
+    query_text: Optional[str] = Field(None, description="User query text (chat.query action)")
+    confidence: Optional[float] = Field(None, description="Final confidence score (chat.query action)")
+    silence_triggered: Optional[bool] = Field(None, description="Whether silence was triggered (chat.query action)")
 
 
 # ============================================================================
@@ -333,6 +336,20 @@ class Message(Base):
         Index("idx_messages_user_id", "user_id"),
         Index("idx_messages_clone_user", "clone_id", "user_id"),
     )
+
+
+class SeekerFeedback(Base):
+    """Seeker satisfaction survey responses."""
+    __tablename__ = "seeker_feedback"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    clone_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clones.id", ondelete="CASCADE"), nullable=False)
+    rating: Mapped[int] = mapped_column(Integer, nullable=False)
+    comment: Mapped[Optional[str]] = mapped_column(Text)
+    session_id: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (Index("idx_seeker_feedback_clone_id", "clone_id"),)
 
 
 # ============================================================================

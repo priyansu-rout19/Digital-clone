@@ -229,9 +229,10 @@ def sacred_archive_profile() -> CloneProfile:
         generation_mode=GenerationMode.mirror_only,
         confidence_threshold=0.95,
         silence_behavior=SilenceBehavior.strict_silence,
-        silence_message="This question falls outside the verified teachings in our archive. "
-                        "We honor the tradition by remaining silent rather than speculating. "
-                        "Please consult a senior guide, or explore related topics within the archive.",
+        silence_message="With reverence and humility, I must remain silent on this matter. "
+                        "The verified teachings in our archive do not address this question directly. "
+                        "Rather than risk misrepresenting the teachings, we honor the tradition "
+                        "by acknowledging the limits of what has been preserved.",
         review_required=True,
         user_memory_enabled=False,
         voice_mode=VoiceMode.original_only,

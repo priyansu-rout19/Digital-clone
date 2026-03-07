@@ -1,6 +1,6 @@
 # Stubs & Mocks Inventory — Digital Clone Engine
 
-**Last Updated:** March 5, 2026 (Session 22 — Requirements Audit & Gap Fixes) | **Status:** 37 tests passing (33 API + 4 E2E real), zero xfails. Only 3 hardware-blocked stubs remain. Sessions 21-22 fixed citation pipeline, strict silence router, added monitoring dashboard, GDPR delete, rate limiting, CORS hardening.
+**Last Updated:** March 7, 2026 (Session 39) | **Status:** 34 API tests passing, zero xfails. Only 3 hardware-blocked stubs remain. Sessions 21-22 fixed citation pipeline, strict silence router, added monitoring dashboard, GDPR delete, rate limiting, CORS hardening. Session 39 added evaluation framework (`core/evaluation/` — persona_scorer, consistency_checker), corpus expansion (ParaGPT 48+ passages, Sacred Archive 41+), Gemini singleton embedder with retry backoff.
 
 ---
 
@@ -35,11 +35,11 @@ These require PCCI infrastructure (GPU, MinIO). Code is ready; waiting for deplo
 
 **File:** `core/llm.py`
 
-**Now:** Groq API with `qwen/qwen3-32b` (cloud, OpenAI-compatible). Fully env-var configurable (Session 32):
+**Now:** OpenRouter API with `meta-llama/llama-3.3-70b-instruct` default (cloud, OpenAI-compatible). Switched from Groq in Session 35. Fully env-var configurable (Session 32):
 ```
-LLM_MODEL=qwen/qwen3-32b              # Model identifier
-LLM_BASE_URL=https://api.groq.com/openai/v1  # API endpoint
-LLM_API_KEY=                            # Falls back to GROQ_API_KEY
+LLM_MODEL=meta-llama/llama-3.3-70b-instruct  # Model identifier
+LLM_BASE_URL=https://openrouter.ai/api/v1    # API endpoint
+LLM_API_KEY=                                   # OpenRouter API key
 ```
 
 **Candidate OSS models for PCCI (all open source, all OpenAI-compatible via SGLang):**
@@ -280,7 +280,7 @@ Real recursive CTE SQL. Works with sample data. Returns real results for Sacred 
 
 **E2E tests:** All 4 tests use real services (no mocks). Session 14.
 
-**API tests:** 33 tests mock DB + graph (intentional — tests HTTP behavior, not pipeline logic).
+**API tests:** 34 tests mock DB + graph (intentional — tests HTTP behavior, not pipeline logic).
 
 **Session 16 tests:** 26 new tests in `tests/test_session16.py` (all mocked, testing individual node logic).
 
@@ -312,10 +312,14 @@ Real recursive CTE SQL. Works with sample data. Returns real results for Sacred 
 - Real integration tests (Sessions 12-14)
 - Stub replacement session (Session 16): 6 stubs → real code
 
+**Completed since S22:**
+- Reasoning trace panel ✅ (Session 28)
+- Evaluation framework ✅ (Session 39 — `core/evaluation/` with persona_scorer + consistency_checker)
+- Corpus expansion ✅ (Session 39 — ParaGPT 48+ passages, Sacred Archive 41+)
+- Gemini embedder hardening ✅ (Session 39 — singleton + retry backoff + startup health check)
+
 **Next:**
-- Reasoning trace panel (manager requested — collapsible pipeline visibility per response)
 - Demo videos (screen recordings of user journeys)
-- Success metrics tracking (citation accuracy, persona fidelity, latency)
 - Docker Compose for dev environment
 
 **When PCCI ready:**

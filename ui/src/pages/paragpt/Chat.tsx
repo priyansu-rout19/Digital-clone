@@ -19,9 +19,11 @@ interface ChatProps {
   error?: string | null;
   selectedModel: string;
   onModelChange: (modelId: string) => void;
+  voiceEnabled?: boolean;
+  onVoiceToggle?: () => void;
 }
 
-export default function Chat({ messages, isLoading, currentNode, onSendMessage, onNewConversation, profile, error, selectedModel, onModelChange }: ChatProps) {
+export default function Chat({ messages, isLoading, currentNode, onSendMessage, onNewConversation, profile, error, selectedModel, onModelChange, voiceEnabled, onVoiceToggle }: ChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { isPlaying, progress, play, toggle, seek } = useAudio();
 
@@ -126,6 +128,27 @@ export default function Chat({ messages, isLoading, currentNode, onSendMessage, 
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
                 <path d="M10 3a.75.75 0 0 1 .75.75v5.5h5.5a.75.75 0 0 1 0 1.5h-5.5v5.5a.75.75 0 0 1-1.5 0v-5.5h-5.5a.75.75 0 0 1 0-1.5h5.5v-5.5A.75.75 0 0 1 10 3Z" />
               </svg>
+            </button>
+          )}
+          {onVoiceToggle && (
+            <button
+              onClick={onVoiceToggle}
+              className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors flex-shrink-0 ${
+                voiceEnabled ? 'text-para-teal hover:bg-white/10' : 'text-gray-500 hover:bg-white/10'
+              }`}
+              title={voiceEnabled ? 'Disable voice' : 'Enable voice'}
+            >
+              {voiceEnabled ? (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                  <path d="M10 3.75a.75.75 0 0 0-1.264-.546L5.203 6H3.667a.75.75 0 0 0-.7.48A6.985 6.985 0 0 0 2.5 9.25c0 .966.195 1.886.467 2.77a.75.75 0 0 0 .7.48h1.537l3.532 2.796A.75.75 0 0 0 10 14.75V3.75ZM15.95 5.05a.75.75 0 0 0-1.06 1.06 5.5 5.5 0 0 1 0 7.78.75.75 0 1 0 1.06 1.06 7 7 0 0 0 0-9.9Z" />
+                  <path d="M13.829 7.172a.75.75 0 0 0-1.061 1.06 2.5 2.5 0 0 1 0 3.536.75.75 0 1 0 1.06 1.06 4 4 0 0 0 0-5.656Z" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                  <path d="M10 3.75a.75.75 0 0 0-1.264-.546L5.203 6H3.667a.75.75 0 0 0-.7.48A6.985 6.985 0 0 0 2.5 9.25c0 .966.195 1.886.467 2.77a.75.75 0 0 0 .7.48h1.537l3.532 2.796A.75.75 0 0 0 10 14.75V3.75Z" />
+                  <path d="M14.22 7.22a.75.75 0 0 1 1.06 0L16.5 8.44l1.22-1.22a.75.75 0 1 1 1.06 1.06L17.56 9.5l1.22 1.22a.75.75 0 1 1-1.06 1.06L16.5 10.56l-1.22 1.22a.75.75 0 1 1-1.06-1.06l1.22-1.22-1.22-1.22a.75.75 0 0 1 0-1.06Z" />
+                </svg>
+              )}
             </button>
           )}
           <div className="flex-1">

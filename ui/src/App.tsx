@@ -19,6 +19,14 @@ function ClonePage() {
   const [chatActive, setChatActive] = useState(false);
   const [accessTier, setAccessTier] = useState('public');
   const [selectedModel, setSelectedModel] = useState('');
+  const [voiceEnabled, setVoiceEnabled] = useState(() => {
+    const stored = localStorage.getItem('dce_voice_enabled');
+    return stored !== 'false';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('dce_voice_enabled', String(voiceEnabled));
+  }, [voiceEnabled]);
 
   // Reset local state when slug changes (navigating between clones)
   useEffect(() => {
@@ -134,12 +142,12 @@ function ClonePage() {
 
   const handleSend = (query: string) => {
     if (!chatActive) setChatActive(true);
-    sendMessage(query, userId, accessTier, selectedModel);
+    sendMessage(query, userId, accessTier, selectedModel, voiceEnabled);
   };
 
   const handleQuestionClick = (question: string) => {
     setChatActive(true);
-    sendMessage(question, userId, accessTier, selectedModel);
+    sendMessage(question, userId, accessTier, selectedModel, voiceEnabled);
   };
 
   if (isSacredArchive) {
@@ -185,7 +193,7 @@ function ClonePage() {
 
   return (
     <div className="h-full bg-para-navy">
-      <ParaGPTChat messages={messages} isLoading={isLoading} currentNode={currentNode} onSendMessage={handleSend} onNewConversation={handleNewConversation} profile={profile} error={chatError} selectedModel={selectedModel} onModelChange={setSelectedModel} />
+      <ParaGPTChat messages={messages} isLoading={isLoading} currentNode={currentNode} onSendMessage={handleSend} onNewConversation={handleNewConversation} profile={profile} error={chatError} selectedModel={selectedModel} onModelChange={setSelectedModel} voiceEnabled={voiceEnabled} onVoiceToggle={() => setVoiceEnabled(v => !v)} />
     </div>
   );
 }

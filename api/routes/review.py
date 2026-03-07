@@ -191,3 +191,82 @@ async def get_review_status(
         response_text=review.response_text if review.status in ("approved", "edited") else None,
         reviewed_at=review.reviewed_at,
     )
+
+
+# ============================================================================
+# BATCH REVIEW OPERATIONS
+# ============================================================================
+
+
+class BatchReviewRequest(BaseModel):
+    review_ids: list[str]
+    action: Literal["approve", "reject"]
+    notes: Optional[str] = None
+
+
+class BatchReviewResponse(BaseModel):
+    processed: int
+    errors: list[str]
+
+
+@router.post("/{clone_slug}/batch")
+async def batch_review(
+    clone_slug: str,
+    request: BatchReviewRequest,
+    http_request: Request,
+    actor_role: str = Depends(require_role("reviewer", "curator")),
+    clone_info: tuple[str, CloneProfile] = Depends(get_clone),
+    db: Session = Depends(get_db),
+) -> BatchReviewResponse:
+    """
+    Batch approve or reject multiple review items at once.
+    Limited to 50 items per request to prevent abuse.
+    """
+    clone_id, profile = clone_info
+
+    if len(request.review_ids) > 50:
+        raise HTTPException(status_code=400, detail="Batch size limited to 50 items")
+
+    if len(request.review_ids) == 0:
+        raise HTTPException(status_code=400, detail="No review IDs provided")
+
+    actor_id, _ = extract_actor(http_request)
+    new_status = "approved" if request.action == "approve" else "rejected"
+    processed = 0
+    errors: list[str] = []
+
+    for review_id in request.review_ids:
+        review = db.query(ReviewQueue).filter(
+            and_(ReviewQueue.id == review_id, ReviewQueue.clone_id == clone_id)
+        ).first()
+
+        if not review:
+            errors.append(f"Review '{review_id}' not found")
+            continue
+
+        previous_status = review.status
+        review.status = new_status
+        review.reviewer_notes = request.notes
+        review.reviewed_at = datetime.utcnow()
+
+        write_audit(
+            db,
+            clone_id=clone_id,
+            action=f"review.batch_{request.action}",
+            actor_id=actor_id,
+            actor_role=actor_role,
+            details=AuditDetails(
+                response_id=review_id,
+                decision=request.action,
+                reason=request.notes,
+                confidence_score=review.confidence_score,
+                previous_status=previous_status,
+                new_status=new_status,
+            ),
+        )
+
+        processed += 1
+
+    db.commit()
+
+    return BatchReviewResponse(processed=processed, errors=errors)

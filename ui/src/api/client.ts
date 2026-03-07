@@ -98,3 +98,17 @@ export interface ReviewStatusResponse {
 export function getReviewStatus(slug: string, reviewId: string): Promise<ReviewStatusResponse> {
   return apiFetch<ReviewStatusResponse>(`/review/${slug}/status/${reviewId}`);
 }
+
+export function batchReview(slug: string, reviewIds: string[], action: 'approve' | 'reject', notes?: string): Promise<{processed: number; errors: string[]}> {
+  return apiFetch<{processed: number; errors: string[]}>(`/review/${slug}/batch`, {
+    method: 'POST',
+    body: JSON.stringify({ review_ids: reviewIds, action, notes }),
+  });
+}
+
+export function submitFeedback(slug: string, rating: number, comment?: string, sessionId?: string): Promise<{id: string; rating: number; message: string}> {
+  return apiFetch<{id: string; rating: number; message: string}>(`/feedback/${slug}`, {
+    method: 'POST',
+    body: JSON.stringify({ rating, comment, session_id: sessionId }),
+  });
+}

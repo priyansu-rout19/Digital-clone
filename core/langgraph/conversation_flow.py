@@ -86,6 +86,7 @@ class ConversationState(TypedDict):
     audio_format: str  # "mp3" or "" (set by voice_pipeline)
     model_override: str  # per-request LLM model override (empty = use env default)
     review_id: str  # UUID of the review_queue row (set by review_queue_writer, empty if not reviewed)
+    voice_enabled: bool  # per-request voice toggle (True = generate TTS)
 
 
 # ============================================================================
@@ -286,7 +287,7 @@ def build_graph(profile: CloneProfile):
     def after_stream(state: ConversationState) -> str:
         if profile.user_memory_enabled:
             return "memory_writer"
-        if profile.voice_mode != VoiceMode.text_only:
+        if profile.voice_mode != VoiceMode.text_only and state.get("voice_enabled", True):
             return "voice_pipeline"
         return "__end__"
 
@@ -302,7 +303,7 @@ def build_graph(profile: CloneProfile):
 
     # memory_writer → voice pipeline or end (conditionally)
     def after_memory_write(state: ConversationState) -> str:
-        if profile.voice_mode != VoiceMode.text_only:
+        if profile.voice_mode != VoiceMode.text_only and state.get("voice_enabled", True):
             return "voice_pipeline"
         return "__end__"
 

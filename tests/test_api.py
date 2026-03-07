@@ -565,13 +565,13 @@ async def test_chat_saves_message_to_db(client, mock_db_session):
     response = await client.post("/chat/paragpt-client", json=payload)
 
     assert response.status_code == 200
-    # Verify that db.add was called (message was saved)
-    mock_db_session.add.assert_called_once()
+    # Verify that db.add was called (message + audit log)
+    assert mock_db_session.add.call_count >= 1
     mock_db_session.commit.assert_called()
 
-    # Verify the saved object is a Message instance
+    # Verify the first saved object is a Message instance
     from core.db.schema import Message
-    saved_msg = mock_db_session.add.call_args[0][0]
+    saved_msg = mock_db_session.add.call_args_list[0][0][0]
     assert isinstance(saved_msg, Message)
     assert saved_msg.query_text == "What is connectivity?"
     assert saved_msg.user_id == "user-123"
@@ -584,10 +584,10 @@ async def test_chat_message_default_user_id(client, mock_db_session):
     response = await client.post("/chat/paragpt-client", json=payload)
 
     assert response.status_code == 200
-    mock_db_session.add.assert_called_once()
+    assert mock_db_session.add.call_count >= 1
 
     from core.db.schema import Message
-    saved_msg = mock_db_session.add.call_args[0][0]
+    saved_msg = mock_db_session.add.call_args_list[0][0][0]
     assert saved_msg.user_id == "anonymous"
 
 
