@@ -2,6 +2,12 @@ import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
 
 const MAX_CHARS = 2000;
 
+// Full class strings so Tailwind can detect them at build time (no interpolation)
+const ACCENT_BG: Record<string, string> = {
+  'para-teal': 'bg-para-teal',
+  'sacred-gold': 'bg-sacred-gold',
+};
+
 interface ChatInputProps {
   onSend: (query: string) => void;
   disabled?: boolean;
@@ -17,6 +23,8 @@ export default function ChatInput({
 }: ChatInputProps) {
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isComposingRef = useRef(false);
+  const compositionEndTimeRef = useRef(0);
 
   const handleSend = () => {
     const trimmed = input.trim();
@@ -26,7 +34,9 @@ export default function ChatInput({
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // Chromium fires compositionend BEFORE the final keydown, so check a 50ms window
+    const justFinishedComposing = Date.now() - compositionEndTimeRef.current < 50;
+    if (e.key === 'Enter' && !e.shiftKey && !isComposingRef.current && !justFinishedComposing) {
       e.preventDefault();
       handleSend();
     }
@@ -50,6 +60,8 @@ export default function ChatInput({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
+          onCompositionStart={() => { isComposingRef.current = true; }}
+          onCompositionEnd={() => { isComposingRef.current = false; compositionEndTimeRef.current = Date.now(); }}
           placeholder={placeholder}
           disabled={disabled}
           rows={1}
@@ -59,7 +71,7 @@ export default function ChatInput({
         <button
           onClick={handleSend}
           disabled={disabled || !input.trim() || overLimit}
-          className={`w-10 h-10 rounded-full bg-${accentColor} flex items-center justify-center transition-opacity hover:opacity-90 disabled:opacity-40 flex-shrink-0`}
+          className={`w-10 h-10 rounded-full ${ACCENT_BG[accentColor] || 'bg-para-teal'} flex items-center justify-center transition-opacity hover:opacity-90 disabled:opacity-40 flex-shrink-0`}
         >
           {disabled ? (
             <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

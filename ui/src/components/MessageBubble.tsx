@@ -14,10 +14,28 @@ export default function MessageBubble({ message, variant = 'paragpt', isLatest =
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(message.content).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
+    navigator.clipboard.writeText(message.content)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {
+        // Fallback for insecure contexts or denied clipboard permission
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = message.content;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        } catch {
+          // Copy is a convenience — silently fail if both methods fail
+        }
+      });
   }, [message.content]);
 
   // Typewriter effect for the latest assistant message
@@ -99,7 +117,7 @@ export default function MessageBubble({ message, variant = 'paragpt', isLatest =
           </div>
         ) : isParagpt ? (
           <div className="text-gray-100 markdown-body">
-            <Markdown>{shownText}</Markdown>
+            <Markdown disallowedElements={['script', 'iframe', 'object', 'embed', 'form']} unwrapDisallowed>{shownText}</Markdown>
           </div>
         ) : (
           <div className="text-sacred-ivory font-serif">

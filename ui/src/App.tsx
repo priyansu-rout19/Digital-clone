@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { useCloneProfile } from './hooks/useCloneProfile';
 import { useChat } from './hooks/useChat';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import ErrorBoundary from './components/ErrorBoundary';
 import ParaGPTLanding from './pages/paragpt/Landing';
@@ -13,11 +13,18 @@ import AnalyticsDashboard from './pages/analytics/Dashboard';
 
 function ClonePage() {
   const { slug } = useParams<{ slug: string }>();
-  const { profile, loading, error } = useCloneProfile(slug || '');
+  const { profile, loading, error, retry } = useCloneProfile(slug || '');
   const { messages, isLoading, currentNode, error: chatError, sendMessage, clearMessages } = useChat(slug || '');
   const [chatActive, setChatActive] = useState(false);
   const [accessTier, setAccessTier] = useState('public');
   const [selectedModel, setSelectedModel] = useState('');
+
+  // Reset local state when slug changes (navigating between clones)
+  useEffect(() => {
+    setChatActive(false);
+    setAccessTier('public');
+    setSelectedModel('');
+  }, [slug]);
 
   // Persistent anonymous user ID for conversation history & Mem0 scoping
   const [userId] = useState(() => {
@@ -52,12 +59,22 @@ function ClonePage() {
           <div className="text-6xl mb-4 opacity-30">404</div>
           <h1 className="text-xl font-semibold mb-2">Clone not found</h1>
           <p className="text-gray-500 text-sm mb-6">{error || `No clone profile exists for "/${slug}". Check the URL and try again.`}</p>
-          <a
-            href="/paragpt-client"
-            className="inline-block px-5 py-2.5 rounded-full bg-para-teal text-white text-sm font-medium hover:opacity-90 transition-opacity"
-          >
-            Go to ParaGPT
-          </a>
+          <div className="flex items-center justify-center gap-3">
+            {error && (
+              <button
+                onClick={retry}
+                className="px-5 py-2.5 rounded-full bg-para-teal text-white text-sm font-medium hover:opacity-90 transition-opacity"
+              >
+                Retry
+              </button>
+            )}
+            <a
+              href="/paragpt-client"
+              className="inline-block px-5 py-2.5 rounded-full bg-gray-700 text-white text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              Go to ParaGPT
+            </a>
+          </div>
         </div>
       </div>
     );

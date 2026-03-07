@@ -20,38 +20,52 @@ function displayName(id: string): string {
 // and canOpen=false, blocking the dropdown until the async fetch completes.
 let _cachedModels: ModelInfo[] = [];
 let _cachedDefault = '';
+let _cacheTimestamp = 0;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 export default function ModelSelector({ selectedModel, onModelChange, variant = 'paragpt' }: ModelSelectorProps) {
   const [models, setModels] = useState<ModelInfo[]>(_cachedModels);
   const [defaultModel, setDefaultModel] = useState(_cachedDefault || 'qwen/qwen3.5-35b-a3b');
   const [isOpen, setIsOpen] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
-  // Fetch available models on mount (skips if cache already populated)
+  // Fetch available models on mount (skips if cache is populated and fresh)
   useEffect(() => {
-    if (_cachedModels.length > 0) {
-      // Cache hit — set selectedModel if not already set
+    const cacheValid = _cachedModels.length > 0 && (Date.now() - _cacheTimestamp < CACHE_TTL_MS);
+
+    if (cacheValid) {
+      setModels(_cachedModels);
+      setDefaultModel(_cachedDefault);
       if (!selectedModel && _cachedDefault) {
         onModelChange(_cachedDefault);
       }
       return;
     }
 
+    let cancelled = false;
+
     getModels()
       .then((resp) => {
+        if (cancelled) return;
         _cachedModels = resp.models;
         _cachedDefault = resp.default;
+        _cacheTimestamp = Date.now();
         setModels(resp.models);
         setDefaultModel(resp.default);
+        setFetchError(false);
         if (!selectedModel) {
           onModelChange(resp.default);
         }
       })
       .catch(() => {
-        // Silently fail — selector shows default model only
+        if (cancelled) return;
+        setFetchError(true);
       });
+
+    return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close dropdown on outside click
@@ -111,6 +125,9 @@ export default function ModelSelector({ selectedModel, onModelChange, variant = 
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3 flex-shrink-0">
           <path fillRule="evenodd" d="M9.47 6.47a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 1 1-1.06 1.06L10 8.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06l4.25-4.25Z" clipRule="evenodd" />
         </svg>
+        {fetchError && models.length === 0 && (
+          <span className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" title="Could not load models" />
+        )}
       </button>
 
       {/* Dropdown — portaled to document.body to escape backdrop-filter containing block */}

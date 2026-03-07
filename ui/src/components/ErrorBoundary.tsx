@@ -10,6 +10,8 @@ interface State {
 }
 
 export default class ErrorBoundary extends Component<Props, State> {
+  private handleRejection?: (event: PromiseRejectionEvent) => void;
+
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false, message: '' };
@@ -17,6 +19,22 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, message: error.message };
+  }
+
+  componentDidMount() {
+    this.handleRejection = (event: PromiseRejectionEvent) => {
+      const message = event.reason instanceof Error
+        ? event.reason.message
+        : String(event.reason || 'An unexpected error occurred');
+      this.setState({ hasError: true, message });
+    };
+    window.addEventListener('unhandledrejection', this.handleRejection);
+  }
+
+  componentWillUnmount() {
+    if (this.handleRejection) {
+      window.removeEventListener('unhandledrejection', this.handleRejection);
+    }
   }
 
   render() {

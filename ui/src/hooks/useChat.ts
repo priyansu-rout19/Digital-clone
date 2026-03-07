@@ -3,6 +3,7 @@ import type { ChatMessage, WSMessage, WSResponseMessage, TraceRecord } from '../
 import { NODE_LABELS } from '../api/types';
 
 const WS_TIMEOUT_MS = 60_000;
+const WS_CONNECT_TIMEOUT_MS = 10_000;
 
 export function useChat(slug: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -11,9 +12,10 @@ export function useChat(slug: string) {
   const [error, setError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const connectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const traceRef = useRef<TraceRecord[]>([]);
+  const isMountedRef = useRef(true);
 
-  // Helper: clear the response timeout
   const clearResponseTimeout = useCallback(() => {
     if (timeoutRef.current !== null) {
       clearTimeout(timeoutRef.current);
@@ -21,7 +23,13 @@ export function useChat(slug: string) {
     }
   }, []);
 
-  // Helper: close WS if it's still open
+  const clearConnectTimeout = useCallback(() => {
+    if (connectTimeoutRef.current !== null) {
+      clearTimeout(connectTimeoutRef.current);
+      connectTimeoutRef.current = null;
+    }
+  }, []);
+
   const closeWs = useCallback(() => {
     if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) {
       wsRef.current.close();
@@ -29,18 +37,33 @@ export function useChat(slug: string) {
     wsRef.current = null;
   }, []);
 
-  // Cleanup on unmount — close any open WS and clear timeout
+  // Cleanup on unmount
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       clearResponseTimeout();
+      clearConnectTimeout();
       closeWs();
     };
-  }, [clearResponseTimeout, closeWs]);
+  }, [clearResponseTimeout, clearConnectTimeout, closeWs]);
+
+  // Reset state when slug changes (prevents cross-clone message bleed)
+  useEffect(() => {
+    setMessages([]);
+    setIsLoading(false);
+    setCurrentNode(null);
+    setError(null);
+    traceRef.current = [];
+    clearResponseTimeout();
+    clearConnectTimeout();
+    closeWs();
+  }, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sendMessage = useCallback(
     (query: string, userId = 'anonymous', accessTier = 'public', model = '') => {
-      // Close any existing WS before opening a new one
       clearResponseTimeout();
+      clearConnectTimeout();
       closeWs();
 
       setMessages((prev) => [...prev, { role: 'user', content: query }]);
@@ -53,11 +76,25 @@ export function useChat(slug: string) {
       const ws = new WebSocket(`${protocol}//${window.location.host}/chat/ws/${slug}`);
       wsRef.current = ws;
 
+      // Connection timeout — fires if WS handshake never completes (backend down)
+      connectTimeoutRef.current = setTimeout(() => {
+        if (!isMountedRef.current) return;
+        setError('Could not connect to server. Please try again.');
+        setIsLoading(false);
+        setCurrentNode(null);
+        closeWs();
+      }, WS_CONNECT_TIMEOUT_MS);
+
       ws.onopen = () => {
+        clearConnectTimeout();
+        // Race guard: if a newer sendMessage() replaced wsRef, this ws is stale
+        if (ws !== wsRef.current) { ws.close(); return; }
+        if (!isMountedRef.current) return;
+
         ws.send(JSON.stringify({ query, user_id: userId, access_tier: accessTier, model }));
 
-        // Start 30s response timeout after message is sent
         timeoutRef.current = setTimeout(() => {
+          if (!isMountedRef.current) return;
           setError('Response timed out. Please try again.');
           setIsLoading(false);
           setCurrentNode(null);
@@ -66,18 +103,28 @@ export function useChat(slug: string) {
       };
 
       ws.onmessage = (event) => {
-        const msg: WSMessage = JSON.parse(event.data);
+        if (ws !== wsRef.current || !isMountedRef.current) return;
+
+        let msg: WSMessage;
+        try {
+          msg = JSON.parse(event.data);
+        } catch {
+          setError('Received malformed response from server.');
+          setIsLoading(false);
+          setCurrentNode(null);
+          clearResponseTimeout();
+          closeWs();
+          return;
+        }
 
         if (msg.type === 'progress') {
-          // Reset timeout on every progress event — only fires if backend
-          // goes completely silent for 60s, not just because pipeline is slow
           clearResponseTimeout();
           setCurrentNode(NODE_LABELS[msg.node] || msg.node);
-          // Accumulate trace record for reasoning panel
           if (msg.trace) {
             traceRef.current = [...traceRef.current, msg.trace];
           }
           timeoutRef.current = setTimeout(() => {
+            if (!isMountedRef.current) return;
             setError('Response timed out. Please try again.');
             setIsLoading(false);
             setCurrentNode(null);
@@ -114,17 +161,22 @@ export function useChat(slug: string) {
       };
 
       ws.onerror = () => {
+        if (ws !== wsRef.current || !isMountedRef.current) return;
         clearResponseTimeout();
+        clearConnectTimeout();
         setError('Connection error. Please try again.');
         setIsLoading(false);
         setCurrentNode(null);
       };
 
       ws.onclose = () => {
-        wsRef.current = null;
+        // Only null out if this is still the current WS (race guard)
+        if (wsRef.current === ws) {
+          wsRef.current = null;
+        }
       };
     },
-    [slug, clearResponseTimeout, closeWs],
+    [slug, clearResponseTimeout, clearConnectTimeout, closeWs],
   );
 
   const clearMessages = useCallback(() => {

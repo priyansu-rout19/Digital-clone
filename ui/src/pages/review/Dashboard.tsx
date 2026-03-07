@@ -38,6 +38,7 @@ export default function Dashboard({ slug }: DashboardProps) {
       setSelected(null);
       setNotes('');
       setEditMode(false);
+      setEditText('');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Action failed');
     } finally {
@@ -60,6 +61,7 @@ export default function Dashboard({ slug }: DashboardProps) {
       );
       setSelected({ ...selected, response_text: updatedText });
       setEditMode(false);
+      setEditText('');
       setNotes('');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Edit failed');
@@ -89,13 +91,13 @@ export default function Dashboard({ slug }: DashboardProps) {
         case 'ArrowDown': {
           e.preventDefault();
           const idx = reviews.findIndex((r) => r.id === selected.id);
-          if (idx < reviews.length - 1) { setSelected(reviews[idx + 1]); setEditMode(false); }
+          if (idx < reviews.length - 1) { setSelected(reviews[idx + 1]); setEditMode(false); setEditText(''); }
           break;
         }
         case 'ArrowUp': {
           e.preventDefault();
           const idx = reviews.findIndex((r) => r.id === selected.id);
-          if (idx > 0) { setSelected(reviews[idx - 1]); setEditMode(false); }
+          if (idx > 0) { setSelected(reviews[idx - 1]); setEditMode(false); setEditText(''); }
           break;
         }
       }
@@ -148,7 +150,7 @@ export default function Dashboard({ slug }: DashboardProps) {
             <button
               key={item.id}
               type="button"
-              onClick={() => { setSelected(item); setEditMode(false); }}
+              onClick={() => { setSelected(item); setEditMode(false); setEditText(''); }}
               className={`w-full text-left px-4 py-3 border-b border-gray-800 hover:bg-gray-800/50 transition-colors cursor-pointer ${
                 selected?.id === item.id ? 'border-l-2 border-l-sacred-gold bg-gray-800/30' : ''
               }`}

@@ -14,7 +14,7 @@ export default function CitationCard({ source, variant = 'paragpt', passageOnly 
   if (passageOnly) {
     return (
       <div className="py-1">
-        <p className="text-xs text-gray-500">{source.chunk_text}</p>
+        <p className="text-xs text-gray-500">{source.chunk_text || ''}</p>
         {(source.location || source.event || source.verifier) && (
           <div className="text-xs text-gray-400 mt-1 space-y-0.5">
             {source.location && <p>Location: {source.location}</p>}
@@ -49,7 +49,7 @@ export default function CitationCard({ source, variant = 'paragpt', passageOnly 
       </div>
       {expanded && (
         <div className="mt-1 space-y-1">
-          <p className="text-xs text-gray-500">{source.chunk_text}</p>
+          <p className="text-xs text-gray-500">{source.chunk_text || ''}</p>
           {(source.date || source.location || source.event || source.verifier) && (
             <div className="text-xs text-gray-400 mt-1 space-y-0.5">
               {source.date && <p>Date: {source.date}</p>}
