@@ -99,6 +99,7 @@ export interface WSResponseMessage {
   audio_base64?: string | null;
   audio_format?: string | null;
   model?: string;
+  review_id?: string | null;
 }
 
 export interface WSErrorMessage {
@@ -155,6 +156,8 @@ export interface AnalyticsSummary {
 }
 
 // UI-side chat message model
+export type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'edited';
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -166,6 +169,8 @@ export interface ChatMessage {
   audio_format?: string;
   trace?: TraceRecord[];
   model?: string;
+  review_id?: string;
+  review_status?: ReviewStatus;
 }
 
 // Shared node label mappings (single source of truth)

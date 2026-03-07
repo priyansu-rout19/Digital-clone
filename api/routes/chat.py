@@ -43,6 +43,7 @@ class ChatResponse(BaseModel):
     audio_base64: Optional[str] = None
     audio_format: Optional[str] = None
     model: Optional[str] = None
+    review_id: Optional[str] = None
 
 
 def build_initial_state(query: str, clone_id: str, user_id: str,
@@ -73,6 +74,7 @@ def build_initial_state(query: str, clone_id: str, user_id: str,
         "audio_base64": "",
         "audio_format": "",
         "model_override": model,
+        "review_id": "",
     }
 
 
@@ -234,6 +236,7 @@ async def chat_sync(
         audio_base64=final_state.get("audio_base64") or None,
         audio_format=final_state.get("audio_format") or None,
         model=final_state.get("model_override") or LLM_MODEL,
+        review_id=final_state.get("review_id") or None,
     )
 
 
@@ -351,6 +354,7 @@ async def chat_ws(
                     "audio_base64": final_state.get("audio_base64") or None,
                     "audio_format": final_state.get("audio_format") or None,
                     "model": final_state.get("model_override") or LLM_MODEL,
+                    "review_id": final_state.get("review_id") or None,
                 }
             )
         finally:

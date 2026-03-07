@@ -1,4 +1,4 @@
-import type { AnalyticsSummary, ChatRequest, ChatResponse, CloneProfile, ModelsResponse, ReviewItem, ReviewUpdate, ReviewUpdateResponse } from './types';
+import type { AnalyticsSummary, ChatRequest, ChatResponse, CloneProfile, ModelsResponse, ReviewItem, ReviewUpdate, ReviewUpdateResponse, ReviewStatus } from './types';
 
 const API_KEY = import.meta.env.VITE_API_KEY as string | undefined;
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -63,4 +63,15 @@ export function getAnalytics(slug: string): Promise<AnalyticsSummary> {
 
 export function getModels(): Promise<ModelsResponse> {
   return apiFetch<ModelsResponse>('/models/');
+}
+
+export interface ReviewStatusResponse {
+  id: string;
+  status: ReviewStatus;
+  response_text?: string | null;
+  reviewed_at?: string | null;
+}
+
+export function getReviewStatus(slug: string, reviewId: string): Promise<ReviewStatusResponse> {
+  return apiFetch<ReviewStatusResponse>(`/review/${slug}/status/${reviewId}`);
 }

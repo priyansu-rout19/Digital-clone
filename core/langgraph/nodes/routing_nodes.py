@@ -154,6 +154,8 @@ def review_queue_writer(state: TypedDict) -> TypedDict:
         except ValueError:
             user_id_val = None
 
+    review_id = str(uuid.uuid4())
+
     try:
         with psycopg.connect(db_url) as conn:
             with conn.cursor() as cur:
@@ -165,7 +167,7 @@ def review_queue_writer(state: TypedDict) -> TypedDict:
                     VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s, 'pending')
                     """,
                     (
-                        str(uuid.uuid4()),
+                        review_id,
                         clone_id,
                         user_id_val,
                         query_text,
@@ -175,11 +177,12 @@ def review_queue_writer(state: TypedDict) -> TypedDict:
                     ),
                 )
             conn.commit()
-        logger.info(f"[REVIEW QUEUE] Response queued for human review. confidence={confidence:.2f}")
+        logger.info(f"[REVIEW QUEUE] Response queued for human review. review_id={review_id} confidence={confidence:.2f}")
     except Exception as e:
         logger.error(f"review_queue_writer DB write failed: {e}")
+        review_id = ""  # clear on failure so frontend doesn't poll a non-existent ID
 
-    return state
+    return {**state, "review_id": review_id}
 
 
 def stream_to_user(state: TypedDict) -> TypedDict:

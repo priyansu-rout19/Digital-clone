@@ -7,11 +7,14 @@ Mem0 memories, and query analytics records.
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from api.deps import get_db
+from api.auth import verify_gdpr_access
+from core.audit import write_audit, extract_actor
+from core.db.schema import AuditDetails
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -27,10 +30,13 @@ class DeleteResponse(BaseModel):
 @router.delete("/{user_id}/data")
 async def delete_user_data(
     user_id: str,
+    http_request: Request,
     db: Session = Depends(get_db),
 ) -> DeleteResponse:
     """
     Delete all data for a user (GDPR "Forget Me").
+
+    Authorization: X-Admin-Key (admin) or X-User-Id matching path (self-delete).
 
     Removes:
     - All messages from this user
@@ -39,6 +45,9 @@ async def delete_user_data(
 
     Returns counts of deleted records.
     """
+    # Auth check (raises 403 if unauthorized)
+    actor_role = verify_gdpr_access(user_id, http_request)
+
     if not user_id or user_id == "anonymous":
         raise HTTPException(status_code=400, detail="Cannot delete data for anonymous users")
 
@@ -68,6 +77,20 @@ async def delete_user_data(
         f"GDPR delete for user {user_id}: "
         f"{msg_count} messages, {analytics_count} analytics, "
         f"memories={'yes' if memories_deleted else 'failed'}"
+    )
+
+    # Audit trail
+    actor_id, _ = extract_actor(http_request)
+    write_audit(
+        db,
+        clone_id=None,
+        action="gdpr.delete",
+        actor_id=actor_id or user_id,
+        actor_role=actor_role,
+        details=AuditDetails(
+            session_id=user_id,
+            reason=f"msgs={msg_count}, analytics={analytics_count}, mem0={'yes' if memories_deleted else 'failed'}",
+        ),
     )
 
     return DeleteResponse(

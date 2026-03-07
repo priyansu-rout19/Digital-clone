@@ -56,6 +56,24 @@ export default function Chat({ messages, isLoading, currentNode, onSendMessage, 
           <div key={i}>
             <MessageBubble message={msg} variant="sacred-archive" isLatest={i === messages.length - 1} />
 
+            {/* Review status badge */}
+            {msg.role === 'assistant' && msg.review_id && (
+              <div className="ml-1 mb-1">
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  msg.review_status === 'pending' ? 'bg-yellow-900/30 text-yellow-500' :
+                  msg.review_status === 'approved' ? 'bg-green-900/30 text-green-500' :
+                  msg.review_status === 'rejected' ? 'bg-red-900/30 text-red-400' :
+                  msg.review_status === 'edited' ? 'bg-blue-900/30 text-blue-400' :
+                  'bg-gray-800 text-gray-500'
+                }`} style={{ fontFamily: 'Georgia, serif' }}>
+                  {msg.review_status === 'pending' ? 'Awaiting review' :
+                   msg.review_status === 'approved' ? 'Verified' :
+                   msg.review_status === 'rejected' ? 'Response retracted' :
+                   msg.review_status === 'edited' ? 'Edited by reviewer' : ''}
+                </span>
+              </div>
+            )}
+
             {/* Suggested topics — clickable pills */}
             {msg.role === 'assistant' && msg.suggested_topics && msg.suggested_topics.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-3 ml-1">

@@ -12,8 +12,9 @@ from datetime import datetime
 
 from api.deps import get_clone, get_db
 from core.models.clone_profile import CloneProfile
-from core.db.schema import Document
+from core.db.schema import Document, AuditDetails
 from core.rag.ingestion.pipeline import IngestionPipeline
+from core.audit import write_audit, extract_actor
 
 
 from slowapi import Limiter
@@ -133,6 +134,20 @@ async def ingest_file(
         )
     )
     db.commit()
+
+    # Audit trail
+    actor_id, actor_role = extract_actor(request)
+    write_audit(
+        db,
+        clone_id=clone_id,
+        action="ingest.upload",
+        actor_id=actor_id,
+        actor_role=actor_role or "admin",
+        details=AuditDetails(
+            query_id=doc_id,
+            reason=f"filename={Path(file.filename).name}, source_type={source_type}",
+        ),
+    )
 
     # Trigger background ingestion task
     db_url = os.environ.get("DATABASE_URL", "postgresql+psycopg://localhost/dce_dev").replace("+psycopg", "")

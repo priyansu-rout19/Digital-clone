@@ -85,6 +85,7 @@ class ConversationState(TypedDict):
     audio_base64: str  # base64-encoded MP3 audio from TTS (empty if text_only)
     audio_format: str  # "mp3" or "" (set by voice_pipeline)
     model_override: str  # per-request LLM model override (empty = use env default)
+    review_id: str  # UUID of the review_queue row (set by review_queue_writer, empty if not reviewed)
 
 
 # ============================================================================

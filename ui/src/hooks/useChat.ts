@@ -148,6 +148,8 @@ export function useChat(slug: string) {
               audio_format: resp.audio_format ?? undefined,
               trace: accumulatedTrace,
               model: resp.model,
+              review_id: resp.review_id ?? undefined,
+              review_status: resp.review_id ? 'pending' : undefined,
             },
           ]);
           setIsLoading(false);
@@ -184,5 +186,5 @@ export function useChat(slug: string) {
     setError(null);
   }, []);
 
-  return { messages, isLoading, currentNode, error, sendMessage, clearMessages };
+  return { messages, setMessages, isLoading, currentNode, error, sendMessage, clearMessages };
 }

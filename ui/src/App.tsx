@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { useCloneProfile } from './hooks/useCloneProfile';
 import { useChat } from './hooks/useChat';
+import { useReviewPolling } from './hooks/useReviewPolling';
 import { useState, useEffect } from 'react';
 
 import ErrorBoundary from './components/ErrorBoundary';
@@ -14,7 +15,7 @@ import AnalyticsDashboard from './pages/analytics/Dashboard';
 function ClonePage() {
   const { slug } = useParams<{ slug: string }>();
   const { profile, loading, error, retry } = useCloneProfile(slug || '');
-  const { messages, isLoading, currentNode, error: chatError, sendMessage, clearMessages } = useChat(slug || '');
+  const { messages, setMessages, isLoading, currentNode, error: chatError, sendMessage, clearMessages } = useChat(slug || '');
   const [chatActive, setChatActive] = useState(false);
   const [accessTier, setAccessTier] = useState('public');
   const [selectedModel, setSelectedModel] = useState('');
@@ -79,6 +80,15 @@ function ClonePage() {
       </div>
     );
   }
+
+  // Poll for review status updates (Sacred Archive: replaces rejected responses with silence)
+  // No-op for ParaGPT (no messages will have review_id)
+  useReviewPolling(
+    slug || '',
+    messages,
+    setMessages,
+    profile.silence_message || 'This response has been retracted by a reviewer.',
+  );
 
   const isSacredArchive = profile.generation_mode === 'mirror_only';
 
