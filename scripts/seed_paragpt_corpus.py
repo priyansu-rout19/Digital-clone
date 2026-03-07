@@ -5,8 +5,8 @@ Seeds sample documents and chunks for the ParaGPT (Parag Khanna) clone
 so that citations show real-looking source titles and dates in the demo.
 
 Inserts:
-  - 6 documents with provenance JSONB (title, date, location)
-  - 22 document_chunks with real Gemini embeddings (1024-dim, truncated from 3072)
+  - 13 documents with provenance JSONB (title, date, location)
+  - 55+ document_chunks with real Gemini embeddings (1024-dim, truncated from 3072)
 
 Idempotent: checks for existing rows before inserting.
 Requires: GOOGLE_API_KEY and EMBEDDING_MODEL in .env
@@ -392,13 +392,266 @@ CORPUS = [
             ),
         ],
     },
+    # -----------------------------------------------------------------------
+    # New documents added in Session 39 (corpus expansion)
+    # -----------------------------------------------------------------------
+    {
+        "filename": "india_china_dynamics_lecture.pdf",
+        "source_type": "lecture",
+        "mime_type": "application/pdf",
+        "provenance": {
+            "title": "India-China: Competition, Coexistence, Connectivity",
+            "date": "2024-03-15",
+            "location": "New Delhi, India",
+            "event": "Raisina Dialogue 2024",
+        },
+        "passages": [
+            (
+                "India and China together represent 2.8 billion people and over 20 percent of "
+                "global GDP. Their relationship will define the 21st century more than any other "
+                "bilateral dynamic. Yet framing it purely as rivalry misses the complexity — "
+                "trade between the two exceeded $135 billion in 2023 even as border tensions "
+                "persisted. Connectivity and competition coexist."
+            ),
+            (
+                "India's demographic dividend — 600 million people under 25 — is the counterpoint "
+                "to China's aging population. But demographics alone determine nothing. India must "
+                "convert its youth bulge into productive capacity through infrastructure investment, "
+                "skills training, and manufacturing supply chains that connect to global demand."
+            ),
+            (
+                "The China-plus-one strategy is not just about moving factories out of China. It "
+                "is about building parallel supply chain ecosystems in India, Vietnam, and Indonesia "
+                "that can operate independently when needed but remain connected to Chinese "
+                "intermediate goods when not. Redundancy, not decoupling, is the rational approach."
+            ),
+            (
+                "India's Digital Public Infrastructure — Aadhaar, UPI, ONDC — is a connectivity "
+                "model that leapfrogs traditional development stages. Over a billion digital "
+                "identities and 10 billion monthly UPI transactions demonstrate that digital "
+                "infrastructure can democratize economic participation faster than physical "
+                "infrastructure alone."
+            ),
+            (
+                "The Himalayan border dispute between India and China is a 19th-century territorial "
+                "conflict playing out alongside 21st-century economic integration. Both nations are "
+                "pragmatic enough to manage this duality — hard power at the border, supply chains "
+                "across the ocean. This is the new normal of great power relations in Asia."
+            ),
+        ],
+    },
+    {
+        "filename": "ai_geopolitics_essay.pdf",
+        "source_type": "essay",
+        "mime_type": "application/pdf",
+        "provenance": {
+            "title": "The Geopolitics of Artificial Intelligence",
+            "date": "2024-06-10",
+            "location": "Singapore",
+        },
+        "passages": [
+            (
+                "Artificial intelligence is the most consequential infrastructure investment of "
+                "our generation. But unlike previous technology waves, AI's geopolitics is shaped "
+                "by three physical constraints: semiconductor supply chains, data center energy "
+                "consumption, and talent concentration. Whoever controls these three inputs "
+                "controls the trajectory of AI development."
+            ),
+            (
+                "The semiconductor supply chain is the most geographically concentrated critical "
+                "infrastructure in human history. TSMC in Taiwan fabricates over 90 percent of "
+                "the world's most advanced chips. This single point of failure represents a "
+                "systemic risk that no amount of software innovation can mitigate — it requires "
+                "physical diversification of fabrication capacity."
+            ),
+            (
+                "AI governance cannot follow the 20th-century model of top-down regulation by "
+                "nation-states. The technology moves faster than legislation, operates across "
+                "borders by default, and is developed primarily by private actors. Effective AI "
+                "governance requires multi-stakeholder coalitions that include technologists, "
+                "ethicists, governments, and civil society — the same functional coalitions that "
+                "work best for climate and pandemic response."
+            ),
+            (
+                "Southeast Asia is emerging as an unexpected AI hub — not for foundational model "
+                "training, but for AI deployment at scale. With 700 million people, rapid "
+                "digitization, and pragmatic regulation, ASEAN offers the world's largest "
+                "laboratory for AI applications in agriculture, fintech, healthcare, and "
+                "logistics. The region that deploys AI most effectively may matter more than "
+                "the one that develops the frontier models."
+            ),
+            (
+                "Data sovereignty is the new resource nationalism. Countries are increasingly "
+                "requiring that citizen data be stored and processed locally, fragmenting the "
+                "global data ecosystem. This is creating a patchwork of data jurisdictions that "
+                "mirrors the fragmentation of energy markets in the 20th century. Navigating "
+                "these data borders is the new competency of globally connected enterprises."
+            ),
+        ],
+    },
+    {
+        "filename": "middle_east_corridors.pdf",
+        "source_type": "essay",
+        "mime_type": "application/pdf",
+        "provenance": {
+            "title": "The Middle East: From Oil Dependency to Connectivity Hub",
+            "date": "2024-02-20",
+            "location": "Dubai, UAE",
+            "event": "World Government Summit 2024",
+        },
+        "passages": [
+            (
+                "The Gulf states are executing the most ambitious economic transformation in "
+                "modern history — diversifying from hydrocarbon dependency to connectivity-based "
+                "economies in a single generation. Dubai, Abu Dhabi, and Riyadh are investing "
+                "hundreds of billions in logistics hubs, data centers, renewable energy, and "
+                "financial infrastructure that position them as nodes connecting Asia, Africa, "
+                "and Europe."
+            ),
+            (
+                "The India-Middle East-Europe Economic Corridor (IMEC) represents a direct "
+                "alternative to China's Belt and Road Initiative. By linking Indian ports to "
+                "Gulf logistics hubs to Mediterranean shipping routes, IMEC creates a multi-modal "
+                "corridor that reduces transit times by 40 percent compared to the Suez Canal "
+                "route. This is functional geography in action — building alternatives that "
+                "increase global supply chain resilience."
+            ),
+            (
+                "Saudi Arabia's NEOM project is not just a city — it is a bet on connectivity "
+                "as the post-oil economic engine. A linear city powered by renewable energy, "
+                "connected by hyperloop, and governed by AI-driven systems represents the most "
+                "radical reimagining of urban infrastructure since Brasilia. Whether it succeeds "
+                "or not, it signals the direction of Gulf investment priorities."
+            ),
+            (
+                "The Abraham Accords accelerated a connectivity revolution in the Middle East "
+                "that was already underway. Israel-UAE-Bahrain economic integration — flights, "
+                "trade, technology partnerships — demonstrates that functional economic interests "
+                "can reshape geopolitical alignments faster than traditional peace processes. "
+                "Commerce creates the facts on the ground that diplomacy formalizes later."
+            ),
+            (
+                "The Red Sea corridor — from Suez to Bab el-Mandeb — carries 15 percent of "
+                "global shipping. Houthi disruptions in 2024 exposed how a single chokepoint "
+                "can cascade through global supply chains. The lesson: maritime connectivity "
+                "requires diversification — overland corridors, alternative routes, and digital "
+                "infrastructure that reduces dependence on physical shipping alone."
+            ),
+        ],
+    },
+    {
+        "filename": "future_of_cities_talk.pdf",
+        "source_type": "lecture",
+        "mime_type": "application/pdf",
+        "provenance": {
+            "title": "The Future of Cities: Climate, Connectivity, Competition",
+            "date": "2024-09-05",
+            "location": "London, UK",
+            "event": "Chatham House Global Cities Forum",
+        },
+        "passages": [
+            (
+                "Cities are the operating system of the 21st century. Over 4.5 billion people "
+                "now live in urban areas, and the 600 largest cities generate two-thirds of "
+                "global GDP. National governments set policy, but cities deliver outcomes — "
+                "infrastructure, services, livability, and economic opportunity. The competition "
+                "for relevance is increasingly between cities, not countries."
+            ),
+            (
+                "Climate adaptation is not optional for cities — it is existential. Sea-level "
+                "rise threatens coastal megacities from Miami to Jakarta, while extreme heat "
+                "makes Gulf and South Asian cities uninhabitable for parts of the year. The "
+                "cities that invest in adaptation infrastructure — flood barriers, green "
+                "corridors, cooling systems, resilient power grids — will attract talent and "
+                "capital. Those that don't will experience managed retreat."
+            ),
+            (
+                "The 15-minute city concept is a connectivity framework applied at urban scale. "
+                "When residents can access work, education, healthcare, and leisure within a "
+                "15-minute walk or bike ride, the city becomes a network of self-sufficient "
+                "neighborhoods connected by public transit. This reduces car dependency, cuts "
+                "emissions, and improves quality of life — all simultaneously."
+            ),
+            (
+                "Smart cities are not about surveillance cameras and facial recognition — that "
+                "is a dystopian caricature. Real smart city infrastructure means sensor networks "
+                "that optimize traffic flow, AI-driven waste management, predictive maintenance "
+                "of water systems, and digital twins that let planners simulate the impact of "
+                "policy decisions before implementing them. Technology in service of livability."
+            ),
+            (
+                "The global competition for talent is won by cities, not countries. A software "
+                "engineer in Bangalore chooses between Singapore, Dubai, Berlin, and Toronto — "
+                "not between India, UAE, Germany, and Canada. Cities compete on livability: "
+                "housing affordability, internet speed, green space, healthcare access, cultural "
+                "diversity, and safety. These are the new metrics of urban competitiveness."
+            ),
+        ],
+    },
+    {
+        "filename": "climate_migration_podcast.txt",
+        "source_type": "interview",
+        "mime_type": "text/plain",
+        "provenance": {
+            "title": "Climate Migration and the New Geography of Opportunity",
+            "date": "2024-04-22",
+            "location": "Remote (podcast)",
+            "event": "The Climate Question (BBC)",
+        },
+        "passages": [
+            (
+                "By 2050, climate migration will be the largest human movement since World War II. "
+                "We are talking about 1.2 to 1.5 billion people displaced by rising seas, "
+                "desertification, water scarcity, and extreme heat. This is not a distant "
+                "projection — it is already happening. Bangladesh loses land to the sea every "
+                "year, and Central American drought drives northward migration continuously."
+            ),
+            (
+                "The question is not whether climate migration will happen but whether we will "
+                "manage it as a crisis or as an opportunity. Countries with aging populations — "
+                "Canada, Germany, Japan, Australia — need workers. Climate migrants need safety "
+                "and opportunity. The connectivity between surplus labor and deficit labor is "
+                "the most obvious win-win in global economics, yet political systems resist it."
+            ),
+            (
+                "Climate-resilient geographies — the northern latitudes of Canada, Scandinavia, "
+                "and Russia, plus highland regions globally — will become the most valuable "
+                "real estate on Earth. This is not speculation; it is thermodynamics. As equatorial "
+                "and coastal regions become less habitable, the functional geography of human "
+                "settlement will shift dramatically northward and upward."
+            ),
+            (
+                "Green infrastructure corridors — renewable energy networks, sustainable "
+                "agriculture systems, climate-adapted housing — represent the next wave of "
+                "connectivity investment. The trillion-dollar infrastructure boom in Asia is "
+                "just the beginning. The next trillion will be invested in climate adaptation: "
+                "flood barriers, desalination plants, heat-resistant urban design, and carbon "
+                "capture networks."
+            ),
+            (
+                "Migration and connectivity are inseparable. Every major wave of human migration "
+                "in history — from the Silk Road to the Atlantic crossing — created new trade "
+                "routes, cultural exchanges, and economic networks. Climate migration will do "
+                "the same, creating unexpected connections between origin and destination "
+                "communities. The remittance economy alone shows how migration generates "
+                "persistent bilateral connectivity."
+            ),
+            (
+                "Water scarcity is the under-reported driver of geopolitical instability. The "
+                "Indus, Mekong, Nile, and Colorado rivers all serve populations whose water "
+                "demands exceed sustainable supply. When water runs out, people move. Water "
+                "infrastructure — desalination, recycling, efficient irrigation — is the most "
+                "critical connectivity investment of the next two decades."
+            ),
+        ],
+    },
 ]
 
 
 def _generate_embeddings() -> list[list[float]]:
     """Generate real Gemini embeddings for all corpus passages.
 
-    Collects all 22 passages into a single list and embeds them in one batch
+    Collects all passages into a single list and embeds them in batches
     via get_embedder() (Gemini gemini-embedding-001, 3072→1024 truncated).
     """
     all_passages = [p for entry in CORPUS for p in entry["passages"]]
@@ -410,7 +663,7 @@ def _generate_embeddings() -> list[list[float]]:
 
 
 def seed_documents(db, clone_id: uuid.UUID) -> list[tuple[uuid.UUID, dict]]:
-    """Insert 6 Document rows via SQLAlchemy ORM. Returns list of (doc_id, entry)."""
+    """Insert Document rows via SQLAlchemy ORM. Returns list of (doc_id, entry)."""
     inserted = []
 
     for entry in CORPUS:

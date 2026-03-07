@@ -135,6 +135,12 @@ class CloneProfile(BaseModel):
         description="standard=network connected, air_gapped=zero external calls"
     )
 
+    # Evaluation (optional — used by persona_scorer and consistency_checker)
+    persona_eval: dict = Field(
+        default_factory=dict,
+        description="Persona evaluation config: key_vocabulary, signature_frameworks, owned_topics, style_markers"
+    )
+
     @model_validator(mode="after")
     def validate_voice_model_ref(self) -> "CloneProfile":
         """voice_model_ref required if voice_mode is ai_clone, must be None otherwise."""
@@ -165,7 +171,7 @@ def paragpt_profile() -> CloneProfile:
             "Data-driven analysis connecting history, economics, and geography.",
         avatar_url="/avatars/parag-khanna.png",
         generation_mode=GenerationMode.interpretive,
-        confidence_threshold=0.65,
+        confidence_threshold=0.80,
         silence_behavior=SilenceBehavior.soft_hedge,
         silence_message="I don't have a specific teaching on that topic. "
                         "Feel free to ask about my work on geopolitics, connectivity, or strategic thinking.",
@@ -178,6 +184,31 @@ def paragpt_profile() -> CloneProfile:
         access_tiers=[AccessTier.public],
         chunking_strategy=ChunkingStrategy.semantic,
         deployment_mode=DeploymentMode.standard,
+        persona_eval={
+            "key_vocabulary": [
+                "connectivity", "supply chain", "infrastructure", "geopolitics",
+                "resilience", "functional geography", "mega-trend", "corridor",
+                "diversification", "Indo-Pacific", "ASEAN", "urbanization",
+                "demographics", "migration", "digital", "trade",
+            ],
+            "signature_frameworks": [
+                "Connectography", "The Future Is Asian", "MOVE",
+                "supply chain resilience", "functional geography",
+                "connectivity mega-trend", "China-plus-one",
+            ],
+            "owned_topics": [
+                "geopolitics", "global economics", "infrastructure investment",
+                "supply chains", "ASEAN integration", "climate migration",
+                "urbanization", "AI governance", "Middle East connectivity",
+                "India-China dynamics", "digital infrastructure",
+            ],
+            "style_markers": {
+                "expects_citations": True,
+                "min_words": 50,
+                "max_words": 400,
+                "forbidden_patterns": ["as an AI", "I cannot", "I'm sorry but"],
+            },
+        },
     )
 
 
@@ -210,4 +241,25 @@ def sacred_archive_profile() -> CloneProfile:
         access_tiers=[AccessTier.devotee, AccessTier.friend, AccessTier.follower],
         chunking_strategy=ChunkingStrategy.semantic,
         deployment_mode=DeploymentMode.air_gapped,
+        persona_eval={
+            "key_vocabulary": [
+                "silence", "awareness", "meditation", "devotion", "surrender",
+                "compassion", "stillness", "presence", "sacred", "teaching",
+                "seeker", "mind", "heart", "practice", "wisdom",
+            ],
+            "signature_frameworks": [
+                "mirror-only", "direct teaching", "silence mode",
+            ],
+            "owned_topics": [
+                "meditation", "silence", "devotion", "compassion",
+                "self-inquiry", "spiritual practice", "teacher-student",
+                "nature of mind", "daily practice", "awareness",
+            ],
+            "style_markers": {
+                "expects_citations": True,
+                "min_words": 30,
+                "max_words": 300,
+                "forbidden_patterns": ["in my opinion", "I think", "perhaps"],
+            },
+        },
     )

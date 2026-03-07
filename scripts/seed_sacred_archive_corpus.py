@@ -5,8 +5,8 @@ Seeds sample documents and chunks for the Sacred Archive clone
 so that retrieval returns real passages for spiritual teaching queries.
 
 Inserts:
-  - 6 documents with provenance JSONB (title, date, location)
-  - ~20 document_chunks with real Gemini embeddings (1024-dim, truncated from 3072)
+  - 10 documents with provenance JSONB (title, date, location)
+  - ~40 document_chunks with real Gemini embeddings (1024-dim, truncated from 3072)
 
 All chunks use access_tier='devotee' (Sacred Archive's primary tier).
 
@@ -262,13 +262,199 @@ CORPUS = [
             ),
         ],
     },
+    # -----------------------------------------------------------------------
+    # New documents added in Session 39 (corpus expansion)
+    # -----------------------------------------------------------------------
+    {
+        "filename": "meditation_practice_instructions.pdf",
+        "source_type": "discourse",
+        "mime_type": "application/pdf",
+        "provenance": {
+            "title": "Instructions for Daily Practice",
+            "date": "2024-05-10",
+            "location": "Mountain Retreat Center",
+            "event": "Spring Meditation Intensive",
+            "verifier": "Senior Teacher Council",
+            "access_tier": "devotee",
+        },
+        "passages": [
+            (
+                "Begin each sitting by doing nothing. Simply sit. Do not arrange your posture "
+                "with military precision — find the balance between alertness and ease. The "
+                "spine rises naturally, the hands rest where they fall, and the eyes close "
+                "softly or remain half-open. The body knows how to sit; trust it."
+            ),
+            (
+                "When thoughts arise, do not engage and do not resist. Imagine thoughts as "
+                "visitors arriving at your door. You do not need to invite them in for tea, "
+                "nor do you need to slam the door. Simply acknowledge their arrival and "
+                "return your attention to the breath. This is the entire practice."
+            ),
+            (
+                "The morning hours — between four and six — are the most conducive to deep "
+                "meditation. The world is quiet, the mind has not yet accumulated the impressions "
+                "of the day, and the boundary between waking and sleeping is thin. If you can "
+                "establish a morning practice, it will transform everything that follows."
+            ),
+            (
+                "Walking meditation is not a lesser practice than sitting. When you walk with "
+                "full awareness — feeling each foot touch the earth, noticing the shift of "
+                "weight, the swing of the arms — the body becomes the meditation. The ground "
+                "teaches you grounding. The step teaches you presence."
+            ),
+            (
+                "Do not measure your meditation by the experiences that arise within it. Visions, "
+                "bliss, and unusual sensations are not signs of progress — they are weather. "
+                "The real measure of meditation is what happens when you open your eyes: "
+                "are you more patient, more present, more kind? That is the only test."
+            ),
+        ],
+    },
+    {
+        "filename": "teacher_student_relationship.pdf",
+        "source_type": "satsang",
+        "mime_type": "application/pdf",
+        "provenance": {
+            "title": "On the Teacher-Student Relationship",
+            "date": "2024-08-03",
+            "location": "Riverside Ashram",
+            "event": "Monsoon Satsang Series",
+            "verifier": "Senior Teacher Council",
+            "access_tier": "devotee",
+        },
+        "passages": [
+            (
+                "The relationship between teacher and student is the oldest transmission "
+                "in human culture. It predates books, institutions, and religions. One being "
+                "who has seen something essential sits with another who is ready to see. "
+                "Nothing needs to be taught — only transmitted. And the transmission happens "
+                "through presence, not through words."
+            ),
+            (
+                "A true teacher never creates dependency. The purpose of the teacher is to "
+                "make themselves unnecessary. Every teaching is an invitation to stand on your "
+                "own feet. If a teacher binds you closer and closer, that is not a teacher — "
+                "that is a cage with a pleasant voice."
+            ),
+            (
+                "The student's role is not passive obedience but active inquiry. Question "
+                "everything — not from suspicion, but from a burning desire to understand. "
+                "The teacher who welcomes your questions is trustworthy. The teacher who "
+                "punishes your doubt has something to hide."
+            ),
+            (
+                "Transmission happens in the spaces between words. When teacher and student "
+                "sit together in silence, something passes that no lecture can convey. "
+                "This is why the ancient traditions placed such emphasis on physical presence "
+                "— not because the teacher is special, but because proximity allows resonance."
+            ),
+            (
+                "The greatest danger in the spiritual path is confusing the finger pointing "
+                "at the moon with the moon itself. The teacher's words, the scriptures, the "
+                "practices — all are fingers pointing. When you mistake the teaching for the "
+                "truth, you have turned wisdom into dogma. The truth is always beyond words."
+            ),
+        ],
+    },
+    {
+        "filename": "nature_of_mind_discourse.pdf",
+        "source_type": "discourse",
+        "mime_type": "application/pdf",
+        "provenance": {
+            "title": "The Nature of Mind — Morning Discourse",
+            "date": "2024-10-15",
+            "location": "Mountain Retreat Center",
+            "event": "Autumn Silent Retreat",
+            "verifier": "Senior Teacher Council",
+            "access_tier": "devotee",
+        },
+        "passages": [
+            (
+                "The mind is not your enemy. It is an instrument — extraordinarily powerful, "
+                "immensely creative, but dangerous when it runs without supervision. You "
+                "would not let a sharp knife wield itself. The same care must be given to "
+                "the mind: use it when needed, set it down when not."
+            ),
+            (
+                "Thoughts have no substance. Close your eyes and try to find where a thought "
+                "begins. You cannot. Try to find where it goes when it ends. You cannot. "
+                "Thoughts are like drawings on water — vivid for a moment, then gone. "
+                "The suffering comes not from thoughts but from believing they are real."
+            ),
+            (
+                "The mind's nature is luminous. Beneath the constant chatter, beneath the "
+                "anxiety and the planning, there is a clarity that has never been disturbed. "
+                "It is like the sun behind clouds — the clouds come and go, but the sun "
+                "has never moved. Your practice is to learn to see through the clouds."
+            ),
+            (
+                "Memory creates the illusion of continuity. You believe you are the same "
+                "person who woke up this morning, who existed last year, who was born decades "
+                "ago. But look carefully: each moment you are new. The river is never the same "
+                "water twice. You are a process, not a thing — and a process cannot be trapped."
+            ),
+            (
+                "The difference between a wise person and a confused person is not the presence "
+                "or absence of thoughts. Both have thoughts. The wise person sees the thought "
+                "arise and lets it pass. The confused person sees the thought and calls it 'me.' "
+                "This tiny difference — identification versus observation — is the entire "
+                "distance between bondage and freedom."
+            ),
+        ],
+    },
+    {
+        "filename": "daily_life_integration.pdf",
+        "source_type": "discourse",
+        "mime_type": "application/pdf",
+        "provenance": {
+            "title": "Bringing Practice into Daily Life",
+            "date": "2024-06-28",
+            "location": "Riverside Ashram",
+            "event": "Householder Retreat",
+            "verifier": "Senior Teacher Council",
+            "access_tier": "friend",
+        },
+        "passages": [
+            (
+                "Spirituality that exists only on the meditation cushion is incomplete. "
+                "The real practice begins when you open your eyes — when you face the traffic, "
+                "the difficult colleague, the crying child. Can you remain present in the "
+                "marketplace? That is the test. The cushion is rehearsal; life is the performance."
+            ),
+            (
+                "Every mundane task is an opportunity for awareness. Washing dishes, you feel "
+                "the warmth of the water. Walking to work, you notice the texture of the ground. "
+                "Listening to someone speak, you truly hear — not preparing your reply, not "
+                "judging, just receiving. This is meditation in action."
+            ),
+            (
+                "Relationships are the most powerful spiritual practice available. Every "
+                "interaction is a mirror showing you where you are still attached, still "
+                "reactive, still defending a self that does not need defending. The people "
+                "who trigger you the most are your greatest teachers — they show you "
+                "exactly where your work remains."
+            ),
+            (
+                "Do not use spirituality to avoid difficult emotions. This is called spiritual "
+                "bypassing — retreating into peace and equanimity as a way of not feeling "
+                "grief, anger, or fear. The path does not ask you to transcend your humanity "
+                "but to fully inhabit it. Feel everything. Just do not be carried away."
+            ),
+            (
+                "Simplicity is a spiritual practice. The fewer things you accumulate — "
+                "possessions, opinions, identities — the more space there is for awareness. "
+                "This does not mean poverty or asceticism. It means choosing consciously: "
+                "does this serve my awakening, or does it add weight to the dream?"
+            ),
+        ],
+    },
 ]
 
 
 def _generate_embeddings() -> list[list[float]]:
     """Generate real Gemini embeddings for all corpus passages.
 
-    Collects all passages into a single list and embeds them in one batch
+    Collects all passages into a single list and embeds them in batches
     via get_embedder() (Gemini gemini-embedding-001, 3072→1024 truncated).
     """
     all_passages = [p for entry in CORPUS for p in entry["passages"]]

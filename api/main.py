@@ -24,6 +24,16 @@ async def lifespan(app: FastAPI):
     load_dotenv()
     os.makedirs("/tmp/dce_uploads", exist_ok=True)
     print("FastAPI app started. Upload directory ready at /tmp/dce_uploads")
+
+    # Lightweight Gemini embedding health check (non-blocking)
+    try:
+        from core.rag.ingestion.embedder import get_embedder
+        embedder = get_embedder()
+        embedder.embed(["health check"])
+        print("Gemini embedding API: OK")
+    except Exception as e:
+        print(f"Gemini embedding API: UNAVAILABLE ({e}). BM25 fallback will handle queries.")
+
     yield
     # Shutdown
     print("FastAPI app shutting down")
