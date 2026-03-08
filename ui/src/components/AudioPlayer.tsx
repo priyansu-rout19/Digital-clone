@@ -31,6 +31,7 @@ export default function AudioPlayer({
       <button
         onClick={onToggle}
         className={`w-6 h-6 rounded-full ${ACCENT_BG[accent]} flex items-center justify-center`}
+        aria-label={isPlaying ? 'Pause audio' : 'Play audio'}
       >
         {isPlaying ? (
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3 text-white">
@@ -52,6 +53,9 @@ export default function AudioPlayer({
       </button>
       <div
         className="w-24 h-3 bg-white/10 rounded-full overflow-hidden cursor-pointer flex items-center"
+        role="slider"
+        aria-valuenow={Math.round(progress)}
+        aria-label="Audio progress"
         onClick={(e: MouseEvent<HTMLDivElement>) => {
           if (!onSeek) return;
           const rect = e.currentTarget.getBoundingClientRect();

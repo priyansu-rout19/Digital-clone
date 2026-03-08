@@ -14,6 +14,7 @@ from typing import TypedDict
 import psycopg
 
 from core.db import psycopg_url as _psycopg_url
+from core.prompts import SENTENCE_SPLITTER_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,7 @@ def make_soft_hedge_router(profile):
             **state,
             "raw_response": message,
             "verified_response": message,
+            "cited_sources": [],
             "silence_triggered": True,
             "suggested_topics": topics,
         }
@@ -111,6 +113,7 @@ def make_strict_silence_router(profile):
             **state,
             "raw_response": message,
             "verified_response": message,
+            "cited_sources": [],
             "silence_triggered": True,
             "suggested_topics": topics,
         }
@@ -203,16 +206,12 @@ def stream_to_user(state: TypedDict) -> TypedDict:
         return {**state, "voice_chunks": []}
 
     # Use LLM for context-aware sentence splitting
+    # Output is ~same length as input (JSON array of sentences), cap accordingly
     try:
-        llm = get_llm(temperature=0.0, model=state.get("model_override") or None)
+        splitter_budget = max(256, len(response_text) // 2)
+        llm = get_llm(temperature=0.0, max_tokens=splitter_budget, model=state.get("model_override") or None)
         result = llm.invoke([
-            {"role": "system", "content": (
-                "Split the following text into individual sentences. "
-                "Handle abbreviations (Dr., Mr., U.S., etc.), decimal numbers, "
-                "and other tricky punctuation correctly. "
-                "Return a JSON array of strings, each being one sentence. "
-                "Return JSON only, no other text."
-            )},
+            {"role": "system", "content": SENTENCE_SPLITTER_PROMPT},
             {"role": "user", "content": response_text},
         ])
 

@@ -95,7 +95,7 @@ Every query flows through this sequence. The clone profile controls behavior at 
    - **Tier 1 — Hybrid Search:** Embed queries → pgvector cosine similarity + BM25 keyword search (tsvector/tsquery) → RRF fusion merges both result sets
    - **Reranking:** Over-retrieve 30 candidates → FlashRank cross-encoder (`ms-marco-MiniLM-L-12-v2`, CPU-only) reranks to top 10. Mean of top-5 reranker scores = `retrieval_confidence`
    - **Tier 2** (if applicable): Immediately after T1, LLM reasons about hierarchical document structure via PageIndex. Augments T1 results with structurally-relevant passages.
-   - **CRAG loop:** Evaluator uses reranker scores. Reformulator generates keyword/sub-topic/jargon queries (not paraphrases). BM25 retrieves genuinely different passages. Max 3 retries.
+   - **CRAG loop:** Evaluator uses reranker scores. Reformulator generates keyword/sub-topic/jargon queries (not paraphrases). BM25 retrieves genuinely different passages. Max 2 retries (reduced from 3 in Session 34 — 3rd retry has diminishing returns).
 
 3. **Context Assembly**
    - Format retrieved passages into 8K-32K token context window
@@ -250,7 +250,7 @@ Every clone stores a configuration object in `clone_profiles` table:
   "bio": "Geopolitical strategist...",
 
   "generation_mode": "interpretive",  # or "mirror_only"
-  "confidence_threshold": 0.80,
+  "confidence_threshold": 0.80,  # factory default; ParaGPT DB override: 0.60 (Session 35)
   "silence_behavior": "soft_hedge",  # or "strict_silence"
 
   "review_required": false,  # Sacred Archive = true

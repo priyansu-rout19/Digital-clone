@@ -221,7 +221,7 @@ if retrieval_confidence < profile.confidence_threshold:
     # trigger CRAG loop
 ```
 
-When mocking retrieval, the mock value must account for the profile's threshold. Sacred Archive's 0.95 threshold requires mock value >= 0.95. ParaGPT's 0.80 threshold is satisfied by 0.85.
+When mocking retrieval, the mock value must account for the profile's threshold. Sacred Archive's 0.95 threshold requires mock value >= 0.95. ParaGPT's threshold (factory 0.80, DB 0.60) is satisfied by 0.85.
 
 Solution: Use INLINE patches for profile-specific tests, FIXTURE for shared tests.
 
@@ -709,3 +709,7 @@ if final_confidence >= profile.confidence_threshold:
 33. **LangGraph TypedDict drops undeclared keys** — every state key must be declared in TypedDict. Undeclared keys silently disappear between nodes.
 34. **OpenRouter max_tokens credit reservation** — always set explicit max_tokens for pay-per-token providers. None reserves full context window worth of credits.
 35. **LangChain model_kwargs vs extra_body** — use `extra_body` for provider-specific params (thinking suppression). `model_kwargs` gets intercepted by LangChain, changing response format.
+36. **CRAG retry loop degrades confidence** — 4 inter-related bugs: (1) passage replacement instead of accumulation discards good results, (2) reranker scores collapse when query drifts from reformulation, (3) multiplication in CRAG evaluator amplifies degradation, (4) using the same threshold for CRAG retries and final silencing triggers futile retries at 52% that spiral to 0%. Fix: accumulate+deduplicate passages across retries, re-rerank merged set against original query_text, use separate lower threshold (min(threshold*0.5, 0.40)) for CRAG retries, cap retries at 2.
+37. **Confidence and passages can decouple** (see below)
+38. **Doc-code drift on thresholds and retries** — Session 41 Q&A audit found 16+ files with outdated values: (1) "3 retries" in 3 docs (actual: 2 since S34), (2) ParaGPT threshold "0.80" in 15+ places (factory default is 0.80 but DB runtime value is 0.60 since S35), (3) CRAG retry threshold comment said "< 40%" but actual ParaGPT value is 0.30 (0.60 × 0.5), (4) "3-4 LLM calls" (actual: 3 typical, 5 worst case). **Rule:** When tuning a runtime value (DB override), grep all docs for the old value and annotate "factory default X, DB override Y". Keep SOW spec values unchanged but add runtime notes.
+37. **Confidence and passages can decouple** — 6 bugs where valid passages get 0.0 confidence: (1) empty reranked list after reranker scores all passages low, (2) re-rerank block skipped or throws exception but confidence not recalculated, (3) LLM returns `{"alternatives": []}` bypassing default, (4) CRAG evaluator multiplies zero raw_confidence by passage_factor = still zero, (5) stale retry_count from previous query blocks CRAG retries, (6) search_meta not initialized in state. Root cause: confidence tracked separately from passage existence. Fix: add 0.15 floor when passages exist but scores unavailable, recalculate confidence in all fallback paths, use `or` instead of default param for alternatives, add base floor in evaluator when raw_confidence=0 but passages present, reset retry_count in query_analysis, initialize search_meta.

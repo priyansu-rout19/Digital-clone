@@ -31,8 +31,8 @@ export default function FeedbackWidget({ slug, sessionId, onClose }: FeedbackWid
 
   if (submitted) {
     return (
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 text-center max-w-sm">
-        <p className="text-amber-400 text-lg font-semibold mb-2">Thank you!</p>
+      <div className="glass rounded-2xl p-6 text-center max-w-sm">
+        <p className="text-para-teal text-lg font-semibold mb-2">Thank you!</p>
         <p className="text-gray-400 text-sm">Your feedback helps us improve.</p>
         {onClose && (
           <button
@@ -47,7 +47,7 @@ export default function FeedbackWidget({ slug, sessionId, onClose }: FeedbackWid
   }
 
   return (
-    <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-sm">
+    <div className="glass rounded-2xl p-6 max-w-sm">
       <h4 className="text-white text-sm font-semibold mb-4">How was your experience?</h4>
 
       {/* Star rating */}
@@ -62,7 +62,7 @@ export default function FeedbackWidget({ slug, sessionId, onClose }: FeedbackWid
             className="text-2xl transition-colors focus:outline-none"
             aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
           >
-            <span className={star <= (hovered || rating) ? 'text-amber-400' : 'text-gray-600'}>
+            <span className={star <= (hovered || rating) ? 'text-para-teal' : 'text-gray-600'}>
               ★
             </span>
           </button>
@@ -84,7 +84,8 @@ export default function FeedbackWidget({ slug, sessionId, onClose }: FeedbackWid
         <button
           onClick={handleSubmit}
           disabled={rating === 0 || submitting}
-          className="flex-1 py-2 rounded-xl bg-amber-500 text-gray-900 font-semibold text-sm hover:bg-amber-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex-1 py-2 rounded-xl bg-para-teal text-white font-semibold text-sm hover:bg-para-teal-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          aria-label="Submit feedback"
         >
           {submitting ? 'Sending...' : 'Submit'}
         </button>
@@ -93,6 +94,7 @@ export default function FeedbackWidget({ slug, sessionId, onClose }: FeedbackWid
             onClick={onClose}
             disabled={submitting}
             className="px-4 py-2 rounded-xl bg-gray-800 text-gray-400 text-sm hover:bg-gray-700 transition-colors disabled:opacity-40"
+            aria-label="Skip feedback"
           >
             Skip
           </button>

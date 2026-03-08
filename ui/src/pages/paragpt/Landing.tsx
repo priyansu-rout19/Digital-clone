@@ -35,14 +35,14 @@ export default function Landing({ profile, onSendMessage, onQuestionClick, selec
   return (
     <div className="relative min-h-screen bg-para-navy flex flex-col items-center px-4 pt-12 pb-32">
       {/* Profile Card */}
-      <div className="glass rounded-[16px] w-full max-w-[640px] p-6 flex flex-col items-center text-center">
+      <div className="glass glass-glow-hover rounded-[16px] w-full max-w-[640px] p-8 flex flex-col items-center text-center">
         <img
           src={profile.avatar_url || '/avatars/parag-khanna.png'}
           alt={profile.display_name}
           className="w-20 h-20 rounded-full object-cover mb-4"
         />
 
-        <h1 className="text-white text-2xl font-bold mb-2">{profile.display_name}</h1>
+        <h1 className="text-white text-2xl font-bold mb-2" style={{ fontFamily: 'var(--font-display)' }}>{profile.display_name}</h1>
         <p className="text-slate-400 text-sm leading-relaxed mb-4 max-w-md">{profile.bio}</p>
 
         <div className="flex flex-wrap justify-center gap-2">
@@ -55,13 +55,13 @@ export default function Landing({ profile, onSendMessage, onQuestionClick, selec
       </div>
 
       {/* Starter Questions */}
-      <div className="w-full max-w-[640px] mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="w-full max-w-[640px] mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
         {STARTER_QUESTIONS.map((question) => (
           <button
             key={question}
             type="button"
             onClick={() => onQuestionClick(question)}
-            className="glass rounded-2xl p-4 text-left text-slate-300 text-sm leading-snug hover:bg-para-card-hover transition-colors cursor-pointer"
+            className="glass glass-glow-hover rounded-2xl p-4 text-left text-slate-300 text-sm leading-snug hover:bg-para-card-hover transition-colors cursor-pointer"
           >
             {question}
           </button>

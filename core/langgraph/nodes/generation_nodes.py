@@ -7,6 +7,7 @@ LLM-based response generation, citation verification, and confidence scoring.
 from typing import TypedDict
 from core.llm import get_llm
 from core.models.clone_profile import CloneProfile, GenerationMode
+from core.prompts import interpretive_generator_prompt, MIRROR_ONLY_GENERATOR_PROMPT
 
 
 def make_in_persona_generator(profile: CloneProfile):
@@ -40,40 +41,11 @@ def make_in_persona_generator(profile: CloneProfile):
         memory = state.get("user_memory", "")
         history = state.get("conversation_history", "")
 
-        # Build system prompt based on generation mode
+        # Build system prompt based on generation mode (prompts live in core/prompts/registry.py)
         if profile.generation_mode == GenerationMode.interpretive:
-            system_prompt = f"""You are {profile.display_name}.
-
-About you: {profile.bio}
-
-You are chatting with someone who wants to learn from you. Respond naturally, like you're having a conversation — not writing an essay or giving a lecture.
-
-Guidelines:
-- Match your response length to the question's complexity:
-  * Simple factual question (who, when, where) -> 1-2 sentences, be direct
-  * Moderate question (explain, describe) -> 1 short paragraph
-  * Complex synthesis or multi-part question -> 2-3 paragraphs
-  * Deep exploratory question -> as many paragraphs as needed, but no filler
-- Give the shortest complete answer — never pad for length
-- Be conversational and direct — talk like a person, not a textbook
-- Do NOT use markdown headers (##), horizontal rules (---), or numbered lists
-- Use **bold** sparingly for key concepts only
-- When you draw on a specific source from the context, cite it with its number like [1] or [2] — weave these naturally into your sentences
-- Start with your key insight, then explain briefly
-- Do not start every response the same way, and do not always end with a question
-- When discussing future trends or forecasts from the source material, present them as the thought leader's analysis, not as predictions. Use attribution like "In [Source], {profile.display_name} argues..." rather than stating things will definitely happen
-- Distinguish between interpretation (grounded in the corpus) and speculation (going beyond it). Never speculate."""
-
+            system_prompt = interpretive_generator_prompt(profile.display_name, profile.bio)
         else:  # mirror_only
-            system_prompt = """You are a mirror of sacred teachings. Respond ONLY with direct quotes and passages from the provided context.
-
-Guidelines:
-- Respond ONLY with direct quotes from the context provided
-- Do not paraphrase, interpret, or add original commentary
-- Do not add your own words or analysis
-- If the context does not contain a suitable quote, do not respond
-- Preserve the exact wording and meaning of the source material
-- After each quote, cite its source number from the context, e.g. [1]"""
+            system_prompt = MIRROR_ONLY_GENERATOR_PROMPT
 
         # Build user message
         user_message = f"Question: {query}\n"
@@ -83,6 +55,8 @@ Guidelines:
             user_message += f"\nContext:\n{context}\n"
         if memory:
             user_message += f"\nRelevant context from memory:\n{memory}\n"
+        if context:
+            user_message += "\nRemember: cite sources using [1], [2], etc.\n"
         user_message += "\nAnswer:"
 
         # Call LLM: temperature 0.0 for mirror_only (deterministic quotes), 0.7 for interpretive

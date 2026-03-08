@@ -50,7 +50,7 @@ export default function ReasoningTrace({ trace, variant = 'paragpt' }: Reasoning
           flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
           transition-colors duration-150 cursor-pointer select-none
           ${isParagpt
-            ? 'text-[#d08050] hover:bg-[#d08050]/10'
+            ? 'text-para-teal hover:bg-para-teal/10'
             : 'text-sacred-gold hover:bg-sacred-gold/10'
           }
         `}

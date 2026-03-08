@@ -254,7 +254,7 @@ def _run_mocked(args):
 
     log.info(f"\n[MOCK SETUP]")
     log.info(f"  vector_search.search will return: 2 passages + confidence 0.85")
-    log.info(f"  (0.85 is above ParaGPT threshold of 0.80 → no CRAG retry)")
+    log.info(f"  (0.85 is above ParaGPT silencing threshold of 0.60 → no CRAG retry)")
     log.info(f"  get_mem0_client will return: empty results")
 
     # Build and run the graph

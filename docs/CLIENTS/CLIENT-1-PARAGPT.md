@@ -73,7 +73,7 @@ clone_profile:
   avatar_url: "/static/avatars/parag-khanna.jpg"
 
   generation_mode: "interpretive"      # Synthesizes and cites sources
-  confidence_threshold: 0.80
+  confidence_threshold: 0.80           # SOW spec; runtime DB override: 0.60 (Session 35)
   silence_behavior: "soft_hedge"       # Hedges honestly, doesn't go silent
   silence_message: "I don't have a specific teaching on that topic..."
 
@@ -96,7 +96,7 @@ clone_profile:
 | Aspect | ParaGPT | Sacred Archive |
 |---|---|---|
 | Generation mode | Interpretive (synthesizes, cites) | Mirror-only (direct quotes only) |
-| Confidence threshold | 0.80 | 0.95 (much stricter) |
+| Confidence threshold | 0.80 (factory; DB: 0.60) | 0.95 (much stricter) |
 | Uncertainty handling | Soft hedge | Strict silence |
 | Human review | None | 100% mandatory |
 | User memory | Yes (Mem0) | No (privacy) |

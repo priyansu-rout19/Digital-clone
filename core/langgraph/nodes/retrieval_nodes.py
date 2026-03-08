@@ -1,5 +1,6 @@
 from typing import TypedDict
 from core.models.clone_profile import RetrievalTier
+from core.prompts import CRAG_REFORMULATOR_PROMPT
 from core.db import psycopg_url as _psycopg_url
 
 
@@ -29,6 +30,12 @@ def provenance_graph_query(state: TypedDict) -> TypedDict:
 
 
 def tier1_retrieval(state: TypedDict) -> TypedDict:
+    """
+    Hybrid vector + BM25 retrieval. On CRAG retries (retry_count > 0),
+    merges new passages with existing ones and re-reranks the combined
+    set against the ORIGINAL query_text to prevent score drift.
+    """
+    import logging
     from core.rag.retrieval import vector_search
 
     try:
@@ -39,6 +46,76 @@ def tier1_retrieval(state: TypedDict) -> TypedDict:
             db_url=_psycopg_url(),
             query_text=state.get("query_text", ""),
         )
+
+        retry_count = state.get("retry_count", 0)
+
+        # On retries: merge new passages with existing, keeping best from all attempts
+        if retry_count > 0:
+            existing = state.get("retrieved_passages", [])
+            seen_ids = set()
+            merged = []
+            # New passages first, then existing (dedup by chunk_id)
+            for p in passages + existing:
+                cid = p.get("chunk_id")
+                if cid and cid not in seen_ids:
+                    seen_ids.add(cid)
+                    merged.append(p)
+
+            # Re-rerank merged set against ORIGINAL query_text (not reformulated sub_queries)
+            # This prevents score collapse from query drift
+            original_query = state.get("query_text", "")
+            reranker = vector_search._get_reranker()
+            if reranker and merged and original_query:
+                try:
+                    from flashrank import RerankRequest
+
+                    rerank_input = [
+                        {"id": i, "text": p.get("passage", ""), "meta": {"chunk_id": p.get("chunk_id")}}
+                        for i, p in enumerate(merged)
+                    ]
+                    rerank_results = reranker.rerank(
+                        RerankRequest(query=original_query, passages=rerank_input)
+                    )
+
+                    top_k = 10
+                    reranked = []
+                    for rr in rerank_results[:top_k]:
+                        idx = rr["id"]
+                        passage = merged[idx].copy()
+                        passage["rerank_score"] = round(float(rr["score"]), 4)
+                        reranked.append(passage)
+
+                    # Recompute confidence from re-reranked scores
+                    top_scores = [p["rerank_score"] for p in reranked[:5]]
+                    if top_scores:
+                        confidence = sum(top_scores) / len(top_scores)
+                    else:
+                        # Bug fix 1: reranker scored all passages very low → empty reranked list.
+                        # Fall back to merged passages and use a floor instead of 0.0.
+                        reranked = merged[:10]
+                        confidence = 0.15
+                    confidence = max(0.0, min(1.0, round(confidence, 3)))
+                    passages = reranked
+
+                except Exception as e:
+                    # Bug fix 2: recalculate confidence from existing rerank_scores on exception
+                    logging.warning(f"Re-reranking merged passages failed, using merged results: {e}")
+                    passages = merged[:10]
+                    existing_scores = [p.get("rerank_score") for p in passages if p.get("rerank_score") is not None]
+                    if existing_scores:
+                        confidence = sum(existing_scores) / len(existing_scores)
+                        confidence = max(0.0, min(1.0, round(confidence, 3)))
+                    elif passages:
+                        confidence = 0.15  # floor: passages exist but no scores
+            else:
+                # Bug fix 2b: re-rerank block skipped — recalculate from existing scores
+                passages = merged[:10]
+                existing_scores = [p.get("rerank_score") for p in passages if p.get("rerank_score") is not None]
+                if existing_scores:
+                    confidence = sum(existing_scores) / len(existing_scores)
+                    confidence = max(0.0, min(1.0, round(confidence, 3)))
+                elif passages:
+                    confidence = 0.15  # floor: passages exist but no scores
 
         return {
             **state,
@@ -76,13 +153,16 @@ def crag_evaluator(state: TypedDict) -> TypedDict:
 
     # Use reranker scores if available (set by vector_search reranking stage)
     rerank_scores = [p.get("rerank_score") for p in passages[:5] if p.get("rerank_score") is not None]
+    passage_factor = min(len(passages) / 3.0, 1.0)
     if rerank_scores:
         mean_score = sum(rerank_scores) / len(rerank_scores)
-        passage_factor = min(len(passages) / 3.0, 1.0)
         adjusted = mean_score * passage_factor
-    else:
-        passage_factor = min(len(passages) / 3.0, 1.0)
+    elif raw_confidence > 0.0:
         adjusted = raw_confidence * passage_factor
+    else:
+        # Bug fix 4: raw_confidence is 0.0 but passages exist (decoupled state).
+        # Use passage_factor as a base floor so confidence isn't stuck at zero.
+        adjusted = passage_factor * 0.20
 
     adjusted = max(0.0, min(1.0, round(adjusted, 3)))
 
@@ -125,21 +205,10 @@ def query_reformulator(state: TypedDict) -> TypedDict:
     else:
         passage_diagnostic = "No passages were retrieved at all."
 
-    llm = get_llm(temperature=0.8, model=state.get("model_override") or None)
+    llm = get_llm(temperature=0.8, max_tokens=512, model=state.get("model_override") or None)
 
-    system_prompt = """You are a search query specialist. The current search queries failed to find relevant documents. Your job is to generate DIFFERENT search strategies — not paraphrases.
-
-IMPORTANT: Simple rephrasing (e.g., "What about X?" or "Explain X") will retrieve the SAME results because vector search treats paraphrases identically. You must change the search strategy.
-
-Return JSON only:
-{"alternatives": ["query_1", "query_2", "query_3"]}
-
-Strategies that ACTUALLY change results:
-1. Extract specific KEYWORDS and ENTITIES (names, dates, concepts) — keyword search finds different results than semantic search
-2. DECOMPOSE into sub-topics — "What is X?" becomes separate queries for different aspects
-3. Use DOMAIN JARGON — technical terms from the field that the corpus likely uses
-4. Try the OPPOSITE angle — if asking about benefits, try searching for the specific mechanism or example
-5. BROADEN or NARROW scope dramatically — if "ASEAN trade 2023" fails, try "Southeast Asian economic integration" or "Thailand-Vietnam bilateral agreement\""""
+    # Prompt lives in core/prompts/registry.py
+    system_prompt = CRAG_REFORMULATOR_PROMPT
 
     user_message = f"""Original question: {query}
 
@@ -160,7 +229,7 @@ The passages above were retrieved but aren't relevant enough. Generate 3 search 
         response_text = response_text.strip()
 
         result = json.loads(response_text)
-        alternatives = result.get("alternatives", [query])
+        alternatives = result.get("alternatives") or [query]
 
     except (json.JSONDecodeError, KeyError, AttributeError):
         # Fallback: keyword extraction + broadening (not paraphrases)

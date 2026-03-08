@@ -9,6 +9,7 @@ length — all via a single LLM call.
 import json
 from typing import TypedDict
 from core.llm import get_llm
+from core.prompts import QUERY_CLASSIFIER_PROMPT
 
 DEFAULT_TOKEN_BUDGET = 2000
 DEFAULT_RESPONSE_TOKENS = 500
@@ -43,46 +44,9 @@ def query_analysis(state: TypedDict) -> TypedDict:
             "response_tokens": DEFAULT_RESPONSE_TOKENS,
         }
 
-    llm = get_llm(temperature=0.0, model=state.get("model_override") or None)
+    llm = get_llm(temperature=0.0, max_tokens=512, model=state.get("model_override") or None)
 
-    system_prompt = """You are a query classifier. Analyze the user question and respond with JSON.
-
-If conversation history is provided, determine if the query is a FOLLOW-UP that references
-previous context (e.g., "tell me more", "what about X?", "why is that?", "what does that mean",
-pronouns like "it", "that", "this" referring to prior topics).
-If it IS a follow-up, rewrite it as a SELF-CONTAINED query that includes the referenced context
-from the conversation history. Put the rewritten query in the "rewritten_query" field.
-If it is NOT a follow-up (standalone question), set "rewritten_query" to null.
-
-Intent classes: factual, synthesis, opinion, temporal, exploratory.
-- factual: asks for specific facts, data, information
-- synthesis: asks for connections, patterns, frameworks, analysis
-- opinion: asks for viewpoint, perspective, advice
-- temporal: asks about time, timelines, futures, history
-- exploratory: open-ended, discovery-oriented
-
-Token budget guidelines (how many tokens of retrieved context to include):
-- Simple factual question (one fact) → 1000-1500
-- Moderate factual or opinion question → 2000
-- Complex synthesis or multi-part question → 2500-3000
-- Very broad exploratory or deep analysis → 3000-4000
-
-Response tokens guidelines (how many tokens the response should be):
-- Simple factual (one fact, yes/no, a name or date) → 100-200
-- Moderate question (explain, describe, give opinion) → 300-500
-- Complex synthesis or multi-part question → 500-700
-- Very broad exploratory or deep analysis → 700-1000
-
-Return JSON only, no other text:
-{"intent": "<class>", "sub_queries": ["...", "..."], "token_budget": <number>, "response_tokens": <number>, "rewritten_query": "<self-contained query or null>"}
-
-IMPORTANT: If you rewrite the query, generate sub_queries that will retrieve relevant documents.
-For follow-up queries, ALWAYS generate at least 2 sub_queries:
-1. One sub_query using ONLY the core topic keywords from the conversation history (e.g., "ASEAN integration connectivity infrastructure"). This ensures we retrieve the SAME relevant passages that were found in the original question.
-2. One sub_query combining the original topic with the new angle (e.g., "ASEAN connectivity impact on India").
-DO NOT make all sub_queries about the new angle — at least one must match the original topic exactly.
-For standalone (non-follow-up) questions, sub_queries is [original_query].
-For complex standalone questions, decompose into independent sub-queries."""
+    system_prompt = QUERY_CLASSIFIER_PROMPT
 
     try:
         # Include conversation history in user message when available
@@ -148,4 +112,5 @@ For complex standalone questions, decompose into independent sub-queries."""
         "sub_queries": sub_queries,
         "token_budget": token_budget,
         "response_tokens": response_tokens,
+        "retry_count": 0,  # Bug fix 5: reset per query so stale count doesn't block CRAG retries
     }

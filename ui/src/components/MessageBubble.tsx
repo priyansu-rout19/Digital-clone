@@ -71,8 +71,8 @@ export default function MessageBubble({ message, variant = 'paragpt', isLatest =
         <div
           className={`max-w-[90%] sm:max-w-[80%] md:max-w-[75%] px-4 py-3 rounded-2xl text-white text-sm ${
             isParagpt
-              ? 'bg-gradient-to-r from-para-teal to-para-teal-dark shadow-[0_2px_12px_rgba(208,128,80,0.3)]'
-              : 'bg-gray-700 shadow-[0_2px_12px_rgba(196,150,60,0.25)]'
+              ? 'bg-gradient-to-r from-para-teal to-para-teal-dark shadow-warm-glow'
+              : 'bg-gray-700 shadow-sacred-glow'
           }`}
         >
           {message.content}
@@ -97,6 +97,7 @@ export default function MessageBubble({ message, variant = 'paragpt', isLatest =
             isParagpt ? 'hover:bg-white/10 text-gray-400 hover:text-white' : 'hover:bg-sacred-gold/10 text-gray-500 hover:text-sacred-gold'
           }`}
           title="Copy response"
+          aria-label="Copy response"
         >
           {copied ? (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-green-400">

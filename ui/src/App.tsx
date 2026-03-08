@@ -49,6 +49,16 @@ function ClonePage() {
     setChatActive(false);
   };
 
+  // Poll for review status updates (Sacred Archive: replaces rejected responses with silence)
+  // No-op for ParaGPT (no messages will have review_id)
+  // Must be called before any early returns to satisfy React's hooks ordering rules.
+  useReviewPolling(
+    slug || '',
+    messages,
+    setMessages,
+    profile?.silence_message || 'This response has been retracted by a reviewer.',
+  );
+
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center bg-para-navy">
@@ -75,7 +85,7 @@ function ClonePage() {
         <div className="h-full flex items-center justify-center bg-para-navy text-white">
           <div className="text-center max-w-md px-6">
             <div className="text-6xl mb-4 opacity-30">404</div>
-            <h1 className="text-xl font-semibold mb-2">Clone not found</h1>
+            <h1 className="text-xl font-semibold mb-2" style={{ fontFamily: 'var(--font-display)' }}>Clone not found</h1>
             <p className="text-gray-500 text-sm mb-6">
               No clone profile exists for &ldquo;/{slug}&rdquo;. Check the URL and try again.
             </p>
@@ -96,7 +106,7 @@ function ClonePage() {
         <div className="h-full flex items-center justify-center bg-para-navy text-white">
           <div className="text-center max-w-md px-6">
             <div className="text-5xl mb-4 opacity-30">&#9888;</div>
-            <h1 className="text-xl font-semibold mb-2">Server unavailable</h1>
+            <h1 className="text-xl font-semibold mb-2" style={{ fontFamily: 'var(--font-display)' }}>Server unavailable</h1>
             <p className="text-gray-500 text-sm mb-6">
               Could not connect to the backend after multiple attempts. The server may still be starting up.
             </p>
@@ -116,7 +126,7 @@ function ClonePage() {
       <div className="h-full flex items-center justify-center bg-para-navy text-white">
         <div className="text-center max-w-md px-6">
           <div className="text-5xl mb-4 opacity-30">&#9888;</div>
-          <h1 className="text-xl font-semibold mb-2">Something went wrong</h1>
+          <h1 className="text-xl font-semibold mb-2" style={{ fontFamily: 'var(--font-display)' }}>Something went wrong</h1>
           <p className="text-gray-500 text-sm mb-6">{error || 'An unexpected error occurred.'}</p>
           <button
             onClick={retry}
@@ -128,15 +138,6 @@ function ClonePage() {
       </div>
     );
   }
-
-  // Poll for review status updates (Sacred Archive: replaces rejected responses with silence)
-  // No-op for ParaGPT (no messages will have review_id)
-  useReviewPolling(
-    slug || '',
-    messages,
-    setMessages,
-    profile.silence_message || 'This response has been retracted by a reviewer.',
-  );
 
   const isSacredArchive = profile.generation_mode === 'mirror_only';
 

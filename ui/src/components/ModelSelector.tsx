@@ -85,7 +85,9 @@ export default function ModelSelector({ selectedModel, onModelChange, variant = 
   }, [handleOutsideClick]);
 
   const isParagpt = variant === 'paragpt';
-  const accentColor = isParagpt ? '#d08050' : '#c4963c';
+  const accentColor = getComputedStyle(document.documentElement)
+    .getPropertyValue(isParagpt ? '--color-para-teal' : '--color-sacred-gold')
+    .trim();
 
   const canOpen = models.length > 0;
 

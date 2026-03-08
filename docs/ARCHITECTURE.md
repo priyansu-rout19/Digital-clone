@@ -51,7 +51,7 @@ clone_profile:
 
   # Generation behavior
   generation_mode: "interpretive"    # interpretive | mirror_only
-  confidence_threshold: 0.80         # 0.0–1.0
+  confidence_threshold: 0.80         # 0.0–1.0 (factory default; ParaGPT DB override: 0.60)
   silence_behavior: "soft_hedge"     # soft_hedge | strict_silence
   silence_message: "..."
 
@@ -79,7 +79,7 @@ clone_profile:
 | Setting | ParaGPT | Sacred Archive |
 |---|---|---|
 | `generation_mode` | `interpretive` | `mirror_only` |
-| `confidence_threshold` | `0.80` | `0.95` |
+| `confidence_threshold` | `0.80` (factory; DB: `0.60`) | `0.95` |
 | `silence_behavior` | `soft_hedge` | `strict_silence` |
 | `review_required` | `false` | `true` |
 | `user_memory_enabled` | `true` | `false` |
@@ -194,7 +194,7 @@ Every query flows through this pipeline. The clone profile controls behavior at 
 - **Evaluator:** Uses reranker scores (not passage-count heuristic). Mean reranker score * passage factor.
 - **Reformulator:** Sees actual passage text + reranker scores. Generates keyword extraction, sub-topic decomposition, domain jargon queries — NOT paraphrases (which embed identically).
 - BM25 breaks the stuck loop: keyword queries with different terms retrieve genuinely different passages.
-- Max 3 retries.
+- Max 2 retries (reduced from 3 — Session 34 found 3rd retry has diminishing returns).
 
 ### Step 3: Context Assembly
 - Format retrieved passages into 8K-32K token context window
@@ -231,7 +231,7 @@ The LLM generates a response using:
 
 | Component | Location | Status | Notes |
 |---|---|---|---|
-| **Config Model** | `core/models/clone_profile.py` | ✅ COMPLETE | 7 enums, 17+ fields, 2 presets (ParaGPT threshold=0.80), `persona_eval` field (S39) |
+| **Config Model** | `core/models/clone_profile.py` | ✅ COMPLETE | 7 enums, 17+ fields, 2 presets (ParaGPT factory=0.80, DB=0.60), `persona_eval` field (S39) |
 | **LLM Client** | `core/llm.py` | ✅ COMPLETE | OpenRouter (dev) → SGLang (prod), Qwen thinking suppression, max_tokens=2048 |
 | **Embeddings Client** | `core/rag/ingestion/embedder.py` | ✅ COMPLETE | Google Gemini (dev) → TEI (prod), 3072→1024-dim truncated, singleton + retry backoff (S39) |
 | **Mem0 Client** | `core/mem0_client.py` | ✅ COMPLETE | pgvector backend, `TruncatedGoogleEmbeddings` wrapper (Session 26) |

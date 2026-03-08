@@ -55,7 +55,7 @@
 - 19-node LangGraph pipeline: query analysis -> retrieval -> context assembly -> generation -> verification -> review queue
 - `build_graph(profile)` factory captures profile in closures -- zero code branches per client
 - Hybrid retrieval: pgvector + BM25 via RRF fusion, FlashRank reranking
-- CRAG self-correction loop (up to 3 retries with keyword reformulation)
+- CRAG self-correction loop (up to 2 retries with keyword reformulation — reduced from 3 in Session 34, diminishing returns)
 - Citation verification cross-refs every [N] marker against retrieved passages
 - Files: `core/langgraph/conversation_flow.py`, `core/langgraph/nodes/` (5 node files)
 
@@ -301,7 +301,7 @@ Verification that Sacred Archive differs correctly from ParaGPT on all 10 dimens
 | Aspect | ParaGPT | Sacred Archive | Correctly Differentiated? |
 |--------|---------|----------------|--------------------------|
 | Generation mode | interpretive | mirror_only | Done |
-| Confidence threshold | 0.80 | 0.95 | Done |
+| Confidence threshold | 0.80 (factory; DB override: 0.60) | 0.95 | Done |
 | Uncertainty handling | soft_hedge | strict_silence | Done |
 | Human review | False | True | Done |
 | User memory | True | False | Done |

@@ -53,7 +53,7 @@
 - 19-node LangGraph pipeline: query analysis -> retrieval -> context assembly -> generation -> verification/routing
 - `build_graph(profile)` factory captures profile in closures -- zero code branches per client
 - Hybrid retrieval: pgvector + BM25 via RRF fusion, FlashRank reranking (over-retrieve 30, rerank to 10)
-- CRAG self-correction loop (up to 3 retries with keyword reformulation)
+- CRAG self-correction loop (up to 2 retries with keyword reformulation — reduced from 3 in Session 34, diminishing returns)
 - Files: `core/langgraph/conversation_flow.py`, `core/langgraph/nodes/` (5 node files)
 
 **Exceeds spec:** CRAG self-correction, hybrid search, reranking -- spec didn't require these.
@@ -138,7 +138,8 @@
   - Citation coverage (0.25) -- fraction of passages actually cited
   - Response grounding (0.25) -- lexical overlap between response and context
   - Passage count (0.15) -- enough source material?
-- When confidence < 0.80: response replaced with hedge message + dynamic topic suggestions
+- When confidence < threshold: response replaced with hedge message + dynamic topic suggestions
+  - Factory default: 0.80 (`clone_profile.py:174`). **Current DB override: 0.60** (lowered in Session 35 for BM25-only mode)
 - Files: `generation_nodes.py:163-230`, `routing_nodes.py:41-78`
 
 **Exceeds spec:** 4-factor scoring with dynamic topic suggestions.
@@ -274,7 +275,7 @@ All 5 excluded items are correctly not built. No scope creep.
 - `make_soft_hedge_router(profile)` in `routing_nodes.py:41-78` triggers when confidence < threshold
 - Outputs `profile.silence_message` + dynamic topic suggestions from `_extract_topic_suggestions()` (lines 21-38)
 - ParaGPT silence_message: "I don't have a specific teaching on that topic..." (`clone_profile.py:176-177`)
-- Threshold: 0.80 (`clone_profile.py:174`)
+- Threshold: factory default 0.80 (`clone_profile.py:174`), **current DB: 0.60** (Session 35 override for BM25-only mode)
 
 ---
 
@@ -417,7 +418,7 @@ All 5 excluded items are correctly not built. No scope creep.
 | 8.1 | Citation accuracy | >90% cite real, relevant sources | `citation_verifier` prevents hallucinated citations at runtime. Invalid citations removed before serving. | No batch eval measuring % across test queries. Runtime enforcement = 100% valid citations, but "relevant" is not measured. | Partial -- enforced, not measured. |
 | 8.2 | Persona fidelity | >85% ("Does this sound like [person]?") | `persona_scorer.py`: 4-factor weighted scorer (vocabulary 0.30, frameworks 0.25, domain 0.25, style 0.20). `evaluate_responses.py` can run batch eval with target >= 0.85. | Scorer implemented but no formal eval run against test queries. No stakeholder blind evaluation. | Partial -- scorer exists, eval not run. |
 | 8.3 | Response latency | <3s text, <6s voice | `query_analytics.latency_ms` tracks every request. | Tracked per-request. Actual latency depends on LLM provider. OpenRouter typically 2-5s. | Partial -- tracked, not benchmarked against target. |
-| 8.4 | Honest uncertainty | >90% hedge on out-of-corpus | `silence_triggered` flag in analytics. Multi-factor scorer + soft hedge routing active. Threshold: 0.80. | Tracked per-request. No formal eval measuring % across known out-of-corpus questions. | Partial -- tracked, not measured against target. |
+| 8.4 | Honest uncertainty | >90% hedge on out-of-corpus | `silence_triggered` flag in analytics. Multi-factor scorer + soft hedge routing active. Threshold: factory 0.80, DB 0.60. | Tracked per-request. No formal eval measuring % across known out-of-corpus questions. | Partial -- tracked, not measured against target. |
 | 8.5 | Consistency | No contradictions across evaluation suite | `consistency_checker.py`: negation flip + contrast marker detection. `evaluate_responses.py` runs batch with target >= 0.90. | Checker implemented but no formal eval run. No evaluation suite exists. | Partial -- checker exists, eval not run. |
 | 8.6 | Stakeholder satisfaction | Thought leader or designated reviewer approves response quality | `review_required: false` for ParaGPT -- responses stream directly. | No stakeholder review sessions documented. | Missing |
 

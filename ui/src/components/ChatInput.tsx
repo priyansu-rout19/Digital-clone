@@ -72,6 +72,7 @@ export default function ChatInput({
           onClick={handleSend}
           disabled={disabled || !input.trim() || overLimit}
           className={`w-10 h-10 rounded-full ${ACCENT_BG[accentColor] || 'bg-para-teal'} flex items-center justify-center transition-opacity hover:opacity-90 disabled:opacity-40 flex-shrink-0`}
+          aria-label="Send message"
         >
           {disabled ? (
             <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

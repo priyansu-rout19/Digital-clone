@@ -27,7 +27,12 @@ export default function CitationCard({ source, variant = 'paragpt', passageOnly 
   }
 
   return (
-    <div className={`border-l-2 ${accent} pl-3 py-1 mb-2 cursor-pointer`} onClick={() => setExpanded(!expanded)}>
+    <button
+      className={`border-l-2 ${accent} pl-3 py-1 mb-2 bg-transparent border-none w-full text-left cursor-pointer`}
+      onClick={() => setExpanded(!expanded)}
+      aria-expanded={expanded}
+      aria-label="Expand citation"
+    >
       <div className="flex items-center justify-between">
         <span className="text-xs text-gray-400 font-medium">
           {source.source_title
@@ -60,6 +65,6 @@ export default function CitationCard({ source, variant = 'paragpt', passageOnly 
           )}
         </div>
       )}
-    </div>
+    </button>
   );
 }

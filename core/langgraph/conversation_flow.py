@@ -186,10 +186,18 @@ def build_graph(profile: CloneProfile):
     def after_crag(state: ConversationState) -> str:
         confidence = state.get("retrieval_confidence", 0.0)
         retry_count = state.get("retry_count", 0)
-        max_retries = 3
+        max_retries = 2  # Was 3 — 2 retries is sufficient; 3 wastes LLM calls
 
-        # Should we retry? (Tier 2 already ran before CRAG if applicable)
-        if confidence < profile.confidence_threshold and retry_count < max_retries:
+        # CRAG retry threshold is LOWER than silencing threshold.
+        # Formula: min(threshold * 0.5, 0.40). Examples:
+        #   ParaGPT  (DB threshold=0.60): min(0.30, 0.40) = 0.30
+        #   Sacred Archive (threshold=0.95): min(0.475, 0.40) = 0.40
+        # Only retry when retrieval is clearly poor, not just below the
+        # silencing threshold. This prevents the degradation spiral where
+        # 52% confidence triggers futile retries that drop to 0%.
+        crag_retry_threshold = min(profile.confidence_threshold * 0.5, 0.40)
+
+        if confidence < crag_retry_threshold and retry_count < max_retries:
             return "query_reformulator"
 
         # Proceed to context assembly

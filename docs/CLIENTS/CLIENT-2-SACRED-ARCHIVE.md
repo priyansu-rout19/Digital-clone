@@ -125,7 +125,7 @@ clone_profile:
 | Aspect | ParaGPT | Sacred Archive |
 |---|---|---|
 | Generation mode | Interpretive | Mirror-only |
-| Confidence threshold | 0.80 | 0.95 |
+| Confidence threshold | 0.80 (factory; DB: 0.60) | 0.95 |
 | Uncertainty handling | Soft hedge | Strict silence |
 | Human review | None | 100% mandatory |
 | User memory | Yes | No |

@@ -180,7 +180,7 @@ def test_crag_retry_loop(paragpt_clone_id):
     """
     Validates the CRAG retry mechanism using a NONSENSICAL query.
     Real vector_search returns low-confidence results for gibberish,
-    which falls below ParaGPT threshold (0.80) and triggers the
+    which falls below ParaGPT CRAG retry threshold (0.30, i.e. DB threshold 0.60 * 0.5) and triggers the
     query_reformulator -> re-retrieval loop.
 
     Asserts retry_count >= 1 to prove the reformulator ran.

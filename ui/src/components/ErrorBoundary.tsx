@@ -40,7 +40,7 @@ export default class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="h-screen flex items-center justify-center bg-para-navy">
+        <div className="h-screen flex items-center justify-center bg-para-navy" role="alert">
           <div className="text-center">
             <p className="text-red-400 text-lg mb-2">Something went wrong</p>
             <p className="text-gray-500 text-sm mb-4">{this.state.message}</p>

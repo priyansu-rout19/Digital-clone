@@ -92,7 +92,7 @@ export default function Chat({ messages, isLoading, currentNode, onSendMessage, 
             )}
 
             {/* Provenance / citations */}
-            {msg.role === 'assistant' && msg.cited_sources && msg.cited_sources.length > 0 && (
+            {msg.role === 'assistant' && !msg.silence_triggered && msg.cited_sources && msg.cited_sources.length > 0 && (
               <CollapsibleCitations sources={msg.cited_sources} variant="sacred-archive" />
             )}
 

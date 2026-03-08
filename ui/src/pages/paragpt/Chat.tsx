@@ -41,11 +41,11 @@ export default function Chat({ messages, isLoading, currentNode, onSendMessage, 
       )}
 
       {/* Message list */}
-      <div className="flex-1 overflow-y-auto hide-scrollbar px-4 pt-8 pb-4 max-w-3xl mx-auto w-full">
+      <div className="flex-1 overflow-y-auto hide-scrollbar px-4 pt-8 pb-4 max-w-3xl mx-auto w-full" aria-live="polite">
         {/* Conversation start — scrolls with messages */}
         <div className="flex flex-col items-center pt-2 pb-6">
           <img src={profile?.avatar_url || '/avatars/parag-khanna.png'} alt={profile?.display_name || 'Clone'} className="w-12 h-12 rounded-full object-cover mb-2" />
-          <span className="text-white/80 text-sm font-medium">{profile?.display_name || 'Clone'}</span>
+          <span className="text-white/80 text-sm font-medium" style={{ fontFamily: 'var(--font-display)' }}>{profile?.display_name || 'Clone'}</span>
         </div>
         {messages.map((msg, i) => (
           <div key={i}>
@@ -59,7 +59,7 @@ export default function Chat({ messages, isLoading, currentNode, onSendMessage, 
                   <button
                     key={j}
                     onClick={() => onSendMessage(topic)}
-                    className="text-xs px-3 py-1 rounded-full bg-[#d08050]/15 text-[#d08050] hover:bg-[#d08050]/25 transition-colors cursor-pointer"
+                    className="text-xs px-3 py-1 rounded-full bg-para-teal/15 text-para-teal hover:bg-para-teal/25 transition-colors cursor-pointer"
                   >
                     {topic}
                   </button>
@@ -68,7 +68,7 @@ export default function Chat({ messages, isLoading, currentNode, onSendMessage, 
             )}
 
             {/* Citations */}
-            {msg.role === 'assistant' && msg.cited_sources && msg.cited_sources.length > 0 && (
+            {msg.role === 'assistant' && !msg.silence_triggered && msg.cited_sources && msg.cited_sources.length > 0 && (
               <CollapsibleCitations sources={msg.cited_sources} variant="paragpt" />
             )}
 
@@ -117,7 +117,7 @@ export default function Chat({ messages, isLoading, currentNode, onSendMessage, 
       </div>
 
       {/* Input bar */}
-      <div className="px-4 pt-3 pb-6 max-w-3xl mx-auto w-full border-t border-white/[0.06]">
+      <div className="px-4 pt-4 pb-8 max-w-3xl mx-auto w-full border-t border-white/[0.06]">
         <div className="flex items-center gap-2">
           {onNewConversation && (
             <button

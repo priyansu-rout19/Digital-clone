@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
 @theme {
-  /* ParaGPT colors */
-  --color-para-navy: #0d0d0d;
-  --color-para-teal: #d08050;
-  --color-para-teal-dark: #b06838;
-  --color-para-card: rgba(28, 28, 28, 0.6);
-  --color-para-card-hover: rgba(38, 38, 38, 0.8);
+  /* ParaGPT colors — AlphaGeo dark navy + vibrant orange */
+  --color-para-navy: #0d1117;
+  --color-para-teal: #ff5c00;
+  --color-para-teal-dark: #cc4a00;
+  --color-para-card: rgba(22, 27, 34, 0.6);
+  --color-para-card-hover: rgba(33, 38, 45, 0.8);
 
   /* Sacred Archive colors */
   --color-sacred-brown: #2c2c2c;
@@ -17,6 +17,11 @@
 
   /* Shared */
   --color-glass-border: rgba(255, 255, 255, 0.1);
+  --color-para-copper-glow: rgba(255, 92, 0, 0.12);
+  --color-para-surface: #161b22;
+
+  /* Typography */
+  --font-display: 'Playfair Display', serif;
 }
 
 /* Base styles */
@@ -34,11 +39,19 @@ body {
 
 /* Glass morphism utility */
 .glass {
-  background: rgba(30, 30, 30, 0.75);
+  background: rgba(22, 27, 34, 0.75);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.glass-glow-hover {
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.glass-glow-hover:hover {
+  box-shadow: 0 0 20px rgba(255, 92, 0, 0.15);
+  border-color: rgba(255, 92, 0, 0.25);
 }
 
 .glass-sacred {
@@ -47,6 +60,23 @@ body {
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(196, 150, 60, 0.2);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+/* Accessibility: disable animations for users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Shadow utilities — warm glow for ParaGPT, sacred glow for Sacred Archive */
+.shadow-warm-glow {
+  box-shadow: 0 2px 12px rgba(255, 92, 0, 0.25);
+}
+.shadow-sacred-glow {
+  box-shadow: 0 2px 12px rgba(196, 150, 60, 0.25);
 }
 
 /* Scrollbar styling */
@@ -103,6 +133,7 @@ body {
 .markdown-body h2,
 .markdown-body h3 {
   color: #ffffff;
+  font-family: var(--font-display);
   font-weight: 700;
   margin-top: 1rem;
   margin-bottom: 0.5rem;
@@ -132,7 +163,7 @@ body {
 }
 
 .markdown-body blockquote {
-  border-left: 2px solid rgba(208, 128, 80, 0.4);
+  border-left: 2px solid rgba(255, 92, 0, 0.4);
   padding-left: 0.75rem;
   color: #94a3b8;
   font-style: italic;
