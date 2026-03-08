@@ -1,6 +1,6 @@
 # ARCHITECTURE: Digital Clone Engine — Unified Technical System Design
 
-**Version:** 5.2 | **Date:** March 7, 2026 (Session 39) | **Prepared by:** Prem AI — Solution Architecture
+**Version:** 5.4 | **Date:** March 9, 2026 (Session 46) | **Prepared by:** Prem AI — Solution Architecture
 
 **Note:** This is the **specification/design document** (target production). For **current implementation status**, see [PROGRESS.md](../tasks/PROGRESS.md). Development currently uses drop-in proxy models (Google Gemini for embeddings, OpenRouter for LLM inference) pending PCCI infrastructure — zero code changes needed when production models available.
 
@@ -166,10 +166,11 @@ The orchestrator is the **core** — it reads the clone profile and adjusts beha
 Every query flows through this pipeline. The clone profile controls behavior at each step.
 
 ### Step 1: Query Analysis
-- LLM classifies intent (factual, synthesis, temporal, opinion, exploratory)
+- **Dual-layer routing (Session 44):** `_prefilter()` catches ~10 fixed single-word greetings instantly (no LLM). Everything else goes to LLM binary classifier.
+- **Binary intent classes:** `persona` (greetings, identity, self-referential, small talk) or `retrieval` (everything else). "When in doubt → retrieval" safe default.
 - Decomposes complex queries into sub-queries
 - Checks access tier permissions
-- **~0.3s, 1 LLM call**
+- **~0.3s, 1 LLM call** (skipped for prefilter hits)
 
 ### Step 2: Two-Tier Retrieval with Self-Correction
 **Tier 1 — Hybrid Search (Vector + BM25)** (<200ms):
@@ -204,9 +205,9 @@ Every query flows through this pipeline. The clone profile controls behavior at 
 ### Step 4: In-Persona Generation
 The LLM generates a response using:
 - Assembled context
-- Persona system prompt (varies by profile)
+- Lean system prompt (~120 tokens: identity + mode instruction) with externalized persona (`soul.md`) and behavioral rules (`guardrails.md`) injected per clone (Session 43, 45)
 - User memory (if enabled)
-- Generation rules
+- Intent-aware mode: `persona` → conversational, no citations; `retrieval` → cite sources adaptively
 
 **If `generation_mode: interpretive`** → Synthesize + cite sources
 **If `generation_mode: mirror_only`** → Direct quotes only, no paraphrasing
@@ -227,7 +228,7 @@ The LLM generates a response using:
 
 ---
 
-## 6. Codebase Structure (Current Status — March 7, 2026, Session 39)
+## 6. Codebase Structure (Current Status — March 9, 2026, Session 46)
 
 | Component | Location | Status | Notes |
 |---|---|---|---|
@@ -237,15 +238,15 @@ The LLM generates a response using:
 | **Mem0 Client** | `core/mem0_client.py` | ✅ COMPLETE | pgvector backend, `TruncatedGoogleEmbeddings` wrapper (Session 26) |
 | **LangGraph Orchestrator** | `core/langgraph/conversation_flow.py` | ✅ COMPLETE | 19 nodes, T2 before CRAG |
 | **Orchestration Nodes** | `core/langgraph/nodes/` | ✅ COMPLETE | Real LLM, real retrieval, real memory, multi-factor scorer (S29) |
-| **Database Schema** | `core/db/schema.py` | ✅ COMPLETE | 15 tables, pgvector indexing |
-| **Migrations** | `core/db/migrations/` | ✅ COMPLETE | 6 migrations (0006: BM25 tsvector + GIN index, Session 29) |
+| **Database Schema** | `core/db/schema.py` | ✅ COMPLETE | 16 tables, pgvector indexing, pgcrypto encryption (S40) |
+| **Migrations** | `core/db/migrations/` | ✅ COMPLETE | 7 migrations (0007: pgcrypto encryption at rest, S40) |
 | **RAG Ingestion** | `core/rag/ingestion/` | ✅ COMPLETE | Parser + chunker (semantic) + embedder + indexer (with tsvector) |
 | **RAG Retrieval** | `core/rag/retrieval/` | ✅ COMPLETE | Hybrid vector+BM25, FlashRank reranking, RRF fusion, CRAG (S29) |
-| **FastAPI Layer** | `api/` | ✅ COMPLETE | 7 endpoint groups, WebSocket + reasoning trace, rate limiting, CORS |
-| **Test Suite** | `tests/` | ✅ COMPLETE | 97 tests passing (4 test files) |
+| **FastAPI Layer** | `api/` | ✅ COMPLETE | 9 endpoint groups (+models S33, +feedback S40), WebSocket + reasoning trace, rate limiting, CORS |
+| **Test Suite** | `tests/` | ✅ COMPLETE | 161 tests passing (7 test files) |
 | **Database Seeding** | `scripts/` | ✅ COMPLETE | 2 clones, 1 user, 13 docs (ParaGPT) + 10 docs (Sacred), 48+ passages (S39 corpus expansion) |
 | **Evaluation** | `core/evaluation/` | ✅ COMPLETE | Persona fidelity scorer + consistency checker (S39) |
-| **Frontend** | `ui/` | ✅ COMPLETE | 29 source files (2 dead files removed S39), ModelSelector, ReasoningTrace, CollapsibleCitations, copper theme, resilience hardening (S37-39) |
+| **Frontend** | `ui/` | ✅ COMPLETE | 31 source files, ModelSelector, ReasoningTrace, CollapsibleCitations, MemoryPanel, FeedbackWidget, copper theme, resilience hardening (S37-40) |
 
 ---
 

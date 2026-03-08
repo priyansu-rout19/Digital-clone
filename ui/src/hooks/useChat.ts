@@ -150,6 +150,7 @@ export function useChat(slug: string) {
               model: resp.model,
               review_id: resp.review_id ?? undefined,
               review_status: resp.review_id ? 'pending' : undefined,
+              intent_class: resp.intent_class,
             },
           ]);
           setIsLoading(false);

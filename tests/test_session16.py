@@ -142,7 +142,7 @@ class TestTokenBudget:
 
         mock_response = MagicMock()
         mock_response.content = json.dumps({
-            "intent": "synthesis",
+            "intent": "retrieval",
             "sub_queries": ["query 1", "query 2"],
             "token_budget": 3000,
         })
@@ -153,7 +153,7 @@ class TestTokenBudget:
             result = query_analysis(state)
 
             assert result["token_budget"] == 3000
-            assert result["intent_class"] == "synthesis"
+            assert result["intent_class"] == "retrieval"
 
     def test_budget_clamped_to_range(self):
         """Token budget should be clamped to [1000, 4000]."""

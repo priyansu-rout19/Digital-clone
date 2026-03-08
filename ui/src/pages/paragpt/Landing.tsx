@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { CloneProfile } from '../../api/types';
 import ModelSelector from '../../components/ModelSelector';
+import MemoryPanel from '../../components/MemoryPanel';
 
 interface LandingProps {
   profile: CloneProfile;
@@ -8,6 +9,10 @@ interface LandingProps {
   onQuestionClick: (question: string) => void;
   selectedModel: string;
   onModelChange: (modelId: string) => void;
+  userId?: string;
+  cloneSlug?: string;
+  onHistoryCleared?: () => void;
+  userMemoryEnabled?: boolean;
 }
 
 const TOPIC_TAGS = ['Geopolitics', 'Connectivity', 'Strategic Thinking', 'Asia', 'Global Trends'];
@@ -18,8 +23,9 @@ const STARTER_QUESTIONS = [
   'What is your best recipe for chocolate cake?',
 ];
 
-export default function Landing({ profile, onSendMessage, onQuestionClick, selectedModel, onModelChange }: LandingProps) {
+export default function Landing({ profile, onSendMessage, onQuestionClick, selectedModel, onModelChange, userId, cloneSlug, onHistoryCleared, userMemoryEnabled }: LandingProps) {
   const [query, setQuery] = useState('');
+  const [memoryPanelOpen, setMemoryPanelOpen] = useState(false);
 
   const handleSend = () => {
     const trimmed = query.trim();
@@ -68,6 +74,11 @@ export default function Landing({ profile, onSendMessage, onQuestionClick, selec
         ))}
       </div>
 
+      {/* Memory panel */}
+      {userMemoryEnabled && userId && (
+        <MemoryPanel isOpen={memoryPanelOpen} onClose={() => setMemoryPanelOpen(false)} userId={userId} cloneSlug={cloneSlug} onHistoryCleared={onHistoryCleared} />
+      )}
+
       {/* Sticky Input Bar */}
       <div className="fixed bottom-0 left-0 right-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="glass rounded-[20px] max-w-[640px] mx-auto flex items-center gap-2 p-2">
@@ -79,6 +90,19 @@ export default function Landing({ profile, onSendMessage, onQuestionClick, selec
               <line x1="8" y1="21" x2="16" y2="21" />
             </svg>
           </button>
+
+          {userMemoryEnabled && userId && (
+            <button
+              type="button"
+              onClick={() => setMemoryPanelOpen(true)}
+              className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-slate-500 hover:text-para-teal hover:bg-white/10 transition-colors"
+              title="Your memories"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                <path d="M12 2a1 1 0 0 1 1 1v.5a5.5 5.5 0 0 1 4.9 3.6A4.5 4.5 0 0 1 21 11.5a4.5 4.5 0 0 1-2.1 3.8A5.5 5.5 0 0 1 13 19.5V21a1 1 0 1 1-2 0v-1.5a5.5 5.5 0 0 1-5.9-4.2A4.5 4.5 0 0 1 3 11.5 4.5 4.5 0 0 1 6.1 7.1 5.5 5.5 0 0 1 11 3.5V3a1 1 0 0 1 1-1Zm-1 4a3.5 3.5 0 0 0-3.4 2.7 1 1 0 0 1-1 .8A2.5 2.5 0 0 0 5 11.5a2.5 2.5 0 0 0 1.6 2.3 1 1 0 0 1 .6.8A3.5 3.5 0 0 0 11 17.5V6Zm2 11.5a3.5 3.5 0 0 0 3.8-2.9 1 1 0 0 1 .6-.8A2.5 2.5 0 0 0 19 11.5a2.5 2.5 0 0 0-1.6-2.3 1 1 0 0 1-.6-.8A3.5 3.5 0 0 0 13 6v11.5Z" />
+              </svg>
+            </button>
+          )}
 
           <input
             type="text"

@@ -9,8 +9,24 @@ One unified codebase, zero code branches — everything is driven by this config
 """
 
 from enum import Enum
+from pathlib import Path
 from typing import Optional
 from pydantic import BaseModel, Field, model_validator
+
+
+_PROFILES_DIR = Path(__file__).parent.parent.parent / "profiles"
+
+
+def load_profile_markdown(slug: str, filename: str) -> str:
+    """Load a markdown file from profiles/<slug>/<filename>.
+
+    Resolves path deterministically from slug. Returns empty string
+    if file is missing (graceful degradation for new clones).
+    """
+    path = _PROFILES_DIR / slug / filename
+    if path.exists():
+        return path.read_text(encoding="utf-8").strip()
+    return ""
 
 
 class GenerationMode(str, Enum):
@@ -77,6 +93,11 @@ class CloneProfile(BaseModel):
     slug: str = Field(max_length=64, description="URL identifier (e.g. 'paragpt-client')")
     display_name: str = Field(description="Display name shown on chat page")
     bio: str = Field(description="Bio text shown below avatar")
+    persona_document: str = Field(
+        default="",
+        description="Rich persona: biographical facts, communication style, self-knowledge. "
+                    "Injected into system prompt for identity and conversational responses."
+    )
     avatar_url: str = Field(description="Path to avatar image")
 
     # Generation behavior
@@ -135,11 +156,33 @@ class CloneProfile(BaseModel):
         description="standard=network connected, air_gapped=zero external calls"
     )
 
+    # Behavioral guardrails (injected into system prompt alongside persona)
+    guardrails_document: str = Field(
+        default="",
+        description="Behavioral guardrails: confidence handling, citation rules, "
+                    "forbidden patterns. Injected into system prompt as constraints."
+    )
+
     # Evaluation (optional — used by persona_scorer and consistency_checker)
     persona_eval: dict = Field(
         default_factory=dict,
         description="Persona evaluation config: key_vocabulary, signature_frameworks, owned_topics, style_markers"
     )
+
+    @model_validator(mode="after")
+    def hydrate_markdown_documents(self) -> "CloneProfile":
+        """Always load persona and guardrails from markdown files (source of truth).
+
+        Prevents DB-loaded profiles from having stale/empty persona content.
+        If files don't exist, keeps whatever value was in DB (graceful degradation).
+        """
+        loaded_persona = load_profile_markdown(self.slug, "soul.md")
+        if loaded_persona:
+            self.persona_document = loaded_persona
+        loaded_guardrails = load_profile_markdown(self.slug, "guardrails.md")
+        if loaded_guardrails:
+            self.guardrails_document = loaded_guardrails
+        return self
 
     @model_validator(mode="after")
     def validate_voice_model_ref(self) -> "CloneProfile":
@@ -169,6 +212,8 @@ def paragpt_profile() -> CloneProfile:
         display_name="Parag Khanna",
         bio="Author, geopolitical strategist known for synthesizing complex global trends into accessible frameworks. "
             "Data-driven analysis connecting history, economics, and geography.",
+        persona_document=load_profile_markdown("paragpt-client", "soul.md"),
+        guardrails_document=load_profile_markdown("paragpt-client", "guardrails.md"),
         avatar_url="/avatars/parag-khanna.png",
         generation_mode=GenerationMode.interpretive,
         confidence_threshold=0.80,
@@ -225,6 +270,8 @@ def sacred_archive_profile() -> CloneProfile:
         display_name="Sacred Teachings",
         bio="Mirror of timeless wisdom, curated with reverence and scholarly care. "
             "Direct teachings, unaltered and verified.",
+        persona_document=load_profile_markdown("sacred-archive", "soul.md"),
+        guardrails_document=load_profile_markdown("sacred-archive", "guardrails.md"),
         avatar_url="/static/avatars/sacred-archive.jpg",
         generation_mode=GenerationMode.mirror_only,
         confidence_threshold=0.95,

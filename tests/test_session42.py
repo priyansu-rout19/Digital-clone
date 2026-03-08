@@ -1,12 +1,12 @@
 """
-Session 42 Tests — Skip-RAG for self-referential queries + Mem0 provider fix.
+Session 42 Tests — Skip-RAG for persona queries + Mem0 provider fix.
 
 Tests:
-- Self-referential pattern matching (10 tests)
-- Greeting regression (6 tests)
-- Negative tests — factual queries not caught (4 tests)
-- Graph routing — conversational skips retrieval (2 tests)
-- Confidence bypass — conversational passes through (2 tests)
+- Self-referential queries via LLM (10 tests — now go through LLM, not deterministic gate)
+- Greeting regression (6 tests — single-word greetings still caught by pre-filter)
+- Negative tests — retrieval queries not caught (4 tests)
+- Graph routing — persona skips retrieval (2 tests)
+- Confidence bypass — persona passes through (2 tests)
 - Mem0 config — provider selection (3 tests)
 
 All mock-based, no external services required.
@@ -29,7 +29,7 @@ from core.langgraph.nodes.query_analysis_node import (
 
 
 # ---------------------------------------------------------------------------
-# Helper: Force the fallback (except) path by making the LLM return bad JSON
+# Helpers
 # ---------------------------------------------------------------------------
 
 def _run_fallback(query: str, history: str = "") -> dict:
@@ -44,35 +44,46 @@ def _run_fallback(query: str, history: str = "") -> dict:
         return query_analysis(state)
 
 
+def _run_with_llm_persona(query: str) -> dict:
+    """Invoke query_analysis with a mocked LLM that returns persona classification."""
+    mock_response = MagicMock()
+    mock_response.content = json.dumps({
+        "intent": "persona", "sub_queries": [],
+        "token_budget": 0, "response_tokens": 150, "rewritten_query": None
+    })
+    with patch("core.langgraph.nodes.query_analysis_node.get_llm") as mock_llm:
+        mock_llm.return_value.invoke.return_value = mock_response
+        state = {"query_text": query, "conversation_history": ""}
+        return query_analysis(state)
+
+
 # ===========================================================================
-# 3a. Self-referential pattern matching (10 tests)
+# 3a. Self-referential queries — now handled by LLM (10 tests)
 # ===========================================================================
 
-class TestSelfReferentialPatterns:
-    """Each of the 10 self-ref patterns should classify as conversational
-    with token_budget=0, response_tokens=150, empty sub_queries."""
+class TestSelfReferentialViaLLM:
+    """Self-referential queries now go to LLM (no deterministic gate).
+    We mock the LLM to return persona classification."""
 
-    SELF_REF_PATTERNS = [
-        ("What is my name?", "my name"),
-        ("Which is my country?", "my country"),
-        ("Tell me about me", "about me"),
-        ("Do you remember me?", "remember me"),
-        ("Who am I?", "who am i"),
-        ("Did I say something earlier?", "did i say"),
-        ("Did I tell you my age?", "did i tell"),
-        ("I told you about my trip", "i told you"),
-        ("Where am I from?", "where am i from"),
-        ("Do you know where I am from?", "where i am from"),
+    SELF_REF_QUERIES = [
+        "What is my name?",
+        "Which is my country?",
+        "Tell me about me",
+        "Do you remember me?",
+        "Who am I?",
+        "Did I say something earlier?",
+        "Did I tell you my age?",
+        "I told you about my trip",
+        "Where am I from?",
+        "Do you know where I am from?",
     ]
 
-    @pytest.mark.parametrize("query,pattern", SELF_REF_PATTERNS,
-                             ids=[p[1].replace(" ", "_") for p in SELF_REF_PATTERNS])
-    def test_self_ref_detected(self, query, pattern):
-        result = _run_fallback(query)
-        assert result["intent_class"] == "conversational", (
-            f"Pattern '{pattern}' in '{query}' should be conversational, "
-            f"got '{result['intent_class']}'"
-        )
+    @pytest.mark.parametrize("query", SELF_REF_QUERIES,
+                             ids=[q[:20].replace(" ", "_") for q in SELF_REF_QUERIES])
+    def test_self_ref_via_llm(self, query):
+        """Self-ref queries are multi-word → bypass pre-filter, go to LLM."""
+        result = _run_with_llm_persona(query)
+        assert result["intent_class"] == "persona"
         assert result["sub_queries"] == []
         assert result["token_budget"] == 0
         assert result["response_tokens"] == 150
@@ -83,16 +94,15 @@ class TestSelfReferentialPatterns:
 # ===========================================================================
 
 class TestGreetingRegression:
-    """Greetings should still classify as conversational after the new
-    self-ref patterns were added (self-ref check runs first)."""
+    """Single-word greetings still caught by pre-filter as persona."""
 
     GREETINGS = ["hi", "hello", "namaste", "thanks", "bye", "yo"]
 
     @pytest.mark.parametrize("greeting", GREETINGS)
-    def test_greeting_is_conversational(self, greeting):
+    def test_greeting_is_persona(self, greeting):
         result = _run_fallback(greeting)
-        assert result["intent_class"] == "conversational", (
-            f"Greeting '{greeting}' should be conversational, "
+        assert result["intent_class"] == "persona", (
+            f"Greeting '{greeting}' should be persona, "
             f"got '{result['intent_class']}'"
         )
         assert result["sub_queries"] == []
@@ -101,119 +111,91 @@ class TestGreetingRegression:
 
 
 # ===========================================================================
-# 3c. Negative tests — factual queries NOT caught as conversational (4 tests)
+# 3c. Negative tests — non-persona queries (4 tests)
 # ===========================================================================
 
-class TestNegativeNotConversational:
-    """Factual queries must NOT be caught by the self-ref or greeting checks."""
+class TestNegativeNotPersona:
+    """Non-persona queries must not be caught by pre-filter."""
 
     def test_factual_how_query(self):
-        """'How does connectivity shape geopolitics?' → factual."""
+        """'How does connectivity shape geopolitics?' → retrieval (fallback)."""
         result = _run_fallback("How does connectivity shape geopolitics?")
-        assert result["intent_class"] == "factual"
+        assert result["intent_class"] == "retrieval"
         assert result["token_budget"] == DEFAULT_TOKEN_BUDGET
 
     def test_factual_what_query(self):
-        """'What is the future of AI?' → factual."""
+        """'What is the future of AI?' → retrieval (fallback)."""
         result = _run_fallback("What is the future of AI?")
-        assert result["intent_class"] == "factual"
+        assert result["intent_class"] == "retrieval"
         assert result["token_budget"] == DEFAULT_TOKEN_BUDGET
 
     def test_tell_me_about_asean(self):
-        """'Tell me about ASEAN' → has 'tell' in the greeting guard's exclusion list,
-        so it falls through to factual (no 'how/why/what/explain' but 'tell' blocks
-        the greeting check). Actually 'tell' is only in the greeting exclusion, not
-        in the factual keywords. So it should fall to exploratory."""
+        """'Tell me about ASEAN' → retrieval (fallback: all parse failures = retrieval)."""
         result = _run_fallback("Tell me about ASEAN")
-        # "tell" blocks greeting match, no how/why/what/explain → not factual,
-        # no opinion/temporal keywords → exploratory
-        assert result["intent_class"] == "exploratory"
+        assert result["intent_class"] == "retrieval"
         assert result["token_budget"] == DEFAULT_TOKEN_BUDGET
 
     def test_did_parag_say(self):
-        """'What did Parag Khanna say about trade?' → factual (has 'what').
-        Contains 'did' but NOT 'did i' → should not trigger self-ref."""
+        """'What did Parag Khanna say about trade?' → retrieval (fallback)."""
         result = _run_fallback("What did Parag Khanna say about trade?")
-        assert result["intent_class"] == "factual"
+        assert result["intent_class"] == "retrieval"
         assert result["token_budget"] == DEFAULT_TOKEN_BUDGET
 
 
 # ===========================================================================
-# 3d. Graph routing — conversational skips retrieval (2 tests)
+# 3d. Graph routing — persona skips retrieval (2 tests)
 # ===========================================================================
 
-class TestGraphRoutingConversational:
-    """Conversational intent should skip all retrieval nodes and go straight
-    to context_assembler. We test by building the graph and checking that
-    after_query_analysis routes to context_assembler."""
+class TestGraphRoutingPersona:
+    """Persona intent should skip all retrieval nodes and go straight
+    to context_assembler."""
 
-    def test_paragpt_conversational_skips_retrieval(self):
-        """ParaGPT: conversational → context_assembler (skips tier1_retrieval)."""
-        from core.langgraph.conversation_flow import build_graph
+    def test_paragpt_persona_skips_retrieval(self):
+        """ParaGPT: persona → context_assembler (skips tier1_retrieval)."""
+        result = _run_with_llm_persona("Who am I?")
+        assert result["intent_class"] == "persona"
+        assert result["token_budget"] == 0
+        assert result["sub_queries"] == []
+
+    def test_sacred_archive_persona_skips_retrieval(self):
+        """Sacred Archive: persona → context_assembler (skips provenance + tier1)."""
+        result = _run_with_llm_persona("Do you remember me?")
+        assert result["intent_class"] == "persona"
+        assert result["token_budget"] == 0
+        assert result["sub_queries"] == []
+
+
+# ===========================================================================
+# 3e. Confidence bypass — persona passes through (2 tests)
+# ===========================================================================
+
+class TestConfidenceBypassPersona:
+    """Persona intent bypasses confidence silencing."""
+
+    def test_paragpt_persona_bypasses_confidence(self):
+        """ParaGPT (review_required=False): persona → stream_to_user."""
         from core.models.clone_profile import paragpt_profile
-
-        # Build graph and invoke with a self-ref query that will be classified
-        # as conversational by the fallback path
-        profile = paragpt_profile()
-
-        # We test the routing function directly by importing and calling it
-        # The closure captures profile, so we need to build the graph first
-        # then test that conversational intent produces empty retrieved_passages
-        mock_response = MagicMock()
-        mock_response.content = "NOT VALID JSON"
-
-        with patch("core.langgraph.nodes.query_analysis_node.get_llm") as mock_llm:
-            mock_llm.return_value.invoke.return_value = mock_response
-            result = query_analysis({"query_text": "Who am I?", "conversation_history": ""})
-
-        assert result["intent_class"] == "conversational"
-        assert result["token_budget"] == 0
-        # When token_budget=0, retrieval is skipped → no passages
-        assert result["sub_queries"] == []
-
-    def test_sacred_archive_conversational_skips_retrieval(self):
-        """Sacred Archive: conversational → context_assembler (skips provenance + tier1)."""
-        result = _run_fallback("Do you remember me?")
-        assert result["intent_class"] == "conversational"
-        assert result["token_budget"] == 0
-        assert result["sub_queries"] == []
-
-
-# ===========================================================================
-# 3e. Confidence bypass — conversational passes through (2 tests)
-# ===========================================================================
-
-class TestConfidenceBypassConversational:
-    """Conversational intent bypasses confidence silencing.
-    We test the after_confidence routing function indirectly by verifying
-    the logic paths for both profiles."""
-
-    def test_paragpt_conversational_bypasses_confidence(self):
-        """ParaGPT (review_required=False): conversational → stream_to_user."""
-        from core.models.clone_profile import paragpt_profile, SilenceBehavior
 
         profile = paragpt_profile()
         assert profile.review_required is False
 
-        # Simulate what after_confidence does for conversational intent:
-        # if intent == "conversational" and not review_required → stream_to_user
-        state = {"intent_class": "conversational", "final_confidence": 0.0}
-        if state["intent_class"] == "conversational":
+        state = {"intent_class": "persona", "final_confidence": 0.0}
+        if state["intent_class"] == "persona":
             if profile.review_required:
                 route = "review_queue_writer"
             else:
                 route = "stream_to_user"
         assert route == "stream_to_user"
 
-    def test_sacred_archive_conversational_to_review(self):
-        """Sacred Archive (review_required=True): conversational → review_queue_writer."""
+    def test_sacred_archive_persona_to_review(self):
+        """Sacred Archive (review_required=True): persona → review_queue_writer."""
         from core.models.clone_profile import sacred_archive_profile
 
         profile = sacred_archive_profile()
         assert profile.review_required is True
 
-        state = {"intent_class": "conversational", "final_confidence": 0.0}
-        if state["intent_class"] == "conversational":
+        state = {"intent_class": "persona", "final_confidence": 0.0}
+        if state["intent_class"] == "persona":
             if profile.review_required:
                 route = "review_queue_writer"
             else:

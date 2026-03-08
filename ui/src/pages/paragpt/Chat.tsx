@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ChatMessage, CloneProfile } from '../../api/types';
 import MessageBubble from '../../components/MessageBubble';
 import ChatInput from '../../components/ChatInput';
@@ -7,6 +7,7 @@ import AudioPlayer from '../../components/AudioPlayer';
 import CollapsibleCitations from '../../components/CollapsibleCitations';
 import ReasoningTrace from '../../components/ReasoningTrace';
 import ModelSelector from '../../components/ModelSelector';
+import MemoryPanel from '../../components/MemoryPanel';
 import { useAudio } from '../../hooks/useAudio';
 
 interface ChatProps {
@@ -21,11 +22,15 @@ interface ChatProps {
   onModelChange: (modelId: string) => void;
   voiceEnabled?: boolean;
   onVoiceToggle?: () => void;
+  userId?: string;
+  cloneSlug?: string;
+  onHistoryCleared?: () => void;
 }
 
-export default function Chat({ messages, isLoading, currentNode, onSendMessage, onNewConversation, profile, error, selectedModel, onModelChange, voiceEnabled, onVoiceToggle }: ChatProps) {
+export default function Chat({ messages, isLoading, currentNode, onSendMessage, onNewConversation, profile, error, selectedModel, onModelChange, voiceEnabled, onVoiceToggle, userId, cloneSlug, onHistoryCleared }: ChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { isPlaying, progress, play, toggle, seek } = useAudio();
+  const [memoryPanelOpen, setMemoryPanelOpen] = useState(false);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -116,6 +121,11 @@ export default function Chat({ messages, isLoading, currentNode, onSendMessage, 
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Memory panel */}
+      {profile?.user_memory_enabled && userId && (
+        <MemoryPanel isOpen={memoryPanelOpen} onClose={() => setMemoryPanelOpen(false)} userId={userId} cloneSlug={cloneSlug} onHistoryCleared={onHistoryCleared} />
+      )}
+
       {/* Input bar */}
       <div className="px-4 pt-4 pb-8 max-w-3xl mx-auto w-full border-t border-white/[0.06]">
         <div className="flex items-center gap-2">
@@ -149,6 +159,17 @@ export default function Chat({ messages, isLoading, currentNode, onSendMessage, 
                   <path d="M14.22 7.22a.75.75 0 0 1 1.06 0L16.5 8.44l1.22-1.22a.75.75 0 1 1 1.06 1.06L17.56 9.5l1.22 1.22a.75.75 0 1 1-1.06 1.06L16.5 10.56l-1.22 1.22a.75.75 0 1 1-1.06-1.06l1.22-1.22-1.22-1.22a.75.75 0 0 1 0-1.06Z" />
                 </svg>
               )}
+            </button>
+          )}
+          {profile?.user_memory_enabled && userId && (
+            <button
+              onClick={() => setMemoryPanelOpen(true)}
+              className="w-10 h-10 rounded-full flex items-center justify-center text-gray-500 hover:text-para-teal hover:bg-white/10 transition-colors flex-shrink-0"
+              title="Your memories"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                <path d="M12 2a1 1 0 0 1 1 1v.5a5.5 5.5 0 0 1 4.9 3.6A4.5 4.5 0 0 1 21 11.5a4.5 4.5 0 0 1-2.1 3.8A5.5 5.5 0 0 1 13 19.5V21a1 1 0 1 1-2 0v-1.5a5.5 5.5 0 0 1-5.9-4.2A4.5 4.5 0 0 1 3 11.5 4.5 4.5 0 0 1 6.1 7.1 5.5 5.5 0 0 1 11 3.5V3a1 1 0 0 1 1-1Zm-1 4a3.5 3.5 0 0 0-3.4 2.7 1 1 0 0 1-1 .8A2.5 2.5 0 0 0 5 11.5a2.5 2.5 0 0 0 1.6 2.3 1 1 0 0 1 .6.8A3.5 3.5 0 0 0 11 17.5V6Zm2 11.5a3.5 3.5 0 0 0 3.8-2.9 1 1 0 0 1 .6-.8A2.5 2.5 0 0 0 19 11.5a2.5 2.5 0 0 0-1.6-2.3 1 1 0 0 1-.6-.8A3.5 3.5 0 0 0 13 6v11.5Z" />
+              </svg>
             </button>
           )}
           <div className="flex-1">

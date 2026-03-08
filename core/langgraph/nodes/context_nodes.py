@@ -189,8 +189,8 @@ def conversation_history_node(state: TypedDict) -> TypedDict:
         lines = []
         for query_text, response_text in reversed(rows):
             lines.append(f"User: {query_text}")
-            # Truncate long responses to keep context manageable (~375 tokens max)
-            truncated = response_text[:300] + "..." if len(response_text) > 300 else response_text
+            # Truncate long responses to keep context manageable (~1000 tokens max per response)
+            truncated = response_text[:800] + "..." if len(response_text) > 800 else response_text
             lines.append(f"Assistant: {truncated}")
 
         history = "Previous conversation:\n" + "\n".join(lines)

@@ -7,7 +7,7 @@ LLM-based response generation, citation verification, and confidence scoring.
 from typing import TypedDict
 from core.llm import get_llm
 from core.models.clone_profile import CloneProfile, GenerationMode
-from core.prompts import interpretive_generator_prompt, MIRROR_ONLY_GENERATOR_PROMPT
+from core.prompts import interpretive_generator_prompt, mirror_only_generator_prompt
 
 
 def make_in_persona_generator(profile: CloneProfile):
@@ -43,21 +43,51 @@ def make_in_persona_generator(profile: CloneProfile):
 
         # Build system prompt based on generation mode (prompts live in core/prompts/registry.py)
         if profile.generation_mode == GenerationMode.interpretive:
-            system_prompt = interpretive_generator_prompt(profile.display_name, profile.bio)
+            system_prompt = interpretive_generator_prompt(
+                profile.display_name, profile.bio,
+                persona_document=profile.persona_document,
+                guardrails_document=profile.guardrails_document,
+                intent_class=state.get("intent_class", "factual"),
+            )
         else:  # mirror_only
-            system_prompt = MIRROR_ONLY_GENERATOR_PROMPT
+            system_prompt = mirror_only_generator_prompt(
+                guardrails_document=profile.guardrails_document,
+            )
 
-        # Build user message
-        user_message = f"Question: {query}\n"
-        if history:
-            user_message += f"\n{history}\n"
-        if context:
-            user_message += f"\nContext:\n{context}\n"
+        # Fix 6: Inject Mem0 memory into system prompt (clone's own knowledge, not user input)
         if memory:
-            user_message += f"\nRelevant context from memory:\n{memory}\n"
+            system_prompt += (
+                "\n\nYou remember the following about this person from previous conversations:\n"
+                f"{memory}\n"
+                "Use this as silent context — let it inform your tone and what you say, "
+                "but do NOT announce that you remember things. A real friend doesn't say "
+                "'as we discussed' or 'given our previous conversations' — they just know. "
+                "Only reference a past discussion if the user explicitly asks about it."
+            )
+
+        messages = [{"role": "system", "content": system_prompt}]
+
+        # Fix 5: History as separate prior exchange — clearly labeled, not mixed with context
+        if history:
+            messages.append({
+                "role": "user",
+                "content": f"[Prior conversation for context — do NOT respond to these]\n{history}"
+            })
+            messages.append({
+                "role": "assistant",
+                "content": "Noted. I'll use this context for continuity. What's your current question?"
+            })
+
+        # Current turn — clean separation from history
+        user_message = f"Question: {query}\n"
         if context:
+            user_message += f"\nRetrieved context for THIS question:\n{context}\n"
+        # Fix 3: Only remind about citations for retrieval intents with context
+        if context and state.get("intent_class") != "persona":
             user_message += "\nRemember: cite sources using [1], [2], etc.\n"
         user_message += "\nAnswer:"
+
+        messages.append({"role": "user", "content": user_message})
 
         # Call LLM: temperature 0.0 for mirror_only (deterministic quotes), 0.7 for interpretive
         # Response length adapts to question complexity (LLM-estimated in query_analysis)
@@ -66,10 +96,7 @@ def make_in_persona_generator(profile: CloneProfile):
         llm = get_llm(temperature=temp, max_tokens=response_tokens, model=state.get("model_override") or None)
 
         try:
-            response = llm.invoke([
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message},
-            ])
+            response = llm.invoke(messages)
             raw = response.content.strip()
         except Exception as e:
             # Fallback on error
@@ -160,6 +187,11 @@ def confidence_scorer(state: TypedDict) -> TypedDict:
     if not response:
         return {**state, "final_confidence": 0.0}
 
+    # Persona messages (greetings, identity, small talk) skip retrieval entirely,
+    # so corpus-based confidence is meaningless. Return 1.0 ("trivially confident").
+    if state.get("intent_class") == "persona":
+        return {**state, "final_confidence": 1.0}
+
     # Factor 1: Retrieval confidence (from vector search / reranker)
     retrieval_confidence = state.get("retrieval_confidence", 0.0)
 
@@ -171,12 +203,9 @@ def confidence_scorer(state: TypedDict) -> TypedDict:
     else:
         citation_coverage = 0.0
 
-    # Factor 3: Response grounding — lexical overlap between response and context
-    # Include conversation history as valid grounding source for multi-turn queries
+    # Factor 3: Response grounding — lexical overlap between response and RETRIEVED context only
+    # History excluded: grounding should measure overlap with corpus passages, not echo detection
     context = state.get("assembled_context", "")
-    history = state.get("conversation_history", "")
-    if history:
-        context = context + "\n" + history
     response_grounding = _compute_grounding_score(response, context)
 
     # Factor 4: Passage count factor — did we find enough material?
@@ -190,11 +219,11 @@ def confidence_scorer(state: TypedDict) -> TypedDict:
         + 0.15 * passage_count_factor
     )
 
-    # Multi-turn context bonus: follow-up responses draw on conversation history
-    # as additional grounding that isn't captured by passage-only metrics.
-    # Small boost (0.10) compensates for naturally lower citation_coverage in follow-ups.
-    if history:
-        final_confidence += 0.10
+    # Multi-turn context bonus: only when response actually uses retrieval (has citations).
+    # Prevents inflating confidence for conversational follow-ups that happen to have history.
+    history = state.get("conversation_history", "")
+    if history and cited_sources:
+        final_confidence += 0.05
 
     # Clamp to [0.0, 1.0]
     final_confidence = max(0.0, min(1.0, round(final_confidence, 3)))

@@ -1,6 +1,6 @@
 # Stubs & Mocks Inventory — Digital Clone Engine
 
-**Last Updated:** March 8, 2026 (Session 42) | **Status:** 97 tests passing, zero xfails. Only 3 hardware-blocked stubs remain. Session 42 added 27 verification tests for skip-RAG + Mem0 config.
+**Last Updated:** March 9, 2026 (Session 46) | **Status:** 161 tests passing, zero xfails. Only 3 hardware-blocked stubs remain. Sessions 42-46 added skip-RAG, externalized profiles, binary routing, lean prompts, and persona hydration fix.
 
 ---
 

@@ -18,6 +18,11 @@
 - [ ] **Enable encryption at rest** -- PostgreSQL TDE or pgcrypto column encryption for corpus data, messages, and analytics. Currently all plaintext. *(SOW 7.2)*
 - [ ] **Add corpus gap detection** -- Track `silence_triggered` queries by topic, cluster, and report coverage gaps for corpus expansion. *(SOW 6.4)*
 
+## Before Production (optimization)
+
+- [ ] **Profile + graph TTL cache** -- Add in-process 5-min TTL cache in `api/deps.py` for `CloneProfile` + compiled `LangGraph`. Eliminates DB query + graph recompilation per request. Pattern: same as `api/routes/models.py:22-24`. Add `invalidate_profile_cache()` helper + pre-warm in `lifespan` startup. Full plan in `.claude/plans/peppy-soaring-wand.md`. *(Session 43)*
+- [ ] **Document SGLang prefix caching constraint** -- Add note in `docs/ARCHITECTURE.md` that system prompt prefix must stay stable (variable data like Mem0/history appended after, never injected into middle) so RadixAttention KV cache hits work. *(Session 43)*
+
 ## When PCCI Available (infra)
 
 - [ ] **Swap LLM to SGLang** -- Change `LLM_BASE_URL` + `LLM_API_KEY` + `LLM_MODEL` in `.env` to point at PCCI SGLang endpoint. *(SOW 7.1, 7.4)*

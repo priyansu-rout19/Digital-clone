@@ -187,14 +187,14 @@ function ClonePage() {
   if (!chatActive) {
     return (
       <div className="h-full bg-para-navy">
-        <ParaGPTLanding profile={profile} onSendMessage={handleSend} onQuestionClick={handleQuestionClick} selectedModel={selectedModel} onModelChange={setSelectedModel} />
+        <ParaGPTLanding profile={profile} onSendMessage={handleSend} onQuestionClick={handleQuestionClick} selectedModel={selectedModel} onModelChange={setSelectedModel} userId={userId} cloneSlug={slug} onHistoryCleared={clearMessages} userMemoryEnabled={profile.user_memory_enabled} />
       </div>
     );
   }
 
   return (
     <div className="h-full bg-para-navy">
-      <ParaGPTChat messages={messages} isLoading={isLoading} currentNode={currentNode} onSendMessage={handleSend} onNewConversation={handleNewConversation} profile={profile} error={chatError} selectedModel={selectedModel} onModelChange={setSelectedModel} voiceEnabled={voiceEnabled} onVoiceToggle={() => setVoiceEnabled(v => !v)} />
+      <ParaGPTChat messages={messages} isLoading={isLoading} currentNode={currentNode} onSendMessage={handleSend} onNewConversation={handleNewConversation} profile={profile} error={chatError} selectedModel={selectedModel} onModelChange={setSelectedModel} voiceEnabled={voiceEnabled} onVoiceToggle={() => setVoiceEnabled(v => !v)} userId={userId} cloneSlug={slug} onHistoryCleared={clearMessages} />
     </div>
   );
 }

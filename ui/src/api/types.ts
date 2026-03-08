@@ -100,6 +100,7 @@ export interface WSResponseMessage {
   audio_format?: string | null;
   model?: string;
   review_id?: string | null;
+  intent_class?: string;
 }
 
 export interface WSErrorMessage {
@@ -131,6 +132,19 @@ export interface ReviewUpdateResponse {
   response_text?: string;
   reviewer_notes: string | null;
   reviewed_at: string | null;
+}
+
+// User memories (Mem0)
+export interface MemoryItem {
+  id: string;
+  memory: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface MemoryListResponse {
+  memories: MemoryItem[];
+  count: number;
 }
 
 // Model selection
@@ -171,6 +185,7 @@ export interface ChatMessage {
   model?: string;
   review_id?: string;
   review_status?: ReviewStatus;
+  intent_class?: string;
 }
 
 // Shared node label mappings (single source of truth)

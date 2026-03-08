@@ -15,6 +15,28 @@ DEFAULT_TOKEN_BUDGET = 2000
 DEFAULT_RESPONSE_TOKENS = 500
 
 
+_GREETING_WORDS = frozenset({
+    "hi", "hello", "hey", "hii", "namaste", "thanks",
+    "bye", "goodbye", "yo", "sup", "hola",
+})
+
+
+def _persona_result() -> dict:
+    """Return a persona intent result (skip retrieval)."""
+    return {"intent_class": "persona", "sub_queries": [],
+            "token_budget": 0, "response_tokens": 150}
+
+
+def _prefilter(query: str) -> dict | None:
+    """Fast path for single-word greetings only. Everything else → LLM."""
+    stripped = query.strip()
+    if not stripped:
+        return _persona_result()
+    if stripped.lower() in _GREETING_WORDS:
+        return _persona_result()
+    return None
+
+
 def query_analysis(state: TypedDict) -> TypedDict:
     """
     Analyze the user query to extract intent, sub-queries, token budget,
@@ -24,7 +46,7 @@ def query_analysis(state: TypedDict) -> TypedDict:
     estimate how many tokens the response context window needs, and
     how long the response itself should be.
 
-    Intent classes: conversational | factual | synthesis | opinion | temporal | exploratory
+    Intent classes: persona | retrieval (binary routing)
     Token budget: LLM estimates based on query complexity (range 1000-4000).
     Response tokens: LLM estimates based on answer complexity (range 100-1000).
 
@@ -38,11 +60,16 @@ def query_analysis(state: TypedDict) -> TypedDict:
     if not query:
         return {
             **state,
-            "intent_class": "exploratory",
+            "intent_class": "retrieval",
             "sub_queries": [],
             "token_budget": DEFAULT_TOKEN_BUDGET,
             "response_tokens": DEFAULT_RESPONSE_TOKENS,
         }
+
+    # Pre-LLM fast path: single-word greetings only (~10 fixed words, never grows)
+    prefilter = _prefilter(query)
+    if prefilter is not None:
+        return {**state, **prefilter, "retry_count": 0}
 
     llm = get_llm(temperature=0.0, max_tokens=512, model=state.get("model_override") or None)
 
@@ -68,11 +95,15 @@ def query_analysis(state: TypedDict) -> TypedDict:
         response_text = response_text.strip()
 
         result = json.loads(response_text)
-        intent = result.get("intent", "exploratory")
+        intent = result.get("intent", "retrieval")
         sub_queries = result.get("sub_queries", [query])
         token_budget = result.get("token_budget", DEFAULT_TOKEN_BUDGET)
         response_tokens = result.get("response_tokens", DEFAULT_RESPONSE_TOKENS)
         rewritten_query = result.get("rewritten_query")
+
+        # Validate binary intent — anything unexpected defaults to retrieval (safe)
+        if intent not in ("persona", "retrieval"):
+            intent = "retrieval"
 
         # For follow-up queries: ensure we retrieve passages from the original topic
         if rewritten_query and history:
@@ -88,51 +119,18 @@ def query_analysis(state: TypedDict) -> TypedDict:
         elif rewritten_query and sub_queries == [query]:
             sub_queries = [rewritten_query]
 
-        # Clamp token_budget to reasonable range
-        token_budget = max(1000, min(4000, int(token_budget)))
-        # Clamp response_tokens to reasonable range
+        # Clamp to reasonable ranges (persona gets 0 budget — no retrieval)
+        if intent != "persona":
+            token_budget = max(1000, min(4000, int(token_budget)))
         response_tokens = max(100, min(1000, int(response_tokens)))
 
     except (json.JSONDecodeError, KeyError, AttributeError, ValueError):
-        # Self-referential queries — need conversation history, not corpus
-        self_ref_patterns = ["my name", "my country", "about me", "remember me",
-                             "who am i", "did i say", "did i tell", "i told you",
-                             "where am i from", "where i am from"]
-        query_lower = query.lower()
-        if any(p in query_lower for p in self_ref_patterns):
-            intent = "conversational"
-            sub_queries = []
-            token_budget = 0
-            response_tokens = 150
-        elif (greeting_words := {"hi", "hello", "hey", "hii", "namaste", "good morning",
-                          "good evening", "thanks", "thank you", "bye", "goodbye",
-                          "yo", "sup", "hola", "greetings"}) and set(query_lower.split()) & greeting_words and not any(
-            w in query_lower for w in ["how", "why", "what", "explain", "tell"]
-        ):
-            intent = "conversational"
-            sub_queries = []
-            token_budget = 0
-            response_tokens = 150
-        elif any(word in query.lower() for word in ["how", "why", "what", "explain"]):
-            intent = "factual"
-            sub_queries = [query]
-            token_budget = DEFAULT_TOKEN_BUDGET
-            response_tokens = DEFAULT_RESPONSE_TOKENS
-        elif any(word in query.lower() for word in ["future", "think", "opinion"]):
-            intent = "opinion"
-            sub_queries = [query]
-            token_budget = DEFAULT_TOKEN_BUDGET
-            response_tokens = DEFAULT_RESPONSE_TOKENS
-        elif any(word in query.lower() for word in ["time", "when", "date"]):
-            intent = "temporal"
-            sub_queries = [query]
-            token_budget = DEFAULT_TOKEN_BUDGET
-            response_tokens = DEFAULT_RESPONSE_TOKENS
-        else:
-            intent = "exploratory"
-            sub_queries = [query]
-            token_budget = DEFAULT_TOKEN_BUDGET
-            response_tokens = DEFAULT_RESPONSE_TOKENS
+        # JSON parse failure → default to retrieval (safe: retrieval silences if
+        # no passages found, persona would hallucinate)
+        intent = "retrieval"
+        sub_queries = [query]
+        token_budget = DEFAULT_TOKEN_BUDGET
+        response_tokens = DEFAULT_RESPONSE_TOKENS
 
     return {
         **state,

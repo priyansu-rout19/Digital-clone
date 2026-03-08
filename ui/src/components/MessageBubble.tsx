@@ -128,7 +128,7 @@ export default function MessageBubble({ message, variant = 'paragpt', isLatest =
           </div>
         )}
 
-        {message.confidence != null && !isSilence && (
+        {message.confidence != null && !isSilence && message.intent_class !== 'persona' && (
           <div className="mt-2 flex items-center gap-2">
             <span
               className={`text-xs px-2 py-0.5 rounded-full ${

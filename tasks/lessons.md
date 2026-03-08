@@ -728,3 +728,51 @@ copy, identity assertions (`is`) break silently in downstream tests.
 - Use `assert result["key"] == expected` (equality) not `assert result is state` (identity)
 - When adding new return fields to a node, grep tests for `result is state` on that function
 - Pre-existing test failures must be investigated immediately, not carried forward
+
+---
+
+### Lesson 40: Externalize Persona and Behavioral Rules into Markdown Files
+
+**Date:** Session 43 | **Category:** Architecture / Prompt engineering
+
+**What happened:** Clone persona and behavioral constraints were defined as inline Python strings inside `clone_profile.py` factory functions and `registry.py` prompt templates. When rules needed updating (e.g., adding citation guidelines), changes required editing Python code, restarting the server, and understanding string escaping. The same rule sometimes appeared in both the profile factory and the prompt template, creating two sources of truth that drifted apart.
+
+**Fix:** Created `profiles/{client}/soul.md` (identity) and `profiles/{client}/guardrails.md` (behavioral constraints) as standalone markdown files. Added `CloneProfile.guardrails_document` field and `load_profile_markdown()` helper. Factory functions read from markdown at build time. Prompt registry accepts external documents as parameters.
+
+**Rule for future:**
+- Persona identity and behavioral rules belong in markdown files, not inline Python strings
+- One file per concern (soul = who you are, guardrails = how you behave)
+- When rules appear in 2+ places, extract to a single source and inject at all consumption points
+- Non-engineers should be able to edit persona and guardrails without touching Python code
+
+---
+
+### Lesson 41: Template-Guardrails Duplication — Lean Templates, External Rules
+
+**Date:** Session 45 | **Category:** Prompt engineering / Maintenance
+
+**What happened:** After Session 43 externalized guardrails into markdown files, the generation prompt template in `registry.py` still contained inline citation rules, persona consistency rules, and a 4-category intent description. Session 44 changed intent classes from 6 to binary (persona|retrieval), but the template's inline rules still referenced the old 4-category system. This created contradictions: guardrails Section 3 used "persona" and "retrieval" (correct) while the template body described "conversational", "factual", "synthesis", and "exploratory" (stale).
+
+**Fix:** Stripped the prompt template down to ~120 tokens: identity line (`You are {display_name}`), persona document block, guardrails document block, and a current-mode instruction (persona vs retrieval). ALL behavioral rules (citation style, response formatting, hedge language, memory behavior) now live exclusively in the external markdown files.
+
+**Rule for future:**
+- When building system prompts from external documents, the template should contain ONLY identity + mode instruction
+- All behavioral rules belong in the external documents — duplicating them in the template creates maintenance burden
+- After changing a classification taxonomy (e.g., 6 → 2 intent classes), grep ALL files that reference the old taxonomy — including prompt templates, guardrails, and test assertions
+- Template size is a smell: if your template is >200 tokens, you're probably duplicating rules that belong in an external document
+
+---
+
+### Lesson 42: DB-Loaded Config Must Hydrate from Source-of-Truth Files
+
+**Date:** Session 46 | **Category:** Architecture / Data loading
+
+**What happened:** ParaGPT fabricated biographical details ("grew up primarily in the United States") instead of using facts from `profiles/paragpt-client/soul.md` ("grew up across the UAE, then moved to Queens, New York as a teenager"). The `persona_document` and `guardrails_document` fields were added to `CloneProfile` in Session 43 with `default=""`. The factory function loads from disk correctly, but at runtime the profile is reconstructed from the DB JSONB column (`CloneProfile(**clone_row.profile)`). The DB was seeded before S43, so the JSONB doesn't contain these keys — Pydantic silently uses the empty default. The LLM gets no biographical facts and hallucinates from training data.
+
+**Fix:** Added `@model_validator(mode="after")` called `hydrate_markdown_documents` that loads `soul.md` and `guardrails.md` from disk every time a `CloneProfile` is constructed. Markdown files are the permanent runtime source of truth — no more DB drift. Unknown slugs without profile directories gracefully keep DB/default values.
+
+**Rule for future:**
+- When config has both a source of truth (files on disk) and a persistent store (DB JSONB), the persistent store will drift
+- Adding new fields with defaults means old DB rows silently use defaults instead of the source of truth
+- Fix with `model_validator` that always hydrates from the canonical source
+- File reads are <1ms each (OS page cache), negligible vs LLM latency

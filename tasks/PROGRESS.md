@@ -1,7 +1,7 @@
 # Digital Clone Engine — Progress & Status
 
-**Last Updated:** March 8, 2026 (Session 42)
-**Status:** ~99% SOW delivered (all non-PCCI code gaps closed). 97 tests pass, zero TS errors, production build clean.
+**Last Updated:** March 9, 2026 (Session 46)
+**Status:** ~99% SOW delivered (all non-PCCI code gaps closed). 161 tests pass, zero TS errors, production build clean.
 
 ---
 
@@ -28,7 +28,7 @@ All behavioral differences driven by `CloneProfile` config + `build_graph(profil
 | Mem0 Memory | COMPLETE | 4, 14, 26 | pgvector backend, TruncatedGoogleEmbeddings (3072->1024), ParaGPT only |
 | FastAPI Layer | COMPLETE | 8-10, 17, 40 | 9 endpoint groups (+feedback), CORS, rate limiting, role-based access |
 | React Frontend | COMPLETE | 19-28, 31, 33, 37, 39, 40 | 31 source files, Vite 6 + React 19 + TS + Tailwind v4 |
-| Test Suite | COMPLETE | 10, 16, 34, 42 | 97 tests (34 API + 26 S16 + 10 chunker + 27 S42) |
+| Test Suite | COMPLETE | 10, 16, 34, 42-46 | 161 tests (34 API + 26 S16 + 10 chunker + 27 S42 + 57 S43 + 4 E2E + 3 WS) |
 | Corpus | COMPLETE | 25, 30, 36, 39 | ParaGPT 48+ passages/13 docs, Sacred Archive 41+ passages/10 docs |
 | Evaluation | COMPLETE | 39, 40 | `core/evaluation/` + 50-query eval suites + 30-query foundation gate |
 | Remaining Stubs (3) | PCCI-BLOCKED | — | LLM swap (SGLang), embeddings swap (TEI), tree search (MinIO) |
@@ -39,7 +39,7 @@ All behavioral differences driven by `CloneProfile` config + `build_graph(profil
 
 | Node | Real/Stub | LLM | Notes |
 |---|---|---|---|
-| query_analysis | Real | Yes | Intent classification, sub-query decomposition, context-aware (S34) |
+| query_analysis | Real | Yes | Binary intent (persona|retrieval), _prefilter() fast path, context-aware (S34, S44) |
 | tier1_retrieval | Real | No | pgvector cosine + BM25 hybrid, FlashRank reranking (S29) |
 | crag_evaluator | Real | No | Reranker-score confidence (S29) |
 | query_reformulator | Real | Yes | Keyword extraction + sub-topic decomposition (S29) |
@@ -112,6 +112,10 @@ All behavioral differences driven by `CloneProfile` config + `build_graph(profil
 | 40 | Mar 8 | Close all gaps | SOW audits, chat audit logging, prediction hedging, 50-query eval suites, foundation gate, corpus gap detection, pgcrypto encryption, batch review, seeker feedback survey, FeedbackWidget |
 | 41 | Mar 8 | Doc-code drift | Fix retries/thresholds/LLM call count drift in 16+ doc files |
 | 42 | Mar 8 | Skip-RAG + verification | Self-referential query shortcut, Mem0 provider fix, 27 new tests, S16 test fix |
+| 43 | Mar 9 | Externalized profiles | soul.md + guardrails.md per clone, CloneProfile.guardrails_document, prompt registry functions, Sacred Archive persona, 50 new tests |
+| 44 | Mar 9 | Binary routing | 6 intent classes → persona\|retrieval, killed _deterministic_intent_check(), _prefilter() fast path, citation buckets 3→2 |
+| 45 | Mar 9 | Lean prompts | Template→lean (~120 tokens), rules in external docs, intent_class param in prompt fn, template-guardrails dedup, guardrails binary update |
+| 46 | Mar 9 | Persona hydration | hydrate_markdown_documents validator, persona_document/guardrails_document fields, getattr→field access cleanup, Lesson 42, +7 tests |
 
 ---
 
@@ -128,6 +132,7 @@ These are bugs whose root causes reveal important patterns:
 7. **Mem0 dimension mismatch (S26):** Gemini outputs 3072-dim, pgvector expects 1024. Ingestion truncated but Mem0 didn't. Fix: `TruncatedGoogleEmbeddings` wrapper.
 8. **OpenRouter 402 (S35):** `max_tokens=None` reserved 65K tokens against credits. Fix: default to 2048.
 9. **Test identity vs equality (S42):** Tests used `result is state` but code evolved to return `{**state, "review_id": ...}`. Use equality checks for dict comparison, not identity.
+10. **Template-guardrails duplication (S45):** Prompt template had inline citation rules, persona rules, and 4-category intent descriptions that were also in guardrails.md. After S44 changed to binary routing, guardrails Section 3 still referenced 4 categories while the template used 2. Fix: lean template (~120 tokens) with only identity + mode instruction; all behavioral rules in external markdown files.
 
 ---
 
@@ -143,7 +148,24 @@ conversation_history -> query_analysis -> tier1_retrieval -> provenance_graph_qu
 
 ---
 
-## For Next Session (Session 43)
+## Session 46: Persona Hydration Fix (March 9, 2026)
+
+**Problem:** ParaGPT fabricated biographical details ("grew up primarily in the United States") instead of using facts from `profiles/paragpt-client/soul.md` ("grew up across the UAE, then moved to Queens, New York as a teenager"). The `persona_document` and `guardrails_document` fields were added to `CloneProfile` in S43 with `default=""`, but at runtime the profile is reconstructed from DB JSONB which was seeded before S43 — Pydantic silently used empty defaults, giving the LLM no biographical facts.
+
+**Fix:**
+- Added `@model_validator(mode="after")` called `hydrate_markdown_documents` — loads `soul.md` and `guardrails.md` from disk every time a `CloneProfile` is constructed
+- Markdown files are the permanent runtime source of truth — no more DB drift
+- Unknown slugs without profile directories gracefully keep DB/default values
+- Added `persona_document` and `guardrails_document` fields to CloneProfile
+- Factory functions (`paragpt_profile()`, `sacred_archive_profile()`) call `load_profile_markdown()` at construction
+
+**Tests:** +7 new tests in test_session43.py (50→57) — hydration validator, factory functions, edge cases
+**Lesson 42:** DB-loaded config must hydrate from source-of-truth files
+**Files changed:** clone_profile.py, test_session43.py, lessons.md
+
+---
+
+## For Next Session (Session 47)
 
 **Remaining Work:**
 1. Demo videos — 5 user journey recordings (manager request, non-code)
@@ -160,10 +182,10 @@ conversation_history -> query_analysis -> tier1_retrieval -> provenance_graph_qu
 
 **Quick Start:**
 ```bash
-python3 -m pytest tests/ -v                  # expect 97 passed
+python3 -m pytest tests/ -v                  # expect 161 passed
 python3 scripts/foundation_gate.py            # pass/fail gate
 python3 scripts/corpus_gap_report.py          # coverage gaps
 cd ui && npm run build                        # zero TS errors
 ```
 
-**Cross-references:** `tasks/lessons.md` (39 lessons), `tasks/todo.md` (action items), `docs/PARAGPT-AUDIT-REPORT.md`, `docs/SACRED-AUDIT-REPORT.md`
+**Cross-references:** `tasks/lessons.md` (42 lessons), `tasks/todo.md` (action items), `docs/PARAGPT-AUDIT-REPORT.md`, `docs/SACRED-AUDIT-REPORT.md`

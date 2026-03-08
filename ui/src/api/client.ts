@@ -1,4 +1,4 @@
-import type { AnalyticsSummary, ChatRequest, ChatResponse, CloneProfile, ModelsResponse, ReviewItem, ReviewUpdate, ReviewUpdateResponse, ReviewStatus } from './types';
+import type { AnalyticsSummary, ChatRequest, ChatResponse, CloneProfile, MemoryListResponse, ModelsResponse, ReviewItem, ReviewUpdate, ReviewUpdateResponse, ReviewStatus } from './types';
 
 const API_KEY = import.meta.env.VITE_API_KEY as string | undefined;
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -111,4 +111,51 @@ export function submitFeedback(slug: string, rating: number, comment?: string, s
     method: 'POST',
     body: JSON.stringify({ rating, comment, session_id: sessionId }),
   });
+}
+
+// --- User Memory Management ---
+
+export function getUserMemories(userId: string): Promise<MemoryListResponse> {
+  return apiFetch<MemoryListResponse>(`/users/${userId}/memories`, {
+    headers: { 'X-User-Id': userId },
+  });
+}
+
+export function deleteUserMemory(userId: string, memoryId: string): Promise<{ deleted: boolean; memory_id: string }> {
+  return apiFetch<{ deleted: boolean; memory_id: string }>(`/users/${userId}/memories/${memoryId}`, {
+    method: 'DELETE',
+    headers: { 'X-User-Id': userId },
+  });
+}
+
+export function deleteAllUserMemories(userId: string): Promise<{ deleted: boolean; user_id: string }> {
+  return apiFetch<{ deleted: boolean; user_id: string }>(`/users/${userId}/memories`, {
+    method: 'DELETE',
+    headers: { 'X-User-Id': userId },
+  });
+}
+
+export function getConversationHistoryCount(
+  userId: string,
+  cloneSlug: string,
+): Promise<{ message_count: number }> {
+  return apiFetch<{ message_count: number }>(
+    `/users/${userId}/history/${encodeURIComponent(cloneSlug)}`,
+    {
+      headers: { 'X-User-Id': userId },
+    },
+  );
+}
+
+export function deleteConversationHistory(
+  userId: string,
+  cloneSlug: string,
+): Promise<{ deleted: boolean; messages_deleted: number }> {
+  return apiFetch<{ deleted: boolean; messages_deleted: number }>(
+    `/users/${userId}/history/${encodeURIComponent(cloneSlug)}`,
+    {
+      method: 'DELETE',
+      headers: { 'X-User-Id': userId },
+    },
+  );
 }
