@@ -53,7 +53,7 @@ class ConversationState(TypedDict):
     # Query & Analysis (set by query_analysis)
     query_text: str
     sub_queries: list[str]
-    intent_class: str  # factual | synthesis | opinion | temporal | exploratory
+    intent_class: str  # conversational | factual | synthesis | opinion | temporal | exploratory
     access_tier: str  # public | devotee | friend | follower
     token_budget: int
     response_tokens: int  # max output tokens for response generation (LLM-estimated)
@@ -149,8 +149,10 @@ def build_graph(profile: CloneProfile):
     # ADD EDGES WITH CONDITIONAL ROUTING
     # ========================================================================
 
-    # After query_analysis: provenance graph (if enabled) or direct to tier1_retrieval
+    # After query_analysis: conversational shortcut, provenance graph, or tier1_retrieval
     def after_query_analysis(state: ConversationState) -> str:
+        if state.get("intent_class") == "conversational":
+            return "context_assembler"  # Skip all retrieval for greetings/chitchat
         if profile.provenance_graph_enabled:
             return "provenance_graph_query"
         return "tier1_retrieval"
@@ -159,6 +161,7 @@ def build_graph(profile: CloneProfile):
         "query_analysis",
         after_query_analysis,
         {
+            "context_assembler": "context_assembler",
             "provenance_graph_query": "provenance_graph_query",
             "tier1_retrieval": "tier1_retrieval",
         },
@@ -247,6 +250,12 @@ def build_graph(profile: CloneProfile):
 
     # confidence_scorer: silence handling OR review queue OR stream
     def after_confidence(state: ConversationState) -> str:
+        # Conversational messages always pass — no corpus needed for greetings
+        if state.get("intent_class") == "conversational":
+            if profile.review_required:
+                return "review_queue_writer"
+            return "stream_to_user"
+
         final_confidence = state.get("final_confidence", 0.0)
 
         # First: is confidence high enough?

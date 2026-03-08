@@ -24,7 +24,7 @@ def query_analysis(state: TypedDict) -> TypedDict:
     estimate how many tokens the response context window needs, and
     how long the response itself should be.
 
-    Intent classes: factual | synthesis | opinion | temporal | exploratory
+    Intent classes: conversational | factual | synthesis | opinion | temporal | exploratory
     Token budget: LLM estimates based on query complexity (range 1000-4000).
     Response tokens: LLM estimates based on answer complexity (range 100-1000).
 
@@ -94,17 +94,45 @@ def query_analysis(state: TypedDict) -> TypedDict:
         response_tokens = max(100, min(1000, int(response_tokens)))
 
     except (json.JSONDecodeError, KeyError, AttributeError, ValueError):
-        if any(word in query.lower() for word in ["how", "why", "what", "explain"]):
+        # Self-referential queries — need conversation history, not corpus
+        self_ref_patterns = ["my name", "my country", "about me", "remember me",
+                             "who am i", "did i say", "did i tell", "i told you",
+                             "where am i from", "where i am from"]
+        query_lower = query.lower()
+        if any(p in query_lower for p in self_ref_patterns):
+            intent = "conversational"
+            sub_queries = []
+            token_budget = 0
+            response_tokens = 150
+        elif (greeting_words := {"hi", "hello", "hey", "hii", "namaste", "good morning",
+                          "good evening", "thanks", "thank you", "bye", "goodbye",
+                          "yo", "sup", "hola", "greetings"}) and set(query_lower.split()) & greeting_words and not any(
+            w in query_lower for w in ["how", "why", "what", "explain", "tell"]
+        ):
+            intent = "conversational"
+            sub_queries = []
+            token_budget = 0
+            response_tokens = 150
+        elif any(word in query.lower() for word in ["how", "why", "what", "explain"]):
             intent = "factual"
+            sub_queries = [query]
+            token_budget = DEFAULT_TOKEN_BUDGET
+            response_tokens = DEFAULT_RESPONSE_TOKENS
         elif any(word in query.lower() for word in ["future", "think", "opinion"]):
             intent = "opinion"
+            sub_queries = [query]
+            token_budget = DEFAULT_TOKEN_BUDGET
+            response_tokens = DEFAULT_RESPONSE_TOKENS
         elif any(word in query.lower() for word in ["time", "when", "date"]):
             intent = "temporal"
+            sub_queries = [query]
+            token_budget = DEFAULT_TOKEN_BUDGET
+            response_tokens = DEFAULT_RESPONSE_TOKENS
         else:
             intent = "exploratory"
-        sub_queries = [query]
-        token_budget = DEFAULT_TOKEN_BUDGET
-        response_tokens = DEFAULT_RESPONSE_TOKENS
+            sub_queries = [query]
+            token_budget = DEFAULT_TOKEN_BUDGET
+            response_tokens = DEFAULT_RESPONSE_TOKENS
 
     return {
         **state,

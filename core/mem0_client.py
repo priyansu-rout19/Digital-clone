@@ -5,16 +5,20 @@ Provides a configured Mem0 instance for cross-session user memory with pgvector 
 Reads configuration from environment variables.
 
 Uses:
-- LLM: Groq API + qwen/qwen3-32b (same as core/llm.py)
+- LLM: OpenRouter (same as main pipeline via LLM_API_KEY/LLM_BASE_URL/LLM_MODEL),
+        falls back to Groq (GROQ_API_KEY) for legacy setups
 - Embedder: Google Gemini gemini-embedding-001 truncated to 1024 dimensions
 - Vector Store: PostgreSQL pgvector (same DB as documents)
 """
 
+import logging
 import os
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 from mem0 import Memory
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
+logger = logging.getLogger(__name__)
 
 
 load_dotenv()
@@ -74,7 +78,8 @@ def get_mem0_client() -> Memory:
     Get a configured Mem0 instance for cross-session user memory.
 
     Uses pgvector backend in the same PostgreSQL database as the application.
-    LLM uses Groq API, embedder uses Google Gemini (same as core/rag/ingestion/embedder.py).
+    LLM uses OpenRouter (same as main pipeline), falls back to Groq.
+    Embedder uses Google Gemini (same as core/rag/ingestion/embedder.py).
 
     Returns:
         Memory instance ready to search() and add() memories
@@ -92,25 +97,45 @@ def get_mem0_client() -> Memory:
             "postgresql://postgres:password@localhost:5432/digital_clone)"
         )
 
-    groq_key = os.environ.get("GROQ_API_KEY")
-    if not groq_key:
-        raise KeyError(
-            "GROQ_API_KEY environment variable not set. "
-            "Please create a .env file with GROQ_API_KEY=<your_key>"
-        )
-
     # Parse DB URL for pgvector config
     db_config = _parse_database_url(db_url)
 
-    # Build Mem0 config
-    config = {
-        "llm": {
+    # Priority: OpenRouter (same as main LLM) > Groq (legacy)
+    llm_api_key = os.environ.get("LLM_API_KEY")
+    llm_base_url = os.environ.get("LLM_BASE_URL")
+    llm_model = os.environ.get("LLM_MODEL", "qwen/qwen3-32b")
+
+    if llm_api_key and llm_base_url:
+        llm_config = {
+            "provider": "openai",
+            "config": {
+                "model": llm_model,
+                "api_key": llm_api_key,
+                "openai_base_url": llm_base_url,
+            },
+        }
+    else:
+        groq_key = os.environ.get("GROQ_API_KEY")
+        if not groq_key:
+            logger.warning(
+                "Mem0 LLM unavailable: neither LLM_API_KEY+LLM_BASE_URL "
+                "nor GROQ_API_KEY is set. Cross-session memory will not work."
+            )
+            raise KeyError(
+                "Neither LLM_API_KEY+LLM_BASE_URL nor GROQ_API_KEY set for Mem0. "
+                "Set the same LLM env vars used by the main pipeline."
+            )
+        llm_config = {
             "provider": "groq",
             "config": {
                 "model": "qwen/qwen3-32b",
                 "api_key": groq_key,
             },
-        },
+        }
+
+    # Build Mem0 config
+    config = {
+        "llm": llm_config,
         "embedder": {
             "provider": "langchain",
             "config": {

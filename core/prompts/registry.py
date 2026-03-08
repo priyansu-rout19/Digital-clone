@@ -26,7 +26,8 @@ If it IS a follow-up, rewrite it as a SELF-CONTAINED query that includes the ref
 from the conversation history. Put the rewritten query in the "rewritten_query" field.
 If it is NOT a follow-up (standalone question), set "rewritten_query" to null.
 
-Intent classes: factual, synthesis, opinion, temporal, exploratory.
+Intent classes: conversational, factual, synthesis, opinion, temporal, exploratory.
+- conversational: greetings, introductions, thank-yous, goodbyes, small talk, meta-questions about the system itself (e.g. "who are you", "what can you do"), AND self-referential questions about the user's own identity or prior statements (e.g. "what is my name", "where am I from", "what did I tell you", "do you remember me"). These need conversation history, NOT corpus retrieval. Messages with NO knowledge-seeking intent. If the message contains BOTH a greeting AND a real question (e.g. "Hi, what is ASEAN?"), classify by the question — NOT as conversational.
 - factual: asks for specific facts, data, information
 - synthesis: asks for connections, patterns, frameworks, analysis
 - opinion: asks for viewpoint, perspective, advice
@@ -34,12 +35,14 @@ Intent classes: factual, synthesis, opinion, temporal, exploratory.
 - exploratory: open-ended, discovery-oriented
 
 Token budget guidelines (how many tokens of retrieved context to include):
+- Conversational (greeting, thanks, small talk) → 0 (no retrieval needed)
 - Simple factual question (one fact) → 1000-1500
 - Moderate factual or opinion question → 2000
 - Complex synthesis or multi-part question → 2500-3000
 - Very broad exploratory or deep analysis → 3000-4000
 
 Response tokens guidelines (how many tokens the response should be):
+- Conversational (greeting, thanks, small talk) → 100-150 (short, friendly)
 - Simple factual (one fact, yes/no, a name or date) → 100-200
 - Moderate question (explain, describe, give opinion) → 300-500
 - Complex synthesis or multi-part question → 500-700
@@ -47,7 +50,7 @@ Response tokens guidelines (how many tokens the response should be):
 
 JSON Schema (return ONLY this structure, no other text):
 {
-  "intent": string (one of: "factual", "synthesis", "opinion", "temporal", "exploratory"),
+  "intent": string (one of: "conversational", "factual", "synthesis", "opinion", "temporal", "exploratory"),
   "sub_queries": string[] (1-5 search queries for retrieval),
   "token_budget": integer (range: 1000-4000),
   "response_tokens": integer (range: 100-1000),
@@ -63,6 +66,14 @@ For standalone (non-follow-up) questions, sub_queries is [original_query].
 For complex standalone questions, decompose into independent sub-queries.
 
 Examples:
+
+Conversational query (no retrieval needed):
+User: "hii i am Priyansu from india"
+{"intent": "conversational", "sub_queries": [], "token_budget": 0, "response_tokens": 150, "rewritten_query": null}
+
+Self-referential query (uses conversation history, not corpus):
+User: "what is my name?"
+{"intent": "conversational", "sub_queries": [], "token_budget": 0, "response_tokens": 150, "rewritten_query": null}
 
 Standalone factual query:
 User: "What role does urbanization play in climate adaptation?"
