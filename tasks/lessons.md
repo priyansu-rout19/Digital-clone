@@ -713,3 +713,18 @@ if final_confidence >= profile.confidence_threshold:
 37. **Confidence and passages can decouple** (see below)
 38. **Doc-code drift on thresholds and retries** — Session 41 Q&A audit found 16+ files with outdated values: (1) "3 retries" in 3 docs (actual: 2 since S34), (2) ParaGPT threshold "0.80" in 15+ places (factory default is 0.80 but DB runtime value is 0.60 since S35), (3) CRAG retry threshold comment said "< 40%" but actual ParaGPT value is 0.30 (0.60 × 0.5), (4) "3-4 LLM calls" (actual: 3 typical, 5 worst case). **Rule:** When tuning a runtime value (DB override), grep all docs for the old value and annotate "factory default X, DB override Y". Keep SOW spec values unchanged but add runtime notes.
 37. **Confidence and passages can decouple** — 6 bugs where valid passages get 0.0 confidence: (1) empty reranked list after reranker scores all passages low, (2) re-rerank block skipped or throws exception but confidence not recalculated, (3) LLM returns `{"alternatives": []}` bypassing default, (4) CRAG evaluator multiplies zero raw_confidence by passage_factor = still zero, (5) stale retry_count from previous query blocks CRAG retries, (6) search_meta not initialized in state. Root cause: confidence tracked separately from passage existence. Fix: add 0.15 floor when passages exist but scores unavailable, recalculate confidence in all fallback paths, use `or` instead of default param for alternatives, add base floor in evaluator when raw_confidence=0 but passages present, reset retry_count in query_analysis, initialize search_meta.
+
+---
+
+### Lesson 39: Test identity (`is`) vs equality for evolving return values
+**What happened:** Session 16 tests used `assert result is state` for review_queue_writer.
+Session 40 changed the function to return `{**state, "review_id": review_id}` — a new dict.
+Tests passed for 4 sessions before being caught in S42.
+
+**The pattern:** When a function evolves from returning its input unchanged to returning a modified
+copy, identity assertions (`is`) break silently in downstream tests.
+
+**Rule for future:**
+- Use `assert result["key"] == expected` (equality) not `assert result is state` (identity)
+- When adding new return fields to a node, grep tests for `result is state` on that function
+- Pre-existing test failures must be investigated immediately, not carried forward

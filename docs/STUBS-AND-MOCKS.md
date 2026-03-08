@@ -1,6 +1,6 @@
 # Stubs & Mocks Inventory — Digital Clone Engine
 
-**Last Updated:** March 8, 2026 (Session 40) | **Status:** 34 API tests passing, zero xfails. Only 3 hardware-blocked stubs remain. Session 40 added pgcrypto encryption (migration 0007), seeker_feedback table, batch review endpoint, feedback endpoint, 50-query eval suites, foundation gate, corpus gap detection.
+**Last Updated:** March 8, 2026 (Session 42) | **Status:** 97 tests passing, zero xfails. Only 3 hardware-blocked stubs remain. Session 42 added 27 verification tests for skip-RAG + Mem0 config.
 
 ---
 
@@ -283,6 +283,8 @@ Real recursive CTE SQL. Works with sample data. Returns real results for Sacred 
 **API tests:** 34 tests mock DB + graph (intentional — tests HTTP behavior, not pipeline logic).
 
 **Session 16 tests:** 26 new tests in `tests/test_session16.py` (all mocked, testing individual node logic).
+
+**Session 42 tests:** 27 new tests in `tests/test_session42.py` (all mocked, testing skip-RAG patterns, routing, Mem0 config).
 
 ---
 

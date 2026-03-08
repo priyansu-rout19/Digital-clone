@@ -1,7 +1,7 @@
 # Digital Clone Engine — Progress & Status
 
-**Last Updated:** March 8, 2026 (Session 40)
-**Status:** ~99% SOW delivered (all non-PCCI code gaps closed). 34 API tests pass, zero TS errors, production build clean.
+**Last Updated:** March 8, 2026 (Session 42)
+**Status:** ~99% SOW delivered (all non-PCCI code gaps closed). 97 tests pass, zero TS errors, production build clean.
 
 ---
 
@@ -28,7 +28,7 @@ All behavioral differences driven by `CloneProfile` config + `build_graph(profil
 | Mem0 Memory | COMPLETE | 4, 14, 26 | pgvector backend, TruncatedGoogleEmbeddings (3072->1024), ParaGPT only |
 | FastAPI Layer | COMPLETE | 8-10, 17, 40 | 9 endpoint groups (+feedback), CORS, rate limiting, role-based access |
 | React Frontend | COMPLETE | 19-28, 31, 33, 37, 39, 40 | 31 source files, Vite 6 + React 19 + TS + Tailwind v4 |
-| Test Suite | COMPLETE | 10, 16, 34 | 34 API tests (`tests/test_api.py`) |
+| Test Suite | COMPLETE | 10, 16, 34, 42 | 97 tests (34 API + 26 S16 + 10 chunker + 27 S42) |
 | Corpus | COMPLETE | 25, 30, 36, 39 | ParaGPT 48+ passages/13 docs, Sacred Archive 41+ passages/10 docs |
 | Evaluation | COMPLETE | 39, 40 | `core/evaluation/` + 50-query eval suites + 30-query foundation gate |
 | Remaining Stubs (3) | PCCI-BLOCKED | — | LLM swap (SGLang), embeddings swap (TEI), tree search (MinIO) |
@@ -110,6 +110,8 @@ All behavioral differences driven by `CloneProfile` config + `build_graph(profil
 | 38 | Mar 7 | P2 quality | AuditLog writes, rejection->seeker flow, GDPR delete auth |
 | 39 | Mar 7 | Corpus + eval | Corpus expanded (89+ passages), Gemini singleton+retry, evaluation framework, role-based access, frontend resilience |
 | 40 | Mar 8 | Close all gaps | SOW audits, chat audit logging, prediction hedging, 50-query eval suites, foundation gate, corpus gap detection, pgcrypto encryption, batch review, seeker feedback survey, FeedbackWidget |
+| 41 | Mar 8 | Doc-code drift | Fix retries/thresholds/LLM call count drift in 16+ doc files |
+| 42 | Mar 8 | Skip-RAG + verification | Self-referential query shortcut, Mem0 provider fix, 27 new tests, S16 test fix |
 
 ---
 
@@ -125,6 +127,7 @@ These are bugs whose root causes reveal important patterns:
 6. **LangGraph drops undeclared keys (S33/S35):** `model_override` silently dropped because it wasn't in ConversationState TypedDict. Every state key MUST be declared.
 7. **Mem0 dimension mismatch (S26):** Gemini outputs 3072-dim, pgvector expects 1024. Ingestion truncated but Mem0 didn't. Fix: `TruncatedGoogleEmbeddings` wrapper.
 8. **OpenRouter 402 (S35):** `max_tokens=None` reserved 65K tokens against credits. Fix: default to 2048.
+9. **Test identity vs equality (S42):** Tests used `result is state` but code evolved to return `{**state, "review_id": ...}`. Use equality checks for dict comparison, not identity.
 
 ---
 
@@ -140,7 +143,7 @@ conversation_history -> query_analysis -> tier1_retrieval -> provenance_graph_qu
 
 ---
 
-## For Next Session (Session 41)
+## For Next Session (Session 43)
 
 **Remaining Work:**
 1. Demo videos — 5 user journey recordings (manager request, non-code)
@@ -157,10 +160,10 @@ conversation_history -> query_analysis -> tier1_retrieval -> provenance_graph_qu
 
 **Quick Start:**
 ```bash
-python3 -m pytest tests/test_api.py -v       # expect 34 passed
+python3 -m pytest tests/ -v                  # expect 97 passed
 python3 scripts/foundation_gate.py            # pass/fail gate
 python3 scripts/corpus_gap_report.py          # coverage gaps
 cd ui && npm run build                        # zero TS errors
 ```
 
-**Cross-references:** `tasks/lessons.md` (35 lessons), `tasks/todo.md` (action items), `docs/PARAGPT-AUDIT-REPORT.md`, `docs/SACRED-AUDIT-REPORT.md`
+**Cross-references:** `tasks/lessons.md` (39 lessons), `tasks/todo.md` (action items), `docs/PARAGPT-AUDIT-REPORT.md`, `docs/SACRED-AUDIT-REPORT.md`

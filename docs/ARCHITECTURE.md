@@ -242,7 +242,7 @@ The LLM generates a response using:
 | **RAG Ingestion** | `core/rag/ingestion/` | ✅ COMPLETE | Parser + chunker (semantic) + embedder + indexer (with tsvector) |
 | **RAG Retrieval** | `core/rag/retrieval/` | ✅ COMPLETE | Hybrid vector+BM25, FlashRank reranking, RRF fusion, CRAG (S29) |
 | **FastAPI Layer** | `api/` | ✅ COMPLETE | 7 endpoint groups, WebSocket + reasoning trace, rate limiting, CORS |
-| **Test Suite** | `tests/` | ✅ COMPLETE | 34 API tests passing |
+| **Test Suite** | `tests/` | ✅ COMPLETE | 97 tests passing (4 test files) |
 | **Database Seeding** | `scripts/` | ✅ COMPLETE | 2 clones, 1 user, 13 docs (ParaGPT) + 10 docs (Sacred), 48+ passages (S39 corpus expansion) |
 | **Evaluation** | `core/evaluation/` | ✅ COMPLETE | Persona fidelity scorer + consistency checker (S39) |
 | **Frontend** | `ui/` | ✅ COMPLETE | 29 source files (2 dead files removed S39), ModelSelector, ReasoningTrace, CollapsibleCitations, copper theme, resilience hardening (S37-39) |

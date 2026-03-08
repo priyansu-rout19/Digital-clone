@@ -323,7 +323,7 @@ All 5 excluded items are correctly not built. No scope creep.
 
 | Gate Criterion | Status | Evidence |
 |---------------|--------|----------|
-| 30+ test questions | Missing | No predefined 30-question test suite exists. `test_api.py` has 34 API tests but these test HTTP routing, not response quality. |
+| 30+ test questions | Missing | No predefined 30-question test suite exists. `test_api.py` has 97 tests (34 API + 26 S16 + 10 chunker + 27 S42) but these test HTTP routing and node logic, not response quality. |
 | >90% citation accuracy | Not measurable | `citation_verifier` prevents hallucinated citations at runtime, but no batch eval measures the % across a test set. |
 | >80% persona fidelity | Not measurable | `persona_scorer.py` exists and can score, but no test run against standard queries has been executed. |
 

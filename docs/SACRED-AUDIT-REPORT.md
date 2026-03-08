@@ -408,4 +408,4 @@ None. All critical features are code-complete.
 **Review Dashboard:** `ui/src/pages/review/Dashboard.tsx`
 **Review Polling:** `ui/src/hooks/useReviewPolling.ts`
 **Theme:** `ui/src/themes/sacred-archive.ts`
-**Tests:** `tests/test_api.py` (34 tests)
+**Tests:** `tests/test_api.py` + 3 more test files (97 tests total)
