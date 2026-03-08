@@ -50,8 +50,10 @@ class TestReviewQueueWriter:
             assert "INSERT INTO review_queue" in sql
             assert "pending" in sql
 
-            # State should be returned unchanged
-            assert result is state
+            # State should be returned with review_id added
+            assert result["clone_id"] == state["clone_id"]
+            assert result["verified_response"] == state["verified_response"]
+            assert result["review_id"]  # non-empty UUID string on success
 
     def test_skips_if_no_clone_id(self):
         """Should skip DB write if clone_id is missing."""
@@ -115,7 +117,9 @@ class TestReviewQueueWriter:
             os.environ["DATABASE_URL"] = "postgresql+psycopg://test@localhost/test"
 
             result = review_queue_writer(state)
-            assert result is state  # Should return state, not crash
+            # Should not crash — returns state with review_id="" on failure
+            assert result["clone_id"] == state["clone_id"]
+            assert result["review_id"] == ""
 
 
 # ---------------------------------------------------------------------------
