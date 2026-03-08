@@ -35,7 +35,7 @@ pytestmark = pytest.mark.skipif(
 # Constants
 # ---------------------------------------------------------------------------
 
-VALID_INTENT_CLASSES = {"factual", "synthesis", "opinion", "temporal", "exploratory"}
+VALID_INTENT_CLASSES = {"factual", "synthesis", "opinion", "temporal", "exploratory", "conversational"}
 
 # Sample data for citation_verifier unit test only
 CITATION_TEST_PASSAGES = [
