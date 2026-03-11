@@ -34,6 +34,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Gemini embedding API: UNAVAILABLE ({e}). BM25 fallback will handle queries.")
 
+    # Pre-load FlashRank reranker (downloads ~21MB model on first run)
+    try:
+        from core.rag.retrieval.vector_search import _get_reranker
+        _get_reranker()
+        print("FlashRank reranker: OK")
+    except Exception as e:
+        print(f"FlashRank reranker: UNAVAILABLE ({e}). Queries will skip reranking.")
+
     yield
     # Shutdown
     print("FastAPI app shutting down")

@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import type { ChatMessage, WSMessage, WSResponseMessage, TraceRecord } from '../api/types';
 import { NODE_LABELS } from '../api/types';
 
-const WS_TIMEOUT_MS = 60_000;
+const WS_TIMEOUT_MS = 120_000;
 const WS_CONNECT_TIMEOUT_MS = 10_000;
 
 export function useChat(slug: string) {

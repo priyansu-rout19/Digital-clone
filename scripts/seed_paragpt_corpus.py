@@ -5,8 +5,8 @@ Seeds sample documents and chunks for the ParaGPT (Parag Khanna) clone
 so that citations show real-looking source titles and dates in the demo.
 
 Inserts:
-  - 13 documents with provenance JSONB (title, date, location)
-  - 55+ document_chunks with real Gemini embeddings (1024-dim, truncated from 3072)
+  - 16 documents with provenance JSONB (title, date, location)
+  - 70+ document_chunks with real Gemini embeddings (1024-dim, truncated from 3072)
 
 Idempotent: checks for existing rows before inserting.
 Requires: GOOGLE_API_KEY and EMBEDDING_MODEL in .env
@@ -642,6 +642,160 @@ CORPUS = [
                 "demands exceed sustainable supply. When water runs out, people move. Water "
                 "infrastructure — desalination, recycling, efficient irrigation — is the most "
                 "critical connectivity investment of the next two decades."
+            ),
+        ],
+    },
+    # -----------------------------------------------------------------------
+    # New documents added in Session 47 (US-focused corpus expansion)
+    # Fills gap: "What is your view on the US?" silenced due to missing content
+    # -----------------------------------------------------------------------
+    {
+        "filename": "america_and_the_connected_world_order.pdf",
+        "source_type": "essay",
+        "mime_type": "application/pdf",
+        "provenance": {
+            "title": "America and the Connected World Order",
+            "date": "2024-05-12",
+            "location": "Washington, DC",
+        },
+        "passages": [
+            (
+                "America's Partnership for Global Infrastructure and Investment (PGII) pledged "
+                "$600 billion to counter China's Belt and Road, yet by 2024 actual disbursements "
+                "remain a fraction of that figure. The US competes through alliances — mobilizing "
+                "G7 capital, development finance institutions, and private sector co-investment — "
+                "rather than unilateral state-driven buildout. This coalition model is slower but "
+                "arguably more sustainable."
+            ),
+            (
+                "The CHIPS and Science Act committed $52 billion to re-shore semiconductor "
+                "fabrication, while the Inflation Reduction Act directed $370 billion toward "
+                "clean energy manufacturing. Together they represent the largest US industrial "
+                "policy commitment since the Interstate Highway System. The question is not "
+                "whether America can spend, but whether it can build — permitting timelines and "
+                "labor shortages remain the binding constraints."
+            ),
+            (
+                "America's connectivity deficit is not about money — it is about execution. The "
+                "US spends roughly $150 billion per year on infrastructure yet ranks 13th globally "
+                "in infrastructure quality according to the World Economic Forum. China, by "
+                "comparison, built 42,000 kilometers of high-speed rail while the US completed "
+                "zero. The gap is institutional, not financial."
+            ),
+            (
+                "The United States remains the world's premier hub for capital formation and "
+                "talent attraction. Over 40 percent of Fortune 500 companies were founded or "
+                "co-founded by immigrants or their children. Silicon Valley, Boston, and Austin "
+                "function as global innovation nodes precisely because they sit at the intersection "
+                "of connectivity-driven talent flows, venture capital, and research universities."
+            ),
+            (
+                "America's global role in the connectivity era is best understood not as hegemon "
+                "but as convener. The US anchors alliance networks — NATO, the Quad, AUKUS, "
+                "IPEF — that collectively represent over 60 percent of global GDP. No other "
+                "power can assemble coalitions of this scale. The question is not whether the US "
+                "leads, but whether it leads through infrastructure investment or merely through "
+                "security guarantees."
+            ),
+        ],
+    },
+    {
+        "filename": "us_china_beyond_the_binary.pdf",
+        "source_type": "lecture",
+        "mime_type": "application/pdf",
+        "provenance": {
+            "title": "US-China: Beyond the Binary",
+            "date": "2024-07-08",
+            "location": "Singapore",
+            "event": "IISS Shangri-La Dialogue Side Event",
+        },
+        "passages": [
+            (
+                "The decoupling narrative is dramatically overstated. US-China bilateral trade "
+                "exceeded $575 billion in 2023, and when intermediary flows through Vietnam, "
+                "Mexico, and ASEAN are included, the real supply-chain entanglement is even "
+                "deeper. We are witnessing selective tech bifurcation — chips, AI, quantum — "
+                "layered on top of continued commercial interdependence in everything else."
+            ),
+            (
+                "Reshoring and friendshoring sound compelling as slogans but the economics are "
+                "sobering. Moving a single semiconductor fab costs $15-20 billion and takes five "
+                "years. Replicating China's entire electronics assembly ecosystem across India, "
+                "Vietnam, and Mexico would require trillions of dollars and decades. Supply-chain "
+                "diversification is real; full decoupling is fantasy."
+            ),
+            (
+                "The binary framing of US versus China obscures the agency of everyone else. "
+                "ASEAN, India, the EU, the Gulf states, and Africa collectively represent over "
+                "five billion people making independent connectivity decisions. They trade with "
+                "both, invest with both, and align with neither exclusively. The world is not "
+                "bifurcating — it is multi-aligning."
+            ),
+            (
+                "Both the US and China shape global connectivity, but through fundamentally "
+                "different models. China builds state-financed physical infrastructure — ports, "
+                "rail, 5G networks — at scale and speed no democracy can match. The US exports "
+                "financial architecture, technology platforms, and alliance frameworks. Neither "
+                "model is sufficient alone; most countries pragmatically consume both."
+            ),
+            (
+                "Technology bifurcation is creating two parallel innovation ecosystems for the "
+                "first time since the Cold War. US export controls on advanced chips force China "
+                "to build indigenous capacity in mature-node semiconductors, while American firms "
+                "lose access to the world's largest electronics market. The cost of this "
+                "bifurcation — estimated at $1-2 trillion in foregone trade over a decade — is "
+                "borne by both sides and ultimately by consumers everywhere."
+            ),
+        ],
+    },
+    {
+        "filename": "future_of_american_competitiveness.pdf",
+        "source_type": "interview",
+        "mime_type": "application/pdf",
+        "provenance": {
+            "title": "The Future of American Competitiveness",
+            "date": "2024-10-15",
+            "location": "New York",
+            "event": "Bloomberg New Economy Forum",
+        },
+        "passages": [
+            (
+                "American domestic infrastructure tells a story of deferred maintenance and "
+                "belated ambition. The American Society of Civil Engineers gives US infrastructure "
+                "a C-minus grade — $4.6 trillion in needed repairs by 2030. The Bipartisan "
+                "Infrastructure Law allocated $1.2 trillion, but execution has been hampered "
+                "by permitting delays, labor shortages, and state-level coordination failures."
+            ),
+            (
+                "Talent immigration is America's most underappreciated connectivity advantage. "
+                "The US hosts over one million international students annually and attracts more "
+                "high-skilled immigrants than any other nation. Over 55 percent of US unicorn "
+                "startups have at least one immigrant founder. Restricting immigration is the "
+                "single fastest way to erode American competitiveness."
+            ),
+            (
+                "Silicon Valley functions as a global innovation node not because of any "
+                "government program but because it sits at the densest intersection of venture "
+                "capital, research universities, immigrant talent, and risk-tolerant culture on "
+                "Earth. Replicating this ecosystem requires more than funding — it requires the "
+                "connectivity-driven serendipity that only open, diverse talent hubs generate."
+            ),
+            (
+                "Political polarization is America's most significant competitiveness risk. "
+                "Long-term infrastructure investment requires bipartisan continuity — a bridge "
+                "takes eight years from planning to completion, spanning multiple election cycles. "
+                "When each administration reverses its predecessor's priorities, the result is "
+                "perpetual restart rather than compounding progress. China's infrastructure "
+                "advantage is fundamentally a continuity advantage."
+            ),
+            (
+                "Comparing US, EU, and Chinese infrastructure strategies reveals three distinct "
+                "models. China leads with state-directed speed — 42,000 km of high-speed rail in "
+                "15 years. The EU prioritizes regulatory harmonization — slower but creating a "
+                "single digital market of 450 million consumers. The US relies on private-sector "
+                "innovation layered on aging public infrastructure. Each model has strengths, "
+                "but the US approach is the most vulnerable to the gap between private dynamism "
+                "and public decay."
             ),
         ],
     },

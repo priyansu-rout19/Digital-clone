@@ -6,7 +6,7 @@ pipeline and measures persona fidelity, citation presence, confidence, silence
 behavior, and latency.
 
 Run:
-    python3 tests/eval_suite_paragpt.py
+    python3 scripts/eval_suite_paragpt.py
 
 Requires:
     - PostgreSQL with seeded ParaGPT clone + corpus

@@ -5,9 +5,9 @@ Run this script to see EXACTLY what happens at each node of the pipeline.
 Shows input state, what changes at each node, and final output.
 
 Usage:
-    python3 tests/show_pipeline.py              # Mocked mode (default, no DB needed)
-    python3 tests/show_pipeline.py --real        # Real mode (live DB + APIs)
-    python3 tests/show_pipeline.py --real --clone sacred-archive --query "What is dharma?"
+    python3 scripts/show_pipeline.py              # Mocked mode (default, no DB needed)
+    python3 scripts/show_pipeline.py --real        # Real mode (live DB + APIs)
+    python3 scripts/show_pipeline.py --real --clone sacred-archive --query "What is dharma?"
 
 Output:
     - Console: node-by-node changes

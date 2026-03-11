@@ -1,13 +1,13 @@
 # Documentation
 
-Reference library for the Digital Clone Engine project. Last updated: Session 39.
+Reference library for the Digital Clone Engine project. Last updated: Session 47.
 
 ## Quick Navigation
 
 | Document | Purpose |
 |---|---|
 | **ARCHITECTURE.md** | Main technical specification (4 layers, 19-node pipeline, design principles) |
-| **FRONTEND.md** | Frontend architecture, file inventory (29 files), design system |
+| **FRONTEND.md** | Frontend architecture, file inventory (31 files), design system |
 | **STUBS-AND-MOCKS.md** | 3 remaining PCCI-blocked stubs + resolved items history |
 | **MANAGER-DIRECTIVES.md** | Management priorities, OSS model evaluation plan |
 | **PARAGPT-AUDIT-REPORT.md** | Line-by-line SOW compliance audit for ParaGPT (Session 40) |

@@ -1,6 +1,6 @@
 # ARCHITECTURE: Digital Clone Engine — Unified Technical System Design
 
-**Version:** 5.4 | **Date:** March 9, 2026 (Session 46) | **Prepared by:** Prem AI — Solution Architecture
+**Version:** 5.5 | **Date:** March 11, 2026 (Session 47) | **Prepared by:** Prem AI — Solution Architecture
 
 **Note:** This is the **specification/design document** (target production). For **current implementation status**, see [PROGRESS.md](../tasks/PROGRESS.md). Development currently uses drop-in proxy models (Google Gemini for embeddings, OpenRouter for LLM inference) pending PCCI infrastructure — zero code changes needed when production models available.
 
@@ -228,7 +228,7 @@ The LLM generates a response using:
 
 ---
 
-## 6. Codebase Structure (Current Status — March 9, 2026, Session 46)
+## 6. Codebase Structure (Current Status — March 11, 2026, Session 47)
 
 | Component | Location | Status | Notes |
 |---|---|---|---|
@@ -243,8 +243,8 @@ The LLM generates a response using:
 | **RAG Ingestion** | `core/rag/ingestion/` | ✅ COMPLETE | Parser + chunker (semantic) + embedder + indexer (with tsvector) |
 | **RAG Retrieval** | `core/rag/retrieval/` | ✅ COMPLETE | Hybrid vector+BM25, FlashRank reranking, RRF fusion, CRAG (S29) |
 | **FastAPI Layer** | `api/` | ✅ COMPLETE | 9 endpoint groups (+models S33, +feedback S40), WebSocket + reasoning trace, rate limiting, CORS |
-| **Test Suite** | `tests/` | ✅ COMPLETE | 161 tests passing (7 test files) |
-| **Database Seeding** | `scripts/` | ✅ COMPLETE | 2 clones, 1 user, 13 docs (ParaGPT) + 10 docs (Sacred), 48+ passages (S39 corpus expansion) |
+| **Test Suite** | `tests/` | ✅ COMPLETE | 161 tests passing (12 feature-based test files, S47 reorg) |
+| **Database Seeding** | `scripts/` | ✅ COMPLETE | 2 clones, 1 user, 16 docs (ParaGPT) + 10 docs (Sacred), 70+ passages (S47 corpus expansion) |
 | **Evaluation** | `core/evaluation/` | ✅ COMPLETE | Persona fidelity scorer + consistency checker (S39) |
 | **Frontend** | `ui/` | ✅ COMPLETE | 31 source files, ModelSelector, ReasoningTrace, CollapsibleCitations, MemoryPanel, FeedbackWidget, copper theme, resilience hardening (S37-40) |
 

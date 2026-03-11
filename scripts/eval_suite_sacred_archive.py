@@ -6,12 +6,12 @@ LangGraph pipeline, scoring each response for persona fidelity, citation
 presence, silence behavior, forbidden-pattern violations, and latency.
 
 Usage:
-    python3 tests/eval_suite_sacred_archive.py
+    python3 scripts/eval_suite_sacred_archive.py
 
 Outputs:
     - Per-query table to stdout
     - Aggregate summary to stdout
-    - JSON results to tests/eval_results_sacred_archive.json
+    - JSON results to scripts/eval_results_sacred_archive.json
 """
 
 import json

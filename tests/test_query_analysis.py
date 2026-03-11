@@ -1,27 +1,17 @@
 """
-Session 42 Tests — Skip-RAG for persona queries + Mem0 provider fix.
+Tests for query analysis — pre-filter, intent classification, token budgets.
 
-Tests:
-- Self-referential queries via LLM (10 tests — now go through LLM, not deterministic gate)
-- Greeting regression (6 tests — single-word greetings still caught by pre-filter)
-- Negative tests — retrieval queries not caught (4 tests)
-- Graph routing — persona skips retrieval (2 tests)
-- Confidence bypass — persona passes through (2 tests)
-- Mem0 config — provider selection (3 tests)
-
-All mock-based, no external services required.
-
-Run:
-    python3 -m pytest tests/test_session42.py -v
+Covers: core/langgraph/nodes/query_analysis_node.py
 """
 
 import json
-import os
 from unittest.mock import patch, MagicMock
 
 import pytest
 
 from core.langgraph.nodes.query_analysis_node import (
+    _prefilter,
+    _persona_result,
     query_analysis,
     DEFAULT_TOKEN_BUDGET,
     DEFAULT_RESPONSE_TOKENS,
@@ -58,7 +48,69 @@ def _run_with_llm_persona(query: str) -> dict:
 
 
 # ===========================================================================
-# 3a. Self-referential queries — now handled by LLM (10 tests)
+# Pre-filter (single-word greetings) — from test_session43
+# ===========================================================================
+
+class TestPrefilter:
+    """Pre-LLM fast path catches single-word greetings only."""
+
+    GREETING_QUERIES = [
+        "hi",
+        "hello",
+        "hii",
+        "hey",
+        "namaste",
+        "thanks",
+        "bye",
+        "yo",
+    ]
+
+    @pytest.mark.parametrize("query", GREETING_QUERIES, ids=GREETING_QUERIES)
+    def test_greetings_caught(self, query):
+        result = _prefilter(query)
+        assert result is not None
+        assert result["intent_class"] == "persona"
+        assert result["sub_queries"] == []
+        assert result["token_budget"] == 0
+
+    SHOULD_DEFER_QUERIES = [
+        "hii i am Priyansu from india",
+        "Hi, what is ASEAN?",
+        "How does infrastructure shape global power?",
+        "What role does urbanization play in climate?",
+        "Explain connectivity frameworks",
+        "Tell me about supply chain resilience",
+        "What is my name?",
+        "Who are you?",
+        "Where am I from?",
+        "Do you remember me?",
+    ]
+
+    @pytest.mark.parametrize("query", SHOULD_DEFER_QUERIES,
+                             ids=[q[:25] for q in SHOULD_DEFER_QUERIES])
+    def test_multi_word_queries_defer_to_llm(self, query):
+        """Multi-word queries (including intros, self-ref, identity) all go to LLM now."""
+        result = _prefilter(query)
+        assert result is None
+
+    def test_prefilter_skips_llm(self):
+        """When pre-filter fires, query_analysis returns immediately without calling LLM."""
+        state = {"query_text": "hello", "conversation_history": ""}
+        with patch("core.langgraph.nodes.query_analysis_node.get_llm") as mock_llm:
+            result = query_analysis(state)
+            mock_llm.assert_not_called()
+        assert result["intent_class"] == "persona"
+        assert result["retry_count"] == 0
+
+    def test_empty_query_persona(self):
+        """Empty string caught by pre-filter as persona."""
+        result = _prefilter("")
+        assert result is not None
+        assert result["intent_class"] == "persona"
+
+
+# ===========================================================================
+# Self-referential queries via LLM — from test_session42
 # ===========================================================================
 
 class TestSelfReferentialViaLLM:
@@ -90,10 +142,10 @@ class TestSelfReferentialViaLLM:
 
 
 # ===========================================================================
-# 3b. Greeting regression (6 tests)
+# Greeting fallback — from test_session42
 # ===========================================================================
 
-class TestGreetingRegression:
+class TestGreetingFallback:
     """Single-word greetings still caught by pre-filter as persona."""
 
     GREETINGS = ["hi", "hello", "namaste", "thanks", "bye", "yo"]
@@ -111,7 +163,7 @@ class TestGreetingRegression:
 
 
 # ===========================================================================
-# 3c. Negative tests — non-persona queries (4 tests)
+# Negative tests — non-persona queries — from test_session42
 # ===========================================================================
 
 class TestNegativeNotPersona:
@@ -143,7 +195,7 @@ class TestNegativeNotPersona:
 
 
 # ===========================================================================
-# 3d. Graph routing — persona skips retrieval (2 tests)
+# Graph routing — persona skips retrieval — from test_session42
 # ===========================================================================
 
 class TestGraphRoutingPersona:
@@ -166,112 +218,63 @@ class TestGraphRoutingPersona:
 
 
 # ===========================================================================
-# 3e. Confidence bypass — persona passes through (2 tests)
+# Token budget — from test_session16
 # ===========================================================================
 
-class TestConfidenceBypassPersona:
-    """Persona intent bypasses confidence silencing."""
+class TestTokenBudget:
 
-    def test_paragpt_persona_bypasses_confidence(self):
-        """ParaGPT (review_required=False): persona → stream_to_user."""
-        from core.models.clone_profile import paragpt_profile
+    def test_default_on_empty_query(self):
+        """Empty query should get DEFAULT_TOKEN_BUDGET."""
+        from core.langgraph.nodes.query_analysis_node import query_analysis, DEFAULT_TOKEN_BUDGET
 
-        profile = paragpt_profile()
-        assert profile.review_required is False
+        state = {"query_text": ""}
+        result = query_analysis(state)
+        assert result["token_budget"] == DEFAULT_TOKEN_BUDGET
 
-        state = {"intent_class": "persona", "final_confidence": 0.0}
-        if state["intent_class"] == "persona":
-            if profile.review_required:
-                route = "review_queue_writer"
-            else:
-                route = "stream_to_user"
-        assert route == "stream_to_user"
+    def test_llm_decides_budget(self):
+        """LLM should return token_budget in its JSON response."""
+        from core.langgraph.nodes.query_analysis_node import query_analysis
 
-    def test_sacred_archive_persona_to_review(self):
-        """Sacred Archive (review_required=True): persona → review_queue_writer."""
-        from core.models.clone_profile import sacred_archive_profile
+        mock_response = MagicMock()
+        mock_response.content = json.dumps({
+            "intent": "retrieval",
+            "sub_queries": ["query 1", "query 2"],
+            "token_budget": 3000,
+        })
 
-        profile = sacred_archive_profile()
-        assert profile.review_required is True
+        with patch("core.langgraph.nodes.query_analysis_node.get_llm") as mock_llm:
+            mock_llm.return_value.invoke.return_value = mock_response
+            state = {"query_text": "How does connectivity relate to human evolution?"}
+            result = query_analysis(state)
 
-        state = {"intent_class": "persona", "final_confidence": 0.0}
-        if state["intent_class"] == "persona":
-            if profile.review_required:
-                route = "review_queue_writer"
-            else:
-                route = "stream_to_user"
-        assert route == "review_queue_writer"
+            assert result["token_budget"] == 3000
+            assert result["intent_class"] == "retrieval"
 
+    def test_budget_clamped_to_range(self):
+        """Token budget should be clamped to [1000, 4000]."""
+        from core.langgraph.nodes.query_analysis_node import query_analysis
 
-# ===========================================================================
-# 3f. Mem0 config — provider selection (3 tests)
-# ===========================================================================
+        # Test upper clamp
+        mock_response = MagicMock()
+        mock_response.content = json.dumps({
+            "intent": "exploratory",
+            "sub_queries": ["test"],
+            "token_budget": 99999,
+        })
 
-class TestMem0Config:
-    """Test get_mem0_client() LLM provider selection logic."""
+        with patch("core.langgraph.nodes.query_analysis_node.get_llm") as mock_llm:
+            mock_llm.return_value.invoke.return_value = mock_response
+            result = query_analysis({"query_text": "test"})
+            assert result["token_budget"] == 4000  # clamped
 
-    def test_openrouter_path(self):
-        """LLM_API_KEY + LLM_BASE_URL → provider='openai' with correct config."""
-        env = {
-            "LLM_API_KEY": "sk-test-key",
-            "LLM_BASE_URL": "https://openrouter.ai/api/v1",
-            "LLM_MODEL": "qwen/qwen3-32b",
-            "DATABASE_URL": "postgresql://user:pass@localhost:5432/testdb",
-            "GOOGLE_API_KEY": "test-google-key",
-        }
-        with patch.dict(os.environ, env, clear=False):
-            with patch("core.mem0_client.Memory") as MockMemory:
-                with patch("core.mem0_client._truncated_google_embeddings") as mock_embed:
-                    mock_embed.return_value = MagicMock()
-                    from core.mem0_client import get_mem0_client
-                    get_mem0_client()
+    def test_fallback_on_parse_error(self):
+        """Bad JSON from LLM should fall back to DEFAULT_TOKEN_BUDGET."""
+        from core.langgraph.nodes.query_analysis_node import query_analysis, DEFAULT_TOKEN_BUDGET
 
-                    # Capture the config dict passed to Memory.from_config
-                    MockMemory.from_config.assert_called_once()
-                    config = MockMemory.from_config.call_args[0][0]
+        mock_response = MagicMock()
+        mock_response.content = "not valid json at all"
 
-                    assert config["llm"]["provider"] == "openai"
-                    assert config["llm"]["config"]["api_key"] == "sk-test-key"
-                    assert config["llm"]["config"]["openai_base_url"] == "https://openrouter.ai/api/v1"
-                    assert config["llm"]["config"]["model"] == "qwen/qwen3-32b"
-
-    def test_groq_fallback(self):
-        """No LLM_API_KEY → falls back to Groq with GROQ_API_KEY."""
-        env = {
-            "GROQ_API_KEY": "gsk-test-groq",
-            "DATABASE_URL": "postgresql://user:pass@localhost:5432/testdb",
-            "GOOGLE_API_KEY": "test-google-key",
-        }
-        with patch.dict(os.environ, env, clear=False):
-            # Remove LLM_* vars if they exist
-            for key in ["LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL"]:
-                os.environ.pop(key, None)
-
-            with patch("core.mem0_client.Memory") as MockMemory:
-                with patch("core.mem0_client._truncated_google_embeddings") as mock_embed:
-                    mock_embed.return_value = MagicMock()
-                    from core.mem0_client import get_mem0_client
-                    get_mem0_client()
-
-                    MockMemory.from_config.assert_called_once()
-                    config = MockMemory.from_config.call_args[0][0]
-
-                    assert config["llm"]["provider"] == "groq"
-                    assert config["llm"]["config"]["api_key"] == "gsk-test-groq"
-
-    def test_no_keys_raises(self):
-        """Neither LLM_API_KEY nor GROQ_API_KEY → KeyError."""
-        env = {
-            "DATABASE_URL": "postgresql://user:pass@localhost:5432/testdb",
-            "GOOGLE_API_KEY": "test-google-key",
-        }
-        with patch.dict(os.environ, env, clear=False):
-            # Remove all LLM keys
-            for key in ["LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL", "GROQ_API_KEY"]:
-                os.environ.pop(key, None)
-
-            with patch("core.mem0_client._truncated_google_embeddings") as mock_embed:
-                mock_embed.return_value = MagicMock()
-                from core.mem0_client import get_mem0_client
-                with pytest.raises(KeyError, match="LLM_API_KEY"):
-                    get_mem0_client()
+        with patch("core.langgraph.nodes.query_analysis_node.get_llm") as mock_llm:
+            mock_llm.return_value.invoke.return_value = mock_response
+            result = query_analysis({"query_text": "test query"})
+            assert result["token_budget"] == DEFAULT_TOKEN_BUDGET

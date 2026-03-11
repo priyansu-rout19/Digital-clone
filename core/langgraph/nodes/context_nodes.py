@@ -118,10 +118,12 @@ def memory_writer(state: TypedDict) -> TypedDict:
     logger = logging.getLogger(__name__)
 
     user_id = state.get("user_id", "anonymous")
-    query = state.get("query_text", "")
-    response = state.get("verified_response", "")
 
-    if not query or not response:
+    # Strip and validate — Mem0's fact extraction crashes on whitespace-only or very short content
+    response = (state.get("verified_response") or "").strip()
+    query = (state.get("query_text") or "").strip()
+
+    if not query or not response or len(response) < 20:
         return state
 
     try:

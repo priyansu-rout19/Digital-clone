@@ -1,6 +1,6 @@
 # Digital Clone Engine — Progress & Status
 
-**Last Updated:** March 9, 2026 (Session 46)
+**Last Updated:** March 11, 2026 (Session 47)
 **Status:** ~99% SOW delivered (all non-PCCI code gaps closed). 161 tests pass, zero TS errors, production build clean.
 
 ---
@@ -28,8 +28,8 @@ All behavioral differences driven by `CloneProfile` config + `build_graph(profil
 | Mem0 Memory | COMPLETE | 4, 14, 26 | pgvector backend, TruncatedGoogleEmbeddings (3072->1024), ParaGPT only |
 | FastAPI Layer | COMPLETE | 8-10, 17, 40 | 9 endpoint groups (+feedback), CORS, rate limiting, role-based access |
 | React Frontend | COMPLETE | 19-28, 31, 33, 37, 39, 40 | 31 source files, Vite 6 + React 19 + TS + Tailwind v4 |
-| Test Suite | COMPLETE | 10, 16, 34, 42-46 | 161 tests (34 API + 26 S16 + 10 chunker + 27 S42 + 57 S43 + 4 E2E + 3 WS) |
-| Corpus | COMPLETE | 25, 30, 36, 39 | ParaGPT 48+ passages/13 docs, Sacred Archive 41+ passages/10 docs |
+| Test Suite | COMPLETE | 10, 16, 34, 42-47 | 161 tests: 34 API + 10 chunker + 4 E2E + 3 WS + feature-based (query_analysis, clone_profile, generation, routing, retrieval, prompts, parser, mem0) |
+| Corpus | COMPLETE | 25, 30, 36, 39, 47 | ParaGPT 70+ passages/16 docs, Sacred Archive 41+ passages/10 docs |
 | Evaluation | COMPLETE | 39, 40 | `core/evaluation/` + 50-query eval suites + 30-query foundation gate |
 | Remaining Stubs (3) | PCCI-BLOCKED | — | LLM swap (SGLang), embeddings swap (TEI), tree search (MinIO) |
 
@@ -116,6 +116,7 @@ All behavioral differences driven by `CloneProfile` config + `build_graph(profil
 | 44 | Mar 9 | Binary routing | 6 intent classes → persona\|retrieval, killed _deterministic_intent_check(), _prefilter() fast path, citation buckets 3→2 |
 | 45 | Mar 9 | Lean prompts | Template→lean (~120 tokens), rules in external docs, intent_class param in prompt fn, template-guardrails dedup, guardrails binary update |
 | 46 | Mar 9 | Persona hydration | hydrate_markdown_documents validator, persona_document/guardrails_document fields, getattr→field access cleanup, Lesson 42, +7 tests |
+| 47 | Mar 11 | Code hardening + test reorg | FlashRank preload, async WS stream, Mem0 guard, corpus +3 docs, tests session→feature-based, eval suites→scripts/ |
 
 ---
 
@@ -148,6 +149,24 @@ conversation_history -> query_analysis -> tier1_retrieval -> provenance_graph_qu
 
 ---
 
+## Session 47: Code Hardening + Test Reorg (March 11, 2026)
+
+**Changes:**
+- **FlashRank reranker:** Preloaded at startup (`api/main.py` lifespan) — eliminates cold-start latency on first query
+- **WebSocket:** Switched `chain.stream()` → `chain.astream()` for proper async event loop compliance
+- **Mem0 memory_writer:** Added whitespace strip + 20-char minimum guard in `context_nodes.py` — prevents saving empty/trivial memories
+- **ParaGPT corpus:** +3 US-focused documents (13→16 docs, 48→70+ passages) in `seed_paragpt_corpus.py`
+- **WebSocket timeout:** 60s → 120s in `useChat.ts`
+- **Test reorganization:** Session-based files (`test_session16/42/43`) → feature-based (`test_query_analysis`, `test_clone_profile`, `test_generation`, `test_routing`, `test_retrieval`, `test_prompts`, `test_parser`, `test_mem0`). Same 161 tests.
+- **Eval suites:** Moved from `tests/` → `scripts/` (not unit tests, require live LLM)
+- **Archived:** `docs/review/R1-R5.md` (stale review docs)
+
+**Tests:** 161 passed (unchanged count, reorganized by feature)
+**Files changed:** api/main.py, api/routes/chat.py, core/langgraph/nodes/context_nodes.py, scripts/seed_paragpt_corpus.py, ui/src/hooks/useChat.ts
+**Files reorganized:** 6 test files deleted → 8 feature-based test files created, 3 scripts moved tests→scripts
+
+---
+
 ## Session 46: Persona Hydration Fix (March 9, 2026)
 
 **Problem:** ParaGPT fabricated biographical details ("grew up primarily in the United States") instead of using facts from `profiles/paragpt-client/soul.md` ("grew up across the UAE, then moved to Queens, New York as a teenager"). The `persona_document` and `guardrails_document` fields were added to `CloneProfile` in S43 with `default=""`, but at runtime the profile is reconstructed from DB JSONB which was seeded before S43 — Pydantic silently used empty defaults, giving the LLM no biographical facts.
@@ -165,13 +184,13 @@ conversation_history -> query_analysis -> tier1_retrieval -> provenance_graph_qu
 
 ---
 
-## For Next Session (Session 47)
+## For Next Session (Session 48)
 
 **Remaining Work:**
 1. Demo videos — 5 user journey recordings (manager request, non-code)
-2. Run eval suites — `python3 tests/eval_suite_paragpt.py` + `python3 tests/eval_suite_sacred_archive.py`
+2. Run eval suites — `python3 scripts/eval_suite_paragpt.py` + `python3 scripts/eval_suite_sacred_archive.py`
 3. Run foundation gate — `python3 scripts/foundation_gate.py`
-4. Full corpus — current 89+ passages / 23 docs is demo-level. Need full library from client.
+4. Full corpus — current 111+ passages / 26 docs is demo-level. Need full library from client.
 
 **PCCI-Blocked (Phase 3 — Production):**
 - LLM: OpenRouter -> SGLang (env var swap)

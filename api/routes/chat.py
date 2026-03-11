@@ -335,7 +335,7 @@ async def chat_ws(
 
             # Stream each node completion and capture final state
             final_state = copy.deepcopy(initial_state)
-            for chunk in graph.stream(copy.deepcopy(initial_state)):
+            async for chunk in graph.astream(copy.deepcopy(initial_state)):
                 # chunk is {node_name: node_output_dict}
                 node_names = list(chunk.keys())
                 if node_names:
